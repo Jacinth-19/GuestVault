@@ -51,11 +51,11 @@ the session history. Nothing leaves the device.
         "GuestVault brings a practical Guest Mode to phones that don't ship one. " +
             "It is deliberately honest about what an ordinary Android app can and cannot do."
 
-    const val HOW_IT_WORKS = """
-1. You choose the apps a guest is allowed to open.
-2. GuestVault stores the session and opens a restricted home screen.
-3. Optionally, Android screen pinning keeps the guest inside that screen.
-4. Your PIN (and fingerprint, if enabled) ends the session. Auto-wipe can
-   clear the guest scratch space at the same time.
-"""
+    val HOW_IT_WORKS = listOf(
+        "You choose the apps a guest is allowed to open.",
+        "GuestVault stores the session and opens a restricted home screen.",
+        "Optionally, Android screen pinning keeps the guest inside that screen.",
+        "Your PIN (and fingerprint, if enabled) ends the session.",
+        "Auto-wipe can clear the guest scratch space at the same time."
+    )
 }

@@ -224,9 +224,11 @@ cd GuestVault
 ./gradlew :app:assembleDebug
 ```
 
-> If `gradle/wrapper/gradle-wrapper.jar` is missing in your checkout, run `gradle wrapper` once
-> (or download the `gradle-wrapper` artifact from CI). Everything else — AGP 8.7, Kotlin 2.0,
-> Compose BOM, Hilt — is pinned in `gradle/libs.versions.toml`.
+> The Gradle wrapper jar is binary, so CI bootstraps it on the first run with
+> `gradle wrapper --gradle-version 8.10.2` and commits it back to the branch automatically.
+> If it is missing in your checkout, run that same command once (or download the
+> `gradle-wrapper` artifact from the latest Android CI run). Everything else — AGP 8.7,
+> Kotlin 2.0, Compose BOM, Hilt — is pinned in `gradle/libs.versions.toml`.
 
 **Requirements:** JDK 17, Android SDK 35, a device or emulator on Android 10+ (API 29).
 

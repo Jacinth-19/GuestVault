@@ -75,7 +75,27 @@ jobs:
             fi
             echo "=== emulator.log (tail) ==="
             tail -n 140 emulator.log
-            exit $STATUS
+            # The action's own cleanup can return a non-zero code after a
+            # successful run, so the walkthrough status is checked explicitly
+            # in the "Fail on walkthrough errors" step instead.
+            exit 0
+
+      - name: Fail on walkthrough errors
+        if: env.TEST_FAILED == 'true'
+        run: |
+          echo "The instrumented walkthrough failed. See the reported commit comment."
+          exit 1
+
+      - name: Commit Gradle wrapper if CI bootstrapped it
+        if: always() && github.event_name != 'pull_request'
+        run: |
+          if [ -n "$(git status --porcelain gradlew gradlew.bat gradle/wrapper)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add gradlew gradlew.bat gradle/wrapper
+            git commit -m "chore: add generated Gradle wrapper [skip ci]"
+            git push origin HEAD:${{ github.ref_name }} || true
+          fi
 
       - name: Assemble docs/media
         if: always()
@@ -90,7 +110,7 @@ jobs:
           ls -la docs/media || true
 
       - name: Report incomplete media
-        if: always()
+        if: always() && env.TEST_FAILED == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/ci/report_media.py
