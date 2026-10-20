@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GuestVault</string>
+    <string name="app_tagline">Borrow my phone. Keep your privacy.</string>
+    <string name="guest_session_channel_name">Guest session</string>
+    <string name="guest_session_channel_description">Keeps the guest session running while your phone is shared.</string>
+</resources>
