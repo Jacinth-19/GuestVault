@@ -30,7 +30,13 @@ err() { printf '\033[1;31m✗\033[0m  %s\n' "$*" >&2; }
 
 gen_password() {
   # 32 URL-safe characters, ~190 bits — no quoting surprises in keytool/gh.
-  LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32
+  # Do NOT use `tr </dev/urandom | head -c 32`: head closes the pipe, tr dies of
+  # SIGPIPE, and `set -o pipefail` turns that into a silent exit 141.
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -base64 33 | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-32
+  else
+    od -An -N32 -tx1 /dev/urandom | tr -d ' \n' | cut -c1-32
+  fi
 }
 
 # --------------------------------------------------------------------------
