@@ -1,5 +1,6 @@
 package com.guestvault.quicktile
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.drawable.Icon
@@ -90,7 +91,10 @@ class GuestVaultTileService : TileService() {
     /**
      * `startActivityAndCollapse(Intent)` is deprecated in Android 14 and throws
      * on some OEM builds, so the PendingIntent overload is used when available.
+     * The legacy call still has to run on API 29-33, where it is the only option.
      */
+    @Suppress("DEPRECATION")
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun startActivityAndCollapseCompat(intent: Intent) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val pendingIntent = PendingIntent.getActivity(

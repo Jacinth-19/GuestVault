@@ -26,6 +26,12 @@ def main(path: str) -> int:
     errors = [i for i in issues if (i.get("severity") or "").lower() in ("error", "fatal")]
 
     print(f"lint: {len(issues)} issue(s), {len(errors)} error(s)")
+    by_id: dict[str, int] = {}
+    for issue in issues:
+        issue_id = issue.get("id") or "unknown"
+        by_id[issue_id] = by_id.get(issue_id, 0) + 1
+    for issue_id, count in sorted(by_id.items(), key=lambda kv: (-kv[1], kv[0])):
+        print(f"  {count:3d}x {issue_id}")
     for issue in errors:
         location = issue.find("location")
         where = ""
