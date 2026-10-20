@@ -43,7 +43,7 @@ class PinHasherTest {
         assertFalse(PinHasher.verify("1234", null))
         assertFalse(PinHasher.verify("1234", ""))
         assertFalse(PinHasher.verify("1234", "not-a-hash"))
-        assertFalse(PinHasher.verify("1234", "md5$1$abcd"))
+        assertFalse(PinHasher.verify("1234", "md5\$1\$abcd"))
 
         val stored = PinHasher.hash("1234", iterations = 1_000)
         val tampered = stored.dropLast(4) + "AAAA"

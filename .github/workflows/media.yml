@@ -46,7 +46,9 @@ jobs:
           fi
 
       - name: Build app and test APKs
-        run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee media-build.log
 
       - name: Enable KVM
         run: |
@@ -66,38 +68,11 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-snapshot-save
           script: |
             set +e
-
-            adb shell settings put global window_animation_scale 0
-            adb shell settings put global transition_animation_scale 0
-            adb shell settings put global animator_duration_scale 0
-            adb shell svc power stayon true
-            adb shell wm dismiss-keyguard
-
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell pm grant com.guestvault android.permission.POST_NOTIFICATIONS
-            adb shell rm -rf /sdcard/Pictures/GuestVault
-            adb shell rm -f /sdcard/Download/walkthrough.mp4
-
-            # Record the whole walkthrough (max 4 minutes, downscaled for size).
-            adb shell screenrecord --size 720x1600 --bit-rate 4000000 --time-limit 240 /sdcard/Download/walkthrough.mp4 &
-            sleep 3
-
-            timeout 900 adb shell am instrument -w -r \
-              -e class com.guestvault.GuestVaultFlowTest \
-              com.guestvault.test/androidx.test.runner.AndroidJUnitRunner > instrumentation.log 2>&1
-            TEST_STATUS=$?
-            cat instrumentation.log
-
-            adb shell 'pidof screenrecord | xargs -r kill -2'
-            sleep 5
-
-            adb pull /sdcard/Download/walkthrough.mp4 walkthrough.mp4
-            adb pull /sdcard/Pictures/GuestVault shots
-            adb shell rm -rf /sdcard/Pictures/GuestVault
-            adb shell rm -f /sdcard/Download/walkthrough.mp4
-
-            exit $TEST_STATUS
+            bash scripts/ci/emulator-walkthrough.sh > emulator.log 2>&1
+            STATUS=$?
+            echo "=== emulator.log (tail) ==="
+            tail -n 140 emulator.log
+            exit $STATUS
 
       - name: Assemble docs/media
         if: always()
@@ -118,6 +93,12 @@ jobs:
           python3 -m pip install --quiet pillow
           python3 scripts/make_preview_gif.py
 
+      - name: Report failure details
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/report_failure.py
+
       - name: Upload media artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -125,7 +106,9 @@ jobs:
           name: guestvault-media
           path: |
             docs/media/**
-            instrumentation.log
+            emulator.log
+            logcat-app.txt
+            logcat.txt
           if-no-files-found: warn
 
       - name: Commit refreshed media

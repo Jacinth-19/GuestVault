@@ -97,18 +97,4 @@ jobs:
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import pathlib
-
-          path = pathlib.Path("build.log")
-          text = path.read_text(errors="ignore")[-50000:] if path.exists() else "No build log produced."
-          body = "### CI failure\n\n<details><summary>Tail of build.log</summary>\n\n```text\n" + text + "\n```\n\n</details>"
-          pathlib.Path("comment.json").write_text(json.dumps({"body": body}))
-          print(f"Preparing comment with {len(text)} characters of build output")
-          PY
-          gh api -X POST \
-            "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/comments" \
-            --input comment.json > /dev/null && echo "Posted failure details as a commit comment."
+        run: python3 scripts/ci/report_failure.py
