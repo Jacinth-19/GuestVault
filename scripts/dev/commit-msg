@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Rejects a commit message that carries a CI-skip marker.
+#
+# This cannot be a CI check: when a commit is skipped GitHub creates no workflow
+# run at all, so there is nothing to fail. A local hook is the only place this
+# can be caught in time -- and catching it matters, because a v* tag pushed onto
+# such a commit produces a release that silently never happens.
+#
+# Installed by scripts/dev/install-hooks.sh. Bypass with `git commit --no-verify`
+# only if you genuinely want to suppress CI.
+
+set -uo pipefail
+
+MSG_FILE="${1:-}"
+[ -n "$MSG_FILE" ] && [ -f "$MSG_FILE" ] || exit 0
+
+if grep -qiE '\[(skip ci|ci skip|no ci|skip actions|actions skip)\]' "$MSG_FILE"; then
+  cat >&2 <<'EOF'
+
+  Commit message rejected: it contains a CI-skip marker.
+
+  GitHub will create NO workflow runs for this commit, and a tag pushed onto it
+  will not publish a release -- with no error anywhere. That is how v1.1.1 was
+  lost once already.
+
+  Remove the marker and commit again. If this is a bot commit that must not
+  re-trigger itself, use a neutral marker such as [media-bot] plus a job-level
+  `if:` guard instead.
+
+EOF
+  exit 1
+fi
+
+exit 0

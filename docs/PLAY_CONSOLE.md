@@ -158,6 +158,13 @@ keytool -printcert -jarfile GuestVault-1.1.1.aab | head -3
 The `Owner:` line must **not** say `CN=Android Debug`. The release workflow also runs
 this check and fails the build if it does.
 
+> **A tag can silently do nothing.** If the tagged commit carries a CI-skip marker
+> (`[skip ci]` and friends), GitHub suppresses *every* workflow for it — the tag push
+> produces no run and no error. That is how the first `v1.1.1` attempt vanished. Tag a
+> commit with a normal message, or start the workflow by hand:
+> `gh workflow run release.yml -f version=1.1.1`. CI now runs
+> `scripts/ci/check_workflow_hygiene.py`, which fails if such a marker is ever committed.
+
 ---
 
 ## Phase 5 — Closed testing: the 14-day clock

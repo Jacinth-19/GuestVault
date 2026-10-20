@@ -14,6 +14,11 @@ on:
   push:
     tags:
       - 'v*'
+    # A tag push produces NO run when the tagged commit carries a CI-skip
+    # marker -- there is no red X anywhere, the release simply never happens.
+    # scripts/ci/check_workflow_hygiene.py keeps the marker out of this repo;
+    # if a tag ever looks silent, the fallback is
+    #   gh workflow run release.yml -f version=<x.y.z>
 
 permissions:
   contents: write

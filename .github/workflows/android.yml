@@ -3,6 +3,16 @@ name: Android CI
 on:
   push:
     branches: [main, 'arena/**']
+    # Docs and generated media never need a 4-emulator matrix. The media bot
+    # commits under docs/media; without this every screenshot refresh would
+    # re-run the whole walkthrough. Pull requests are deliberately NOT filtered,
+    # so a docs change in a PR is still validated before merge.
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'gradle/wrapper/**'
   pull_request:
     branches: [main]
   workflow_dispatch:
