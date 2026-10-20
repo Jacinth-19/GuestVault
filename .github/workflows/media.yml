@@ -48,7 +48,7 @@ jobs:
       - name: Build app and test APKs
         run: |
           set -o pipefail
-          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee media-build.log
+          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease 2>&1 | tee media-build.log
 
       - name: Enable KVM
         run: |
@@ -73,6 +73,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-snapshot-save
           script: |
             set +e
+            export VERIFY_RELEASE_APK="app/build/outputs/apk/release/app-release.apk"
             bash scripts/ci/emulator-walkthrough.sh > emulator.log 2>&1
             STATUS=$?
             if [ "$STATUS" -ne 0 ]; then
@@ -92,7 +93,7 @@ jobs:
           exit 1
 
       - name: Commit Gradle wrapper if CI bootstrapped it
-        if: always() && github.event_name != 'pull_request'
+        if: always() && github.ref == 'refs/heads/main'
         run: |
           if [ -n "$(git status --porcelain gradlew gradlew.bat gradle/wrapper)" ]; then
             git config user.name "github-actions[bot]"
@@ -128,10 +129,12 @@ jobs:
           python3 scripts/make_preview_gif.py
 
       - name: Report failure details
-        if: failure() && env.TEST_FAILED == 'true'
+        if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/ci/report_failure.py
+        run: |
+          cp instrumentation-release.log instrumentation.log 2>/dev/null || true
+          python3 scripts/ci/report_failure.py
 
       - name: Upload media artifacts
         if: always()
@@ -145,8 +148,11 @@ jobs:
             logcat.txt
           if-no-files-found: warn
 
+      # Only the default branch commits refreshed media. Feature branches upload
+      # the same files as artifacts, which keeps long-lived PRs free of binary
+      # merge conflicts every time the emulator runs.
       - name: Commit refreshed media
-        if: always() && github.event_name != 'pull_request' && hashFiles('docs/media/*.png') != ''
+        if: always() && github.ref == 'refs/heads/main' && hashFiles('docs/media/*.png') != ''
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
