@@ -180,5 +180,5 @@ evidence.
 | Release lint | `Play Readiness` → `:app:lintRelease` |
 | Manifest stays Play-safe | `Play Readiness` → `assert_play_manifest.py` |
 | Store graphics valid | `Play Readiness` → `validate_store_assets.py` |
-| Guest flow on API 29/34/35/36 | `Play Readiness` → instrumented matrix |
+| Guest flow on API 29/34/35/36 | `Play Readiness` → instrumented matrix (runs on branch pushes and `main`, not on PRs) |
 | Release APK runs on device | `Screenshots & Demo Video` → `VERIFY_RELEASE_APK` |

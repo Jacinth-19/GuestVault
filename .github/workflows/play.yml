@@ -11,7 +11,9 @@ name: Play Readiness
 
 on:
   push:
-    branches: [main]
+    # `arena/**` keeps the emulator matrix runnable from a feature branch; the
+    # matrix itself is skipped for pull_request events.
+    branches: [main, 'arena/**']
   pull_request:
     branches: [main]
   workflow_dispatch:
