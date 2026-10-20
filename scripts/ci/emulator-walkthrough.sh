@@ -59,6 +59,20 @@ adb shell 'pidof screenrecord' || true
 echo "== collect artifacts =="
 adb pull /sdcard/Download/walkthrough.mp4 walkthrough.mp4 || true
 adb pull /sdcard/Pictures/GuestVault shots || true
+mkdir -p shots
+
+# The splash screen only lives for ~1.1s. It is captured here, outside the
+# instrumentation process, because a cold start requires force-stopping the app
+# (which would also kill the running test process).
+echo "== cold-start splash screenshot =="
+adb shell am force-stop com.guestvault || true
+sleep 1
+adb shell am force-stop com.guestvault || true
+adb shell am start -n com.guestvault/.MainActivity >/dev/null || true
+sleep 0.45
+adb exec-out screencap -p > shots/00-splash.png || rm -f shots/00-splash.png
+ls -la shots/00-splash.png 2>/dev/null || echo "splash capture failed"
+
 adb shell rm -rf /sdcard/Pictures/GuestVault || true
 adb shell rm -f /sdcard/Download/walkthrough.mp4 || true
 
