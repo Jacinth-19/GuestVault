@@ -69,8 +69,36 @@ adb shell am force-stop com.guestvault || true
 sleep 1
 adb shell am force-stop com.guestvault || true
 adb shell am start -n com.guestvault/.MainActivity >/dev/null || true
-sleep 0.45
-adb exec-out screencap -p > shots/00-splash.png || rm -f shots/00-splash.png
+# Grab frames while the Compose splash (logo + name + tagline) is on screen.
+sleep 0.55; adb exec-out screencap -p > shots/splash-frame-a.png || true
+sleep 0.45; adb exec-out screencap -p > shots/splash-frame-b.png || true
+sleep 0.45; adb exec-out screencap -p > shots/splash-frame-c.png || true
+# Keep the most representative frame as the documented splash screenshot.
+python3 - <<'PY_SHOT' || cp shots/splash-frame-b.png shots/00-splash.png 2>/dev/null || true
+import glob, os
+from PIL import Image
+
+best, best_score = None, -1.0
+for path in sorted(glob.glob("shots/splash-frame-*.png")):
+    try:
+        img = Image.open(path).convert("RGB")
+    except Exception:
+        continue
+    w, h = img.size
+    # Indigo-dominant frame => the real splash, not a white system window.
+    pixels = [img.getpixel((w // 2, y)) for y in range(int(h * 0.15), int(h * 0.85), 40)]
+    score = sum(1 for r, g, b in pixels if b > 80 and b > r + 25 and b > g + 25) / max(len(pixels), 1)
+    if score > best_score:
+        best, best_score = path, score
+
+if best is None or best_score < 0.5:
+    raise SystemExit("no indigo splash frame found")
+
+os.replace(best, "shots/00-splash.png")
+for extra in glob.glob("shots/splash-frame-*.png"):
+    os.remove(extra)
+print(f"kept {best} (indigo score {best_score:.2f}) as 00-splash.png")
+PY_SHOT
 ls -la shots/00-splash.png 2>/dev/null || echo "splash capture failed"
 
 adb shell rm -rf /sdcard/Pictures/GuestVault || true
