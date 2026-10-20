@@ -67,9 +67,9 @@ allow-list → session setup → guest home → wrong PIN → unlock → history
 
 **After the session**
 
-| Dashboard + history | Dark theme | About & limitations | |
+| Dashboard + history | Dark theme | About & limitations | Permissions & privacy |
 |:--:|:--:|:--:|:--:|
-| <img src="docs/media/14-dashboard-history.png" width="190"/> | <img src="docs/media/15-dashboard-dark.png" width="190"/> | <img src="docs/media/16-about-dark.png" width="190"/> | |
+| <img src="docs/media/14-dashboard-history.png" width="190"/> | <img src="docs/media/15-dashboard-dark.png" width="190"/> | <img src="docs/media/16-about-dark.png" width="190"/> | <img src="docs/media/17-permissions.png" width="190"/> |
 
 ## ✨ Features
 
