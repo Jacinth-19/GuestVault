@@ -171,6 +171,7 @@ class GuestVaultFlowTest {
         }
         shell("cmd uimode night no")
         Thread.sleep(1_500)
+
         step("done")
     }
 

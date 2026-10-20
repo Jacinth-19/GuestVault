@@ -115,7 +115,7 @@ jobs:
           ls -la docs/media || true
 
       - name: Report incomplete media
-        if: always() && env.TEST_FAILED == 'true'
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/ci/report_media.py
