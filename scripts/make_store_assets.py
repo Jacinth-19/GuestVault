@@ -200,7 +200,9 @@ LISTING_SHOTS = [
     "09-confirm-session.png",
     "11-guest-home.png",
     "12-lock-screen.png",
-    "07-settings.png",
+    # The permissions screen is a differentiator on the listing: it shows the
+    # privacy promise as evidence rather than as a claim.
+    "17-permissions.png",
     "15-dashboard-dark.png",
 ]
 

@@ -124,8 +124,8 @@ Suggested screenshot order (the files are already prefixed 01–08 in visual ord
 4. Confirm & start session
 5. Guest home — "Welcome to Guest Mode"
 6. Owner lock screen
-7. Settings
-8. Dark theme dashboard
+7. Permissions & privacy
+8. Dark-theme dashboard
 
 ---
 
