@@ -51,8 +51,6 @@ data class SessionRecord(
 /** Result of an auto-wipe, surfaced in the UI after a session ends. */
 data class WipeResult(
     val bytesFreed: Long,
-    val clearedAppCount: Int,
-    val clearedByDeviceOwner: Boolean,
     val filesRemoved: Int
 ) {
     fun readableSize(): String {

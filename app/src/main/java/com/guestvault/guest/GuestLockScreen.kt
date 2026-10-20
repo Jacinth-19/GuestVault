@@ -70,7 +70,7 @@ fun GuestLockScreen(
         onDispose { gate.cancel() }
     }
 
-    val keypadEnabled = !state.lockedOut && !state.verifying
+    val keypadEnabled = state.guardLoaded && !state.lockedOut && !state.verifying
     val useBiometrics = biometricHardware && state.biometricEnabled
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->

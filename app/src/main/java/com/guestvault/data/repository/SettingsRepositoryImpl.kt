@@ -16,6 +16,7 @@ import com.guestvault.domain.model.GuestSession
 import com.guestvault.domain.model.OwnerSettings
 import com.guestvault.domain.model.SessionRecord
 import com.guestvault.domain.model.ThemeMode
+import com.guestvault.domain.model.UnlockGuard
 import com.guestvault.domain.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
@@ -24,6 +25,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
@@ -107,6 +109,22 @@ class SettingsRepositoryImpl @Inject constructor(
         context.settingsDataStore.edit { it.remove(Keys.HISTORY) }
     }
 
+    override suspend fun readUnlockGuard(): UnlockGuard = runCatching {
+        val prefs = context.settingsDataStore.data.first()
+        UnlockGuard(
+            failedAttempts = prefs[Keys.UNLOCK_FAILED_ATTEMPTS] ?: 0,
+            lockedUntil = prefs[Keys.UNLOCK_LOCKED_UNTIL] ?: 0L
+        )
+    }.onFailure { Log.w(TAG, "Could not read unlock guard", it) }
+        .getOrDefault(UnlockGuard())
+
+    override suspend fun writeUnlockGuard(guard: UnlockGuard) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.UNLOCK_FAILED_ATTEMPTS] = guard.failedAttempts
+            prefs[Keys.UNLOCK_LOCKED_UNTIL] = guard.lockedUntil
+        }
+    }
+
     // ------------------------------------------------------------------ mapping
 
     private fun Preferences.toOwnerSettings(): OwnerSettings {
@@ -177,6 +195,9 @@ class SettingsRepositoryImpl @Inject constructor(
         val SESSION_DURATION = intPreferencesKey("session_duration_minutes")
         val SESSION_AUTO_WIPE = booleanPreferencesKey("session_auto_wipe")
         val SESSION_LOCK_TASK = booleanPreferencesKey("session_lock_task")
+
+        val UNLOCK_FAILED_ATTEMPTS = intPreferencesKey("unlock_failed_attempts")
+        val UNLOCK_LOCKED_UNTIL = longPreferencesKey("unlock_locked_until")
     }
 
     private companion object {

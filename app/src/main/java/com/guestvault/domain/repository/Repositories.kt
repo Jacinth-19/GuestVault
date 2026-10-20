@@ -5,6 +5,7 @@ import com.guestvault.domain.model.GuestSession
 import com.guestvault.domain.model.OwnerSettings
 import com.guestvault.domain.model.SessionRecord
 import com.guestvault.domain.model.ThemeMode
+import com.guestvault.domain.model.UnlockGuard
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -24,6 +25,10 @@ interface SettingsRepository {
     suspend fun setActiveSession(session: GuestSession?)
     suspend fun addSessionRecord(record: SessionRecord)
     suspend fun clearHistory()
+
+    /** Brute-force guard for the owner lock; survives process death. */
+    suspend fun readUnlockGuard(): UnlockGuard
+    suspend fun writeUnlockGuard(guard: UnlockGuard)
 }
 
 /**
