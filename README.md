@@ -27,19 +27,19 @@ Everything else — gallery, messages, files, settings, Play Store — stays beh
 
 <img src="docs/media/preview.gif" width="300" alt="GuestVault app preview" />
 
-<sub>The owner dashboard → allow-list → restricted guest home → PIN-protected exit</sub>
+<sub>Onboarding → dashboard → allow-list → restricted guest home → PIN-protected exit</sub>
 
 </div>
 
 ## 🎬 Demo
 
-**▶ [Watch the full walkthrough video (79 s, MP4)](docs/media/walkthrough.mp4)** — recorded on a Pixel 6
+**▶ [Watch the full walkthrough video (94 s, MP4)](docs/media/walkthrough.mp4)** — recorded on a Pixel 6
 emulator by the `Screenshots & Demo Video` workflow: onboarding → PIN → dashboard → allow-list →
 session setup → guest home → wrong PIN → unlock → history → dark mode.
 
-[![GuestVault walkthrough](docs/media/preview.gif)](docs/media/walkthrough.mp4)
+[**▶ Play the 94-second walkthrough (MP4)**](docs/media/walkthrough.mp4)
 
-<sub>Every image and the video below are produced by CI from the real app — no mockups.</sub>
+<sub>Every screenshot and the video are produced by CI from the real app — no mockups.</sub>
 
 ## 📸 Screens
 
