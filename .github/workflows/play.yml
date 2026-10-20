@@ -14,6 +14,16 @@ on:
     # `arena/**` keeps the emulator matrix runnable from a feature branch; the
     # matrix itself is skipped for pull_request events.
     branches: [main, 'arena/**']
+    # Docs and generated media never need a 4-emulator matrix. The media bot
+    # commits under docs/media; without this every screenshot refresh would
+    # re-run the whole walkthrough. Pull requests are deliberately NOT filtered,
+    # so a docs change in a PR is still validated before merge.
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'gradle/wrapper/**'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -63,6 +73,12 @@ jobs:
             exit 1
           fi
           echo "No keystore or credential file is tracked."
+
+      # A CI-skip marker on a commit means a v* tag pushed onto that commit
+      # silently produces no release. This gate is red-first tested: it caught
+      # the two [skip ci] commits in media.yml that lost the v1.1.1 release.
+      - name: Assert workflows can be triggered
+        run: python3 scripts/ci/check_workflow_hygiene.py
 
       # Same key material the release workflow uses. Without it the bundle is
       # still built (to prove it compiles) but it is deleted before upload, so
