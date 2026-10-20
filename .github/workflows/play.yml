@@ -176,7 +176,11 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # Reuses the same shell script the media workflow runs, so the matrix is
+      # testing exactly the flow that produces the screenshots.
       - name: Run the instrumented walkthrough
+        id: walkthrough
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api }}
@@ -187,17 +191,19 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-snapshot-save
           script: |
-            set -uo pipefail
-            {
-              adb shell getprop ro.build.version.sdk
-              adb install -r -t app/build/outputs/apk/debug/app-debug.apk
-              adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-              adb shell pm grant com.guestvault android.permission.POST_NOTIFICATIONS || true
-              adb shell am instrument -w -r \
-                -e class com.guestvault.GuestVaultFlowTest \
-                com.guestvault.test/androidx.test.runner.AndroidJUnitRunner
-            } 2>&1 | tee emulator-matrix.log
-            exit ${PIPESTATUS[0]}
+            set +e
+            export SKIP_MEDIA_CAPTURE=1
+            bash scripts/ci/emulator-walkthrough.sh > emulator.log 2>&1
+            STATUS=$?
+            echo "walkthrough exit code: $STATUS"
+            tail -n 80 emulator.log
+            exit $STATUS
+
+      - name: Fail on walkthrough errors
+        if: steps.walkthrough.outcome == 'failure'
+        run: |
+          echo "The guest-mode walkthrough failed on API ${{ matrix.api }}."
+          exit 1
 
       - name: Upload instrumentation output
         if: always()
@@ -206,7 +212,7 @@ jobs:
           name: instrumentation-api-${{ matrix.api }}
           path: |
             matrix-build.log
-            emulator-matrix.log
+            emulator.log
           if-no-files-found: ignore
 
       - name: Report failure details

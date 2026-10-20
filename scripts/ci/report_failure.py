@@ -23,7 +23,6 @@ LOG_FILES = [
     "play-build.log",
     "permissions.txt",
     "emulator.log",
-    "emulator-matrix.log",
     "instrumentation.log",
     "logcat-app.txt",
 ]
