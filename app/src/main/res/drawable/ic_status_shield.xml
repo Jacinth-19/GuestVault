@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Small monochrome shield used as the notification icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2 L20,5 L20,11.5 C20,16.6 16.6,21 12,22.5 C7.4,21 4,16.6 4,11.5 L4,5 Z M12,7 A3,3 0 0 0 9,10 L9,11 L8.5,11 L8.5,16 L15.5,16 L15.5,11 L15,11 L15,10 A3,3 0 0 0 12,7 Z M12,8.6 A1.4,1.4 0 0 1 13.4,10 L13.4,11 L10.6,11 L10.6,10 A1.4,1.4 0 0 1 12,8.6 Z" />
+</vector>

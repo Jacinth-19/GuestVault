@@ -1,0 +1,29 @@
+# --- Gradle -------------------------------------------------------------
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+captures/
+
+# --- Android Studio / IntelliJ ------------------------------------------
+.idea/
+*.iml
+*.hprof
+
+# --- Kotlin -------------------------------------------------------------
+.kotlin/
+
+# --- OS ---------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# --- Signing / secrets --------------------------------------------------
+*.jks
+*.keystore
+keystore.properties
+
+# --- CI media (large generated artifacts) -------------------------------
+# Screenshots and the demo video are produced by the "Screenshots & Demo
+# Video" workflow and committed intentionally under docs/media.
+build/media/

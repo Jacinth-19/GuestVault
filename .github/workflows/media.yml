@@ -1,0 +1,159 @@
+name: Screenshots & Demo Video
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'arena/**']
+    paths:
+      - 'app/**'
+      - 'scripts/**'
+      - '.github/workflows/media.yml'
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: media-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  media:
+    name: Emulator walkthrough
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Bootstrap Gradle wrapper
+        run: |
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            gradle wrapper --gradle-version 8.10.2 --distribution-type bin
+          fi
+
+      - name: Build app and test APKs
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee media-build.log
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # `continue-on-error` keeps unrelated emulator cleanup hiccups from turning
+      # the build red: real walkthrough failures are surfaced by the explicit
+      # "Fail on walkthrough errors" gate below.
+      - name: Run the walkthrough on an emulator
+        id: walkthrough
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          avd-name: guestvault
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-snapshot-save
+          script: |
+            set +e
+            bash scripts/ci/emulator-walkthrough.sh > emulator.log 2>&1
+            STATUS=$?
+            if [ "$STATUS" -ne 0 ]; then
+              echo "TEST_FAILED=true" >> "$GITHUB_ENV"
+            fi
+            echo "=== emulator.log (tail) ==="
+            tail -n 140 emulator.log
+            # The action's own cleanup can return a non-zero code after a
+            # successful run, so the walkthrough status is checked explicitly
+            # in the "Fail on walkthrough errors" step instead.
+            exit 0
+
+      - name: Fail on walkthrough errors
+        if: env.TEST_FAILED == 'true'
+        run: |
+          echo "The instrumented walkthrough failed. See the reported commit comment."
+          exit 1
+
+      - name: Commit Gradle wrapper if CI bootstrapped it
+        if: always() && github.event_name != 'pull_request'
+        run: |
+          if [ -n "$(git status --porcelain gradlew gradlew.bat gradle/wrapper)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add gradlew gradlew.bat gradle/wrapper
+            git commit -m "chore: add generated Gradle wrapper [skip ci]"
+            git push origin HEAD:${{ github.ref_name }} || true
+          fi
+
+      - name: Assemble docs/media
+        if: always()
+        run: |
+          mkdir -p docs/media
+          if [ -d shots ]; then
+            cp shots/*.png docs/media/ 2>/dev/null || true
+          fi
+          if [ -f walkthrough.mp4 ]; then
+            cp walkthrough.mp4 docs/media/walkthrough.mp4
+          fi
+          ls -la docs/media || true
+
+      - name: Report incomplete media
+        if: always() && env.TEST_FAILED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/report_media.py
+
+      - name: Build the GIF preview
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 scripts/make_preview_gif.py
+
+      - name: Report failure details
+        if: failure() && env.TEST_FAILED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/report_failure.py
+
+      - name: Upload media artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guestvault-media
+          path: |
+            docs/media/**
+            emulator.log
+            logcat-app.txt
+            logcat.txt
+          if-no-files-found: warn
+
+      - name: Commit refreshed media
+        if: always() && github.event_name != 'pull_request' && hashFiles('docs/media/*.png') != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/media
+          if git diff --staged --quiet; then
+            echo "Media is already up to date."
+          else
+            git commit -m "docs: refresh app screenshots and demo video [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+          fi

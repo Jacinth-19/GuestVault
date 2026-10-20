@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Large shield + lock mark shown on the launch window. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,6 L78,17 L78,44 C78,63 64,79 48,88 C32,79 18,63 18,44 L18,17 Z" />
+    <path
+        android:fillColor="#312E81"
+        android:pathData="M37,41 L59,41 A4.5,4.5 0 0 1 63.5,45.5 L63.5,61 A4.5,4.5 0 0 1 59,65.5 L37,65.5 A4.5,4.5 0 0 1 32.5,61 L32.5,45.5 A4.5,4.5 0 0 1 37,41 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M40,41 L40,35.5 A8,8 0 0 1 56,35.5 L56,41"
+        android:strokeColor="#312E81"
+        android:strokeLineCap="round"
+        android:strokeWidth="4.5" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,47.5 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46.5,51 L49.5,51 L49.5,58 L46.5,58 Z" />
+</vector>
