@@ -14,7 +14,7 @@ repository at the time of writing, not against the README.
 | Lock-screen screenshots | possible | `FLAG_SECURE` on shipping builds |
 | Wrong-PIN counter | ViewModel fields | persisted, escalating cool-down |
 | Back on the owner lock | finished the activity | consumed |
-| Store graphics | 17 shots at 2.22:1 (rejected) | 8 shots at 1200×2400 (2:1) |
+| Store graphics | 17 shots at 2.22:1 (rejected) | 8 shots at 1080×2160 (exactly 2:1) |
 | Reboot during a session | session silently stranded | closed and wiped at boot |
 
 ---
