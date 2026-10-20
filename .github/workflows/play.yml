@@ -11,13 +11,13 @@ name: Play Readiness
 
 on:
   push:
-    branches: [main, 'arena/**']
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # commit comments carry the diagnostics; logs are not reachable everywhere
 
 concurrency:
   group: play-${{ github.ref }}
@@ -63,7 +63,10 @@ jobs:
       # `lint { abortOnError = false }` keeps warnings out of the way of hotfix
       # builds; this step is the explicit gate that still refuses real errors.
       - name: Fail on lint errors
-        run: python3 scripts/ci/check_lint.py app/build/reports/lint-results-release.xml
+        run: |
+          set -o pipefail
+          python3 scripts/ci/check_lint.py app/build/reports/lint-results-release.xml \
+            2>&1 | tee -a play-build.log
 
       - name: Upload release bundle
         if: always()

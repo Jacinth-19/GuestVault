@@ -20,6 +20,8 @@ MAX_TOTAL = 60_000
 LOG_FILES = [
     "build.log",
     "media-build.log",
+    "play-build.log",
+    "permissions.txt",
     "emulator.log",
     "instrumentation.log",
     "logcat-app.txt",

@@ -3,7 +3,7 @@ name: Screenshots & Demo Video
 on:
   workflow_dispatch:
   push:
-    branches: [main, 'arena/**']
+    branches: [main]
     paths:
       - 'app/**'
       - 'scripts/**'
