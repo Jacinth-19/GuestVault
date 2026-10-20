@@ -25,6 +25,7 @@ FRAME_DURATION_MS = 1600
 
 # Ordered: the most illustrative screens for a quick glance.
 PREFERRED = [
+    "00-splash.png",
     "01-onboarding-welcome.png",
     "06-dashboard-light.png",
     "08-select-apps.png",

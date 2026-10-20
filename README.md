@@ -33,21 +33,23 @@ Everything else — gallery, messages, files, settings, Play Store — stays beh
 
 ## 🎬 Demo
 
-**▶ [Watch the full walkthrough video (94 s, MP4)](docs/media/walkthrough.mp4)** — recorded on a Pixel 6
-emulator by the `Screenshots & Demo Video` workflow: onboarding → PIN → dashboard → allow-list →
-session setup → guest home → wrong PIN → unlock → history → dark mode.
+**▶ [Watch the 94-second walkthrough (MP4)](docs/media/walkthrough.mp4)** — recorded on a Pixel 6
+emulator by the `Screenshots & Demo Video` workflow: splash → onboarding → PIN → dashboard →
+allow-list → session setup → guest home → wrong PIN → unlock → history → dark mode.
 
-[**▶ Play the 94-second walkthrough (MP4)**](docs/media/walkthrough.mp4)
-
-<sub>Every screenshot and the video are produced by CI from the real app — no mockups.</sub>
+<sub>Screenshots and the video are produced by CI from the real app — no mockups, no editing.</sub>
 
 ## 📸 Screens
 
 **Getting started**
 
-| Splash & onboarding | Only approved apps | Your data stays private | Create the owner PIN |
+| Splash | Lend your phone safely | Only approved apps | Your data stays private |
 |:--:|:--:|:--:|:--:|
-| <img src="docs/media/01-onboarding-welcome.png" width="190"/> | <img src="docs/media/02-onboarding-apps.png" width="190"/> | <img src="docs/media/03-onboarding-keys.png" width="190"/> | <img src="docs/media/04-pin-create.png" width="190"/> |
+| <img src="docs/media/00-splash.png" width="190"/> | <img src="docs/media/01-onboarding-welcome.png" width="190"/> | <img src="docs/media/02-onboarding-apps.png" width="190"/> | <img src="docs/media/03-onboarding-keys.png" width="190"/> |
+
+| Create the owner PIN | Confirm the PIN | | |
+|:--:|:--:|:--:|:--:|
+| <img src="docs/media/04-pin-create.png" width="190"/> | <img src="docs/media/05-pin-confirm.png" width="190"/> | | |
 
 **Owner mode**
 
@@ -63,9 +65,9 @@ session setup → guest home → wrong PIN → unlock → history → dark mode.
 
 **After the session**
 
-| Dashboard + history | Dark theme | About & limitations | PIN confirmation |
+| Dashboard + history | Dark theme | About & limitations | |
 |:--:|:--:|:--:|:--:|
-| <img src="docs/media/14-dashboard-history.png" width="190"/> | <img src="docs/media/15-dashboard-dark.png" width="190"/> | <img src="docs/media/16-about-dark.png" width="190"/> | <img src="docs/media/05-pin-confirm.png" width="190"/> |
+| <img src="docs/media/14-dashboard-history.png" width="190"/> | <img src="docs/media/15-dashboard-dark.png" width="190"/> | <img src="docs/media/16-about-dark.png" width="190"/> | |
 
 ## ✨ Features
 
@@ -184,6 +186,7 @@ androidx.security (encrypted prefs) · BiometricPrompt · coroutines/Flow · min
 |---|---|
 | [**Android CI**](.github/workflows/android.yml) | Assembles the debug APK, runs JVM unit tests and Android Lint, uploads the APK and reports. |
 | [**Screenshots & Demo Video**](.github/workflows/media.yml) | Boots a Pixel 6 emulator, records the walkthrough with `screenrecord`, runs the UiAutomator end-to-end test and commits fresh screenshots + video to `docs/media`. |
+| [**Release APK**](.github/workflows/release.yml) | Builds the release + debug APKs and publishes them (with the demo media) on a [GitHub Release](https://github.com/Jacinth-19/GuestVault/releases). |
 
 - **Unit tests** (`app/src/test`): PIN hashing (round-trip, salt uniqueness, tamper rejection),
   session timer math, history model, formatters.
@@ -204,13 +207,16 @@ Run them yourself:
 
 ## 🚀 Build & run
 
-### GitHub Actions (no local SDK needed)
+### Install the APK from GitHub (no SDK needed)
 
-Every push builds the app. Open the latest green **Android CI** run → *Artifacts* →
-**guestvault-debug-apk**, then:
+Grab the latest **[release](https://github.com/Jacinth-19/GuestVault/releases/latest)**, download
+`GuestVault-<version>.apk`, and open it on the phone (allow "install unknown apps" when asked).
+
+Every push also builds a debug APK: open the green **Android CI** run → *Artifacts* →
+**guestvault-debug-apk**.
 
 ```bash
-adb install -r app-debug.apk
+adb install -r GuestVault-1.0.0.apk
 ```
 
 The **Screenshots & Demo Video** workflow can be started from the *Actions* tab (or runs on `main`);

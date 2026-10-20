@@ -16,6 +16,7 @@ import subprocess
 import sys
 
 EXPECTED = [
+    "00-splash.png",
     "01-onboarding-welcome.png",
     "02-onboarding-apps.png",
     "03-onboarding-keys.png",

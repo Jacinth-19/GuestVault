@@ -171,7 +171,25 @@ class GuestVaultFlowTest {
         }
         shell("cmd uimode night no")
         Thread.sleep(1_500)
+
+        // The splash screen only lives for ~1.1s, so it is captured with a
+        // deliberate cold start at the end of the run instead of racing the
+        // first launch.
+        step("capture splash")
+        captureSplash()
+
         step("done")
+    }
+
+    private fun captureSplash() {
+        shell("am force-stop ${context.packageName}")
+        Thread.sleep(900)
+        shell("am start -n ${context.packageName}/.MainActivity")
+        Thread.sleep(450)
+        shot("00-splash.png")
+        // Let the app settle back on the dashboard before the test ends.
+        waitFor("Start Guest Session", 25_000)
+        Thread.sleep(500)
     }
 
     // ------------------------------------------------------------------ steps

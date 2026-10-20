@@ -1,0 +1,98 @@
+name: Release APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (for example 1.0.0)'
+        required: true
+        default: '1.0.0'
+      prerelease:
+        description: 'Mark as a pre-release'
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & publish installable APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Build release APK
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:assembleRelease :app:assembleDebug 2>&1 | tee release-build.log
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          cp app/build/outputs/apk/release/app-release.apk release-assets/GuestVault-${{ inputs.version || github.ref_name }}.apk
+          cp app/build/outputs/apk/debug/app-debug.apk release-assets/GuestVault-${{ inputs.version || github.ref_name }}-debug.apk
+          ls -la release-assets
+          echo "APK_SHA=$(sha256sum release-assets/*.apk | awk '{print $1}' | head -1)" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
+          name: GuestVault ${{ inputs.version || github.ref_name }}
+          prerelease: ${{ inputs.prerelease || false }}
+          generate_release_notes: true
+          body: |
+            ## GuestVault ${{ inputs.version || github.ref_name }}
+
+            **Borrow my phone. Keep your privacy.**
+
+            Installable Android build produced by GitHub Actions.
+
+            ### Install
+            1. Download `GuestVault-${{ inputs.version || github.ref_name }}.apk` below.
+            2. On the phone, allow installing from this source when prompted.
+            3. Open GuestVault, finish onboarding, and set a 4-digit owner PIN.
+            4. Pick the apps a guest may use → **Start Guest Session**.
+
+            Requires **Android 10 (API 29) or newer**. The APK is signed with the
+            standard debug key, so it is fine for personal use but not for the Play Store.
+
+            ### What's inside
+            - Restricted guest launcher with an app allow-list
+            - PIN (PBKDF2) + optional biometric exit, 5-attempt cool-down
+            - Optional session timer, screen pinning and auto-wipe
+            - Session history, dark mode, and an honest limitations page
+
+            Screenshots and the demo video are in [`docs/media`](https://github.com/${{ github.repository }}/tree/main/docs/media).
+
+            SHA-256 of the release APK: `${{ env.APK_SHA }}`
+          files: |
+            release-assets/*.apk
+            docs/media/preview.gif
+            docs/media/walkthrough.mp4
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-build-log
+          path: release-build.log
+          if-no-files-found: ignore
