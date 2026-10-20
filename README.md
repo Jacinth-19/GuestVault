@@ -294,7 +294,7 @@ The app is prepared for a Play submission, and every claim here is checked in CI
 | Target | `compileSdk`/`targetSdk` **36** (Play's floor since 31 Aug 2026) |
 | Artifact | signed **AAB** from `:app:bundleRelease` |
 | Permissions | `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE(_SPECIAL_USE)`, `USE_BIOMETRIC`, `RECEIVE_BOOT_COMPLETED` — **no** internet, storage, location, contacts, SMS, device-admin or accessibility |
-| Store graphics | 512² icon, 1024×500 feature graphic, 8 screenshots at 1200×2400 — validated on every push |
+| Store graphics | 512² icon, 1024×500 feature graphic, 8 screenshots at 1080×2160 (exactly 2:1) — validated on every push |
 | Policy | Device Administration removed, FGS declared as `specialUse`, privacy policy published |
 
 - 🔍 [**Play review**](docs/PLAY_REVIEW.md) — what a reviewer would reject, and what changed
