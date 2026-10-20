@@ -147,51 +147,45 @@ def build_icon() -> str:
 
 
 def build_feature_graphic() -> str:
-    """1024x500 feature graphic, RGB (Play rejects alpha here)."""
-    w, h = 1024, 500
-    bg = Image.new("RGB", (w, h), INDIGO_950)
+    """1024x500 feature graphic, RGB (Play rejects alpha here).
 
-    # Diagonal gradient background.
-    grad = _gradient(1024).resize((w, h))
-    bg.paste(grad)
+    Play draws a play button over the centre of this image when a promo video is
+    attached, so the middle band (roughly x 440-584) is deliberately empty:
+    artwork sits on the left, copy starts at x=560.
+    """
+    w, h = 1024, 500
+    bg = _gradient(1024).resize((w, h))
 
     draw = ImageDraw.Draw(bg, "RGBA")
+    draw.ellipse([w - 260, -170, w + 240, 330], fill=(255, 255, 255, 12))
+    draw.ellipse([-180, h - 240, 240, h + 180], fill=(255, 255, 255, 10))
 
-    # Soft accent circles for depth.
-    draw.ellipse([w - 300, -180, w + 220, 340], fill=(255, 255, 255, 12))
-    draw.ellipse([-160, h - 220, 260, h + 200], fill=(255, 255, 255, 10))
-
-    # App icon, with a subtle drop shadow.
-    icon = render_icon(300)
+    # App icon with a soft shadow.
+    icon = render_icon(290)
     shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     ImageDraw.Draw(shadow).rounded_rectangle(
-        [92, 116, 92 + 280, 116 + 280], radius=64, fill=(0, 0, 0, 90)
+        [66, 111, 66 + 280, 111 + 280], radius=64, fill=(0, 0, 0, 90)
     )
-    bg.paste(Image.alpha_composite(bg.convert("RGBA"), shadow.filter(ImageFilter.GaussianBlur(18))).convert("RGB"))
+    bg.paste(
+        Image.alpha_composite(bg.convert("RGBA"), shadow.filter(ImageFilter.GaussianBlur(18)))
+        .convert("RGB")
+    )
+    bg.paste(icon, (60, 105), icon)
 
-    icon_pos = (84, 108)
-    bg.paste(icon, icon_pos, icon)
-
-    # Copy.
-    title = ImageFont.truetype(os.path.join(FONT_DIR, "DejaVuSans-Bold.ttf"), 86)
-    tagline = ImageFont.truetype(os.path.join(FONT_DIR, "DejaVuSans.ttf"), 33)
-    kicker = ImageFont.truetype(os.path.join(FONT_DIR, "DejaVuSans-Bold.ttf"), 22)
+    x = 560
+    kicker_font = _font(19)
+    title_font = _font(66)
+    tagline_font = _font(29, bold=False)
+    small_font = _font(21, bold=False)
 
     draw = ImageDraw.Draw(bg, "RGBA")
-    x = 420
-    draw.text((x, 118), "GUEST MODE  ·  FOR ANY ANDROID PHONE", font=kicker, fill=(199, 210, 254, 255))
-    draw.text((x, 158), "GuestVault", font=title, fill=(255, 255, 255, 255))
-    draw.text((x, 268), "Borrow my phone.", font=tagline, fill=(224, 231, 255, 255))
-    draw.text((x, 308), "Keep your privacy.", font=tagline, fill=(224, 231, 255, 255))
+    draw.text((x, 96), "GUEST MODE · ANY ANDROID PHONE", font=kicker_font, fill=(199, 210, 254, 255))
+    draw.text((x, 126), "GuestVault", font=title_font, fill=(255, 255, 255, 255))
+    draw.text((x, 236), "Borrow my phone.", font=tagline_font, fill=(224, 231, 255, 255))
+    draw.text((x, 276), "Keep your privacy.", font=tagline_font, fill=(224, 231, 255, 255))
 
-    # Rule + footnote.
-    draw.line([(x, 372), (x + 520, 372)], fill=(255, 255, 255, 60), width=2)
-    draw.text(
-        (x, 392),
-        "Allow-list · PIN + biometrics · Timer · Auto-wipe",
-        font=ImageFont.truetype(os.path.join(FONT_DIR, "DejaVuSans.ttf"), 24),
-        fill=(165, 180, 252, 255),
-    )
+    draw.line([(x, 336), (x + 400, 336)], fill=(255, 255, 255, 60), width=2)
+    draw.text((x, 356), "Allow-list · PIN · Timer · Auto-wipe", font=small_font, fill=(165, 180, 252, 255))
 
     path = os.path.join(OUT, "feature-graphic.png")
     bg.convert("RGB").save(path, "PNG", optimize=True)
@@ -212,7 +206,13 @@ LISTING_SHOTS = [
 
 
 def build_screenshots() -> list[str]:
-    """Pads 1080x2400 device captures to exactly 1200x2400 (2:1)."""
+    """Trims the system bars so each capture is exactly 2:1, full-bleed.
+
+    The emulator captures are 1080x2400 (2.22:1). Play rejects anything above
+    2:1, and letterboxing would read as a device frame, so the same number of
+    pixels is removed from the top and the bottom — which is exactly the status
+    bar and the gesture bar. The result is pure app UI at 1080x2160.
+    """
     os.makedirs(SHOTS, exist_ok=True)
     written = []
     for name in LISTING_SHOTS:
@@ -222,22 +222,21 @@ def build_screenshots() -> list[str]:
             continue
 
         shot = Image.open(src).convert("RGB")
-        target_w, target_h = 1200, 2400
+        width, height = shot.size
+        ratio = max(width, height) / min(width, height)
 
-        # Scale to the target height first (keeps the UI crisp), then centre it.
-        if shot.height != target_h:
-            ratio = target_h / shot.height
-            shot = shot.resize((round(shot.width * ratio), target_h), Image.LANCZOS)
-
-        canvas = Image.new("RGB", (target_w, target_h), SURFACE_DARK)
-        if shot.width > target_w:
-            shot = shot.crop(
-                ((shot.width - target_w) // 2, 0, (shot.width + target_w) // 2, target_h)
-            )
-        canvas.paste(shot, ((target_w - shot.width) // 2, 0))
+        if ratio > 2.0:
+            if height > width:
+                trim = height - (width * 2)
+                top = trim // 2
+                shot = shot.crop((0, top, width, height - (trim - top)))
+            else:
+                trim = width - (height * 2)
+                left = trim // 2
+                shot = shot.crop((left, 0, width - (trim - left), height))
 
         out = os.path.join(SHOTS, name)
-        canvas.save(out, "PNG", optimize=True)
+        shot.save(out, "PNG", optimize=True)
         written.append(out)
     return written
 
