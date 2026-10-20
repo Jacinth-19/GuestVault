@@ -58,8 +58,8 @@ class SessionModelTest {
 
     @Test
     fun `wipe result renders readable sizes`() {
-        assertEquals("0 KB", WipeResult(0, 0, false, 0).readableSize())
-        assertEquals("12 KB", WipeResult(12 * 1024L, 2, false, 3).readableSize())
-        assertTrue(WipeResult(5 * 1024L * 1024L, 2, false, 3).readableSize().endsWith("MB"))
+        assertEquals("0 KB", WipeResult(0, 0).readableSize())
+        assertEquals("12 KB", WipeResult(12 * 1024L, 3).readableSize())
+        assertTrue(WipeResult(5 * 1024L * 1024L, 3).readableSize().endsWith("MB"))
     }
 }

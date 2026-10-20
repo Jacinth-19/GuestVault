@@ -3,6 +3,8 @@ package com.guestvault.guest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.guestvault.domain.model.EndReason
+import com.guestvault.domain.model.UnlockGuard
+import com.guestvault.domain.repository.SettingsRepository
 import com.guestvault.domain.usecase.EndGuestSessionUseCase
 import com.guestvault.domain.usecase.ObserveSettingsUseCase
 import com.guestvault.domain.usecase.VerifyPinUseCase
@@ -17,15 +19,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val PIN_LENGTH = 4
-private const val MAX_ATTEMPTS = 5
-private const val LOCKOUT_SECONDS = 30
 
 data class LockUiState(
     val pinLength: Int = 0,
     val error: String? = null,
     val verifying: Boolean = false,
-    val attemptsLeft: Int = MAX_ATTEMPTS,
+    val attemptsLeft: Int = LockoutPolicy.MAX_ATTEMPTS,
     val lockedOutSeconds: Int = 0,
+    val guardLoaded: Boolean = false,
     val wipeMode: Boolean = false,
     val autoWipe: Boolean = true,
     val biometricEnabled: Boolean = true,
@@ -34,10 +35,19 @@ data class LockUiState(
     val lockedOut: Boolean get() = lockedOutSeconds > 0
 }
 
+/**
+ * Owner-lock state.
+ *
+ * The brute-force counter lives in DataStore (through [SettingsRepository]), not
+ * in this ViewModel, so rotating the device, dismissing the activity from
+ * Recents or letting the process be killed cannot reset the cool-down. The
+ * policy itself is [LockoutPolicy], which has its own JVM unit tests.
+ */
 @HiltViewModel
 class LockViewModel @Inject constructor(
     private val verifyPin: VerifyPinUseCase,
     private val endGuestSession: EndGuestSessionUseCase,
+    private val settingsRepository: SettingsRepository,
     observeSettings: ObserveSettingsUseCase
 ) : ViewModel() {
 
@@ -45,8 +55,7 @@ class LockViewModel @Inject constructor(
     val state: StateFlow<LockUiState> = _state.asStateFlow()
 
     private var entered = ""
-    private var failedAttempts = 0
-    private var lockoutUntil = 0L
+    private var guard = UnlockGuard()
     private var lockoutJob: Job? = null
     private var ending = false
 
@@ -61,21 +70,29 @@ class LockViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            guard = settingsRepository.readUnlockGuard()
+            val now = System.currentTimeMillis()
+            val remaining = LockoutPolicy.remainingLockSeconds(guard, now)
+            _state.update {
+                it.copy(
+                    guardLoaded = true,
+                    attemptsLeft = LockoutPolicy.attemptsLeft(guard, now),
+                    lockedOutSeconds = remaining
+                )
+            }
+            if (remaining > 0) startLockoutCountdown()
+        }
     }
 
     fun reset() {
         entered = ""
-        _state.update {
-            LockUiState(
-                autoWipe = it.autoWipe,
-                biometricEnabled = it.biometricEnabled
-            )
-        }
+        _state.update { it.copy(pinLength = 0, error = null, unlocked = false) }
     }
 
     fun onDigit(digit: Char) {
         val current = _state.value
-        if (current.verifying || current.lockedOut || current.unlocked) return
+        if (!current.guardLoaded || current.verifying || current.lockedOut || current.unlocked) return
         if (entered.length >= PIN_LENGTH) return
 
         entered += digit
@@ -92,7 +109,11 @@ class LockViewModel @Inject constructor(
     fun toggleWipeMode() = _state.update { it.copy(wipeMode = !it.wipeMode) }
 
     fun onBiometricSucceeded() {
-        viewModelScope.launch { finishSession() }
+        viewModelScope.launch {
+            settingsRepository.writeUnlockGuard(LockoutPolicy.reset())
+            guard = LockoutPolicy.reset()
+            finishSession()
+        }
     }
 
     fun onBiometricError(message: String?) {
@@ -101,35 +122,41 @@ class LockViewModel @Inject constructor(
 
     private fun submit() {
         if (_state.value.verifying || ending) return
-        if (System.currentTimeMillis() < lockoutUntil) return
+        val now = System.currentTimeMillis()
+        if (LockoutPolicy.isLockedOut(guard, now)) return
 
+        val attempt = entered
         viewModelScope.launch {
             _state.update { it.copy(verifying = true, error = null) }
-            val ok = verifyPin(entered)
+            val ok = verifyPin(attempt)
 
             if (ok) {
-                _state.update { it.copy(pinLength = PIN_LENGTH, verifying = false) }
+                guard = LockoutPolicy.reset()
+                settingsRepository.writeUnlockGuard(guard)
+                _state.update {
+                    it.copy(pinLength = PIN_LENGTH, verifying = false, attemptsLeft = LockoutPolicy.MAX_ATTEMPTS)
+                }
                 finishSession()
             } else {
                 entered = ""
-                failedAttempts++
-                val remaining = (MAX_ATTEMPTS - failedAttempts).coerceAtLeast(0)
-                if (remaining == 0) {
-                    lockoutUntil = System.currentTimeMillis() + LOCKOUT_SECONDS * 1_000L
-                    _state.update {
-                        it.copy(pinLength = 0, verifying = false, attemptsLeft = 0)
-                    }
+                val failureTime = System.currentTimeMillis()
+                guard = LockoutPolicy.registerFailure(guard, failureTime)
+                settingsRepository.writeUnlockGuard(guard)
+
+                if (LockoutPolicy.isLockedOut(guard, failureTime)) {
+                    _state.update { it.copy(pinLength = 0, verifying = false, attemptsLeft = 0) }
                     startLockoutCountdown()
                 } else {
+                    val left = LockoutPolicy.attemptsLeft(guard, failureTime)
                     _state.update {
                         it.copy(
                             pinLength = 0,
                             verifying = false,
-                            attemptsLeft = remaining,
-                            error = if (remaining == 1) {
+                            attemptsLeft = left,
+                            error = if (left == 1) {
                                 "Incorrect PIN. 1 attempt left."
                             } else {
-                                "Incorrect PIN. $remaining attempts left."
+                                "Incorrect PIN. $left attempts left."
                             }
                         )
                     }
@@ -142,12 +169,12 @@ class LockViewModel @Inject constructor(
         lockoutJob?.cancel()
         lockoutJob = viewModelScope.launch {
             while (true) {
-                val secondsLeft = ((lockoutUntil - System.currentTimeMillis()) / 1_000L)
-                    .coerceAtLeast(0L)
-                    .toInt()
+                val now = System.currentTimeMillis()
+                val secondsLeft = LockoutPolicy.remainingLockSeconds(guard, now)
                 _state.update {
                     it.copy(
                         lockedOutSeconds = secondsLeft,
+                        attemptsLeft = LockoutPolicy.attemptsLeft(guard, now),
                         error = if (secondsLeft > 0) {
                             "Too many attempts. Try again in ${secondsLeft}s."
                         } else {
@@ -158,8 +185,7 @@ class LockViewModel @Inject constructor(
                 if (secondsLeft <= 0) break
                 delay(1_000)
             }
-            failedAttempts = 0
-            _state.update { it.copy(lockedOutSeconds = 0, attemptsLeft = MAX_ATTEMPTS) }
+            _state.update { it.copy(lockedOutSeconds = 0) }
         }
     }
 

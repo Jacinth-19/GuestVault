@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -62,8 +63,10 @@ import com.guestvault.domain.model.EndReason
 import com.guestvault.domain.model.GuestApp
 import com.guestvault.ui.components.AppIcon
 import com.guestvault.ui.components.EmptyState
+import com.guestvault.ui.components.InfoBanner
 import com.guestvault.ui.components.StatusPill
 import com.guestvault.ui.theme.HeroGradient
+import com.guestvault.ui.theme.Warning
 import kotlinx.coroutines.delay
 
 @Composable
@@ -101,8 +104,14 @@ fun GuestHomeRoute(
     }
 
     // Screen pinning is opt-in per session (Confirm screen / Settings).
+    // Android shows a one-time confirmation; the result is re-read afterwards so
+    // the guest UI can warn when the owner declined and Home/Recents stay open.
     LaunchedEffect(state.session?.lockTaskEnabled) {
-        if (state.session?.lockTaskEnabled == true) activity.startPinnedMode()
+        if (state.session?.lockTaskEnabled == true) {
+            activity.startPinnedMode()
+            delay(700)
+            pinned = activity.isInLockTaskMode()
+        }
     }
 
     // The session can end from the lock screen, the timer service or a wipe.
@@ -110,8 +119,11 @@ fun GuestHomeRoute(
         if (state.loaded && state.session == null) onReturnToOwner()
     }
 
-    // Never let Back leave the guest space: it opens the owner lock instead.
-    BackHandler(enabled = !showLock) {
+    // Never let Back leave the guest space. The handler stays enabled while the
+    // owner lock is visible too: previously Back fell through to the activity and
+    // finished it, dropping the guest on the real home screen with the session
+    // still running.
+    BackHandler(enabled = true) {
         lockHint = "Enter your PIN to leave Guest Mode"
         showLock = true
     }
@@ -312,6 +324,19 @@ fun GuestHomeScreen(
                         StatusPill(
                             text = if (pinned) "Pinned" else "Soft lock",
                             icon = if (pinned) Icons.Rounded.Pin else Icons.Rounded.Lock
+                        )
+                    }
+
+                    if (state.session?.lockTaskEnabled == true && !pinned) {
+                        Spacer(Modifier.height(10.dp))
+                        InfoBanner(
+                            icon = Icons.Rounded.WarningAmber,
+                            title = "Home and Recents are not blocked",
+                            text = "Screen pinning was not started, so the guest can leave this " +
+                                "screen with the system buttons. Re-lock the phone or start a new " +
+                                "session to try again.",
+                            containerColor = Warning.copy(alpha = 0.14f),
+                            contentColor = MaterialTheme.colorScheme.onSurface
                         )
                     }
 

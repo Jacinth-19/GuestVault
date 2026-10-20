@@ -37,12 +37,12 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.10.2'
+          gradle-version: '8.11.1'
 
-      - name: Build release APK
+      - name: Build release APK and Play bundle
         run: |
           set -o pipefail
-          gradle --no-daemon :app:assembleRelease :app:assembleDebug 2>&1 | tee release-build.log
+          gradle --no-daemon :app:assembleRelease :app:assembleDebug :app:bundleRelease 2>&1 | tee release-build.log
 
       - name: Prepare release assets
         run: |
@@ -53,6 +53,8 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           cp app/build/outputs/apk/release/app-release.apk "release-assets/GuestVault-${VERSION}.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "release-assets/GuestVault-${VERSION}-debug.apk"
+          # The bundle is what Google Play accepts; the APK is for sideloading.
+          cp app/build/outputs/bundle/release/app-release.aab "release-assets/GuestVault-${VERSION}.aab"
           ls -lh release-assets
           echo "APK_SHA=$(sha256sum release-assets/GuestVault-*.apk | grep -v debug | awk '{print $1}')" >> "$GITHUB_ENV"
 
@@ -76,22 +78,31 @@ jobs:
             3. Open GuestVault, finish onboarding, and set a 4-digit owner PIN.
             4. Pick the apps a guest may use → **Start Guest Session**.
 
-            Requires **Android 10 (API 29) or newer**. The APK is signed with the
-            standard debug key, so it is fine for personal use but not for the Play Store.
+            Requires **Android 10 (API 29) or newer**, targets Android 16 (API 36).
+
+            `GuestVault-${{ env.VERSION }}.aab` is the Android App Bundle for Google Play
+            (upload it in Play Console). Both artifacts are signed with the standard debug
+            key, which is fine for sideloading and testing but must be replaced with an
+            upload key before a production rollout.
 
             ### What's inside
             - Restricted guest launcher with an app allow-list
-            - PIN (PBKDF2) + optional biometric exit, 5-attempt cool-down
+            - PIN (PBKDF2) + optional biometric exit; the cool-down survives restarts
             - Optional session timer, screen pinning and auto-wipe
             - Session history, dark mode, and an honest limitations page
+            - Permissions & privacy screen and a Quick Settings tile
+            - No `INTERNET` permission, no Device Administrator, no analytics
 
             Screenshots and the demo video are in [`docs/media`](https://github.com/${{ github.repository }}/tree/main/docs/media).
 
             SHA-256 of the release APK: `${{ env.APK_SHA }}`
           files: |
             release-assets/*.apk
+            release-assets/*.aab
             docs/media/preview.gif
             docs/media/walkthrough.mp4
+            docs/play/icon-512.png
+            docs/play/feature-graphic.png
 
       - name: Upload build log
         if: failure()

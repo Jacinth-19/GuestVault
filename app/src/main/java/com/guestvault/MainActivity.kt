@@ -2,6 +2,8 @@ package com.guestvault
 
 import android.content.Intent
 import android.os.Bundle
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -28,9 +30,13 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
 
+    /** Incremented whenever the Quick Settings tile asks to start a session. */
+    private var quickStartRequest by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleIntent(intent)
 
         setContent {
             val appViewModel: AppViewModel = hiltViewModel()
@@ -60,10 +66,27 @@ class MainActivity : FragmentActivity() {
                         // Neutral holding frame; the activity is being replaced.
                         Box(modifier = Modifier.fillMaxSize().background(HeroGradient))
                     } else {
-                        GuestVaultNavHost()
+                        GuestVaultNavHost(quickStartRequest = quickStartRequest)
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    /**
+     * The Quick Settings tile opens this activity with an extra instead of the
+     * deep UI, so the owner still confirms the session on the normal screen.
+     */
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_QUICK_START_SESSION, false) == true) {
+            intent.removeExtra(EXTRA_QUICK_START_SESSION)
+            quickStartRequest++
         }
     }
 
@@ -73,5 +96,9 @@ class MainActivity : FragmentActivity() {
         }
         startActivity(intent)
         if (!isFinishing) finish()
+    }
+
+    companion object {
+        const val EXTRA_QUICK_START_SESSION = "com.guestvault.extra.QUICK_START_SESSION"
     }
 }

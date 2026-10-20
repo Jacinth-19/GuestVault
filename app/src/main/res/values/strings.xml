@@ -4,5 +4,5 @@
     <string name="app_tagline">Borrow my phone. Keep your privacy.</string>
     <string name="guest_session_channel_name">Guest session</string>
     <string name="guest_session_channel_description">Keeps the guest session running while your phone is shared.</string>
-    <string name="device_admin_description">Only needed if you provision GuestVault as Device Owner to wipe guest app data.</string>
+    <string name="qs_tile_label">Guest Mode</string>
 </resources>

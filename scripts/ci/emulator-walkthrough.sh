@@ -8,6 +8,10 @@
 
 set -uo pipefail
 
+# The Play-readiness matrix only needs the instrumented flow; recording a video
+# and pulling screenshots for every API level would triple the job time.
+SKIP_MEDIA_CAPTURE="${SKIP_MEDIA_CAPTURE:-0}"
+
 APK="app/build/outputs/apk/debug/app-debug.apk"
 TEST_APK="app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 PACKAGE="com.guestvault"
@@ -37,12 +41,16 @@ adb shell rm -f /sdcard/Download/walkthrough.mp4
 
 adb logcat -c || true
 
+if [ "$SKIP_MEDIA_CAPTURE" = "1" ]; then
+  echo "== screen recording skipped (SKIP_MEDIA_CAPTURE=1) =="
+else
 echo "== start screen recording =="
 # Started device-side (not as a local background adb client) so the CI action's
 # cleanup never trips over a lingering process on the runner.
 adb shell "screenrecord --size 720x1600 --bit-rate 4000000 --time-limit 240 \
   /sdcard/Download/walkthrough.mp4 >/dev/null 2>&1 &" || true
 sleep 4
+fi
 
 echo "== run instrumentation =="
 timeout 900 adb shell am instrument -w -r \
@@ -51,6 +59,9 @@ timeout 900 adb shell am instrument -w -r \
 TEST_STATUS=$?
 echo "instrumentation exit code: $TEST_STATUS"
 
+if [ "$SKIP_MEDIA_CAPTURE" = "1" ]; then
+  mkdir -p shots
+else
 echo "== stop recording =="
 adb shell 'pidof screenrecord | xargs -r kill -2' || true
 sleep 8
@@ -60,10 +71,16 @@ echo "== collect artifacts =="
 adb pull /sdcard/Download/walkthrough.mp4 walkthrough.mp4 || true
 adb pull /sdcard/Pictures/GuestVault shots || true
 mkdir -p shots
+fi
 
 # The splash screen only lives for ~1.1s. It is captured here, outside the
 # instrumentation process, because a cold start requires force-stopping the app
 # (which would also kill the running test process).
+if [ "$SKIP_MEDIA_CAPTURE" = "1" ]; then
+  echo "== splash capture skipped (SKIP_MEDIA_CAPTURE=1) =="
+  adb shell rm -rf /sdcard/Pictures/GuestVault || true
+  adb shell rm -f /sdcard/Download/walkthrough.mp4 || true
+else
 echo "== cold-start splash screenshot =="
 adb shell am force-stop com.guestvault || true
 sleep 1
@@ -84,6 +101,7 @@ rm -f shots/splash-frame-*.png
 
 adb shell rm -rf /sdcard/Pictures/GuestVault || true
 adb shell rm -f /sdcard/Download/walkthrough.mp4 || true
+fi
 
 # ---------------------------------------------------------------------------
 # Optional: prove the *release* APK (R8-minified) also works on device.

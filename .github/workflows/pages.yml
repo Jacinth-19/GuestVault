@@ -1,0 +1,59 @@
+name: Publish privacy policy
+
+# Google Play requires a public, non-PDF privacy policy URL. docs/privacy.html is a
+# single self-contained page (no JS, no trackers), so GitHub Pages can serve it
+# straight from the repository.
+#
+# One-time setup: Settings → Pages → Source: "GitHub Actions".
+# Resulting URL: https://<owner>.github.io/GuestVault/privacy.html
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/privacy.html'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare the site
+        run: |
+          mkdir -p site
+          cp docs/privacy.html site/privacy.html
+          cat > site/index.html <<'HTML'
+          <!DOCTYPE html>
+          <meta charset="utf-8">
+          <title>GuestVault</title>
+          <meta http-equiv="refresh" content="0; url=privacy.html">
+          <p><a href="privacy.html">GuestVault privacy policy</a></p>
+          HTML
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

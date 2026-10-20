@@ -4,12 +4,14 @@ import android.app.ActivityManager
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.guestvault.BuildConfig
 import com.guestvault.MainActivity
 import com.guestvault.ui.theme.GuestVaultTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -29,6 +31,16 @@ class GuestHomeActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Keep the guest UI and the owner PIN pad out of screenshots, screen
+        // recordings and the Recents thumbnail. Debug builds skip it so the CI
+        // walkthrough can still capture documentation screenshots.
+        if (BuildConfig.SECURE_WINDOWS) {
+            window.setFlags(
+                WindowManager.LayoutParams.FLAG_SECURE,
+                WindowManager.LayoutParams.FLAG_SECURE
+            )
+        }
 
         setContent {
             val viewModel: GuestViewModel = hiltViewModel()
@@ -61,6 +73,9 @@ class GuestHomeActivity : FragmentActivity() {
         if (isInLockTaskMode()) return
         runCatching { startLockTask() }
             .onFailure { Log.w(TAG, "Screen pinning unavailable", it) }
+        // Note: the system shows a confirmation dialog the first time. If the
+        // owner declines, lockTaskModeState stays NONE and the guest home shows
+        // an explicit "Home and Recents are not blocked" banner.
     }
 
     fun returnToOwner() {

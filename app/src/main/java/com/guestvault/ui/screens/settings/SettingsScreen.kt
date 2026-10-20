@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.SettingsBrightness
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.FilterChip
@@ -53,6 +54,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.biometric.BiometricManager
+import com.guestvault.BuildConfig
 import com.guestvault.core.Formatters
 import com.guestvault.core.LegalText
 import com.guestvault.domain.model.OwnerSettings
@@ -120,6 +122,7 @@ fun SettingsRoute(
     onManageApps: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenPermissions: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -130,6 +133,7 @@ fun SettingsRoute(
         onManageApps = onManageApps,
         onOpenHistory = onOpenHistory,
         onOpenAbout = onOpenAbout,
+        onOpenPermissions = onOpenPermissions,
         onAutoWipeChange = viewModel::setAutoWipe,
         onBiometricChange = viewModel::setBiometric,
         onLockTaskChange = viewModel::setLockTask,
@@ -146,6 +150,7 @@ fun SettingsScreen(
     onManageApps: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenPermissions: () -> Unit,
     onAutoWipeChange: (Boolean) -> Unit,
     onBiometricChange: (Boolean) -> Unit,
     onLockTaskChange: (Boolean) -> Unit,
@@ -313,6 +318,13 @@ fun SettingsScreen(
             item {
                 SettingsGroup(title = "About") {
                     SettingRow(
+                        icon = Icons.Rounded.Shield,
+                        title = "Permissions & privacy",
+                        subtitle = "What GuestVault can access, and what it never asks for",
+                        onClick = onOpenPermissions
+                    )
+                    GuestVaultDivider()
+                    SettingRow(
                         icon = Icons.Rounded.Security,
                         title = "How GuestVault works",
                         subtitle = "Limitations, permissions and the honest bits",
@@ -330,7 +342,7 @@ fun SettingsScreen(
                         icon = Icons.Rounded.Info,
                         title = "Version",
                         subtitle = "GuestVault for Android 10+",
-                        trailingText = "1.0.0"
+                        trailingText = BuildConfig.VERSION_NAME
                     )
                 }
             }

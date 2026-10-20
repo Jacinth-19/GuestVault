@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- Used for the optional "return to owner" biometric check. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- A guest session survived a reboot must be closed (and wiped) on the
+         next start instead of silently leaving the owner locked out. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Needed so we can resolve the launcher intent of every installed app
          on Android 11+ (package visibility). -->
@@ -47,18 +50,34 @@
             android:taskAffinity="com.guestvault.guest"
             android:theme="@style/Theme.GuestVault" />
 
-        <!-- Optional Device Owner provisioning (advanced, see README). -->
-        <receiver
-            android:name=".core.GuestDeviceAdmin"
-            android:description="@string/device_admin_description"
+        <!-- Quick Settings tile: start a session, or jump straight back into a
+             running one. Protected by the system-only BIND_QUICK_SETTINGS_TILE
+             permission, so no other app can drive it. -->
+        <service
+            android:name=".quicktile.GuestVaultTileService"
             android:exported="true"
-            android:label="@string/app_name"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
-            <meta-data
-                android:name="android.app.device_admin"
-                android:resource="@xml/device_admin" />
+            android:icon="@drawable/ic_status_shield"
+            android:label="@string/qs_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="true" />
+        </service>
+
+        <!-- Closing a stale session after a reboot keeps the owner from being
+             locked out of their own phone (and wipes the guest scratch area
+             when auto-wipe is on). -->
+        <receiver
+            android:name=".core.BootCompletedReceiver"
+            android:directBootAware="false"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 
@@ -70,7 +89,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="guest_session_timer" />
+                android:value="Time-limited guest session timer that returns the phone to its owner" />
         </service>
 
     </application>

@@ -8,14 +8,14 @@ plugins {
 
 android {
     namespace = "com.guestvault"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.guestvault"
         minSdk = 29
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        targetSdk = 36
+        versionCode = 2
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -24,6 +24,10 @@ android {
     buildTypes {
         debug {
             versionNameSuffix = "-debug"
+            // Screenshots for the README and the Play listing are captured from
+            // debug builds by UiAutomator. FLAG_SECURE would black them out, so
+            // window security is only switched on for shipping builds.
+            buildConfigField("boolean", "SECURE_WINDOWS", "false")
         }
         release {
             // R8 + resource shrinking keep the downloadable APK small (~8 MB
@@ -36,6 +40,9 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.getByName("debug")
+            // Blocks screenshots, screen recording and the Recents thumbnail
+            // while the guest/PIN UI is on screen.
+            buildConfigField("boolean", "SECURE_WINDOWS", "true")
         }
     }
 
@@ -57,8 +64,12 @@ android {
     }
 
     lint {
+        // Real errors are surfaced by the explicit `lintRelease` CI job; keeping
+        // the default false here means a lint warning never blocks a hotfix.
         abortOnError = false
         checkReleaseBuilds = false
+        warningsAsErrors = false
+        disable += setOf("GradleDependency", "NewerVersionAvailable")
     }
 }
 
