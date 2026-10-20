@@ -271,7 +271,7 @@ fun PermissionsScreen(
                         "always works.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 4.dp, bottom = 24.dp)
+                    modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 24.dp)
                 )
             }
         }
