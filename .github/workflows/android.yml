@@ -8,7 +8,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 concurrency:
   group: android-ci-${{ github.ref }}
@@ -46,13 +47,19 @@ jobs:
           fi
 
       - name: Assemble debug APK
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace :app:assembleDebug 2>&1 | tee build.log
 
       - name: Run unit tests
-        run: gradle --no-daemon :app:testDebugUnitTest
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:testDebugUnitTest 2>&1 | tee -a build.log
 
       - name: Run lint
-        run: gradle --no-daemon :app:lintDebug
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:lintDebug 2>&1 | tee -a build.log
 
       - name: Upload debug APK
         if: always()
@@ -82,3 +89,26 @@ jobs:
             app/build/reports/tests/**
             app/build/reports/lint-results-debug.html
           if-no-files-found: ignore
+
+      # CI logs live on a storage host that some clients cannot reach. Posting
+      # the tail of the build output as a commit comment makes failures
+      # reviewable from anywhere the GitHub API is available.
+      - name: Report failure details
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          path = pathlib.Path("build.log")
+          text = path.read_text(errors="ignore")[-50000:] if path.exists() else "No build log produced."
+          body = "### CI failure\n\n<details><summary>Tail of build.log</summary>\n\n```text\n" + text + "\n```\n\n</details>"
+          pathlib.Path("comment.json").write_text(json.dumps({"body": body}))
+          print(f"Preparing comment with {len(text)} characters of build output")
+          PY
+          gh api -X POST \
+            "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/comments" \
+            --input comment.json > /dev/null && echo "Posted failure details as a commit comment."

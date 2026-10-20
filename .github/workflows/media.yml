@@ -3,7 +3,7 @@ name: Screenshots & Demo Video
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, 'arena/**']
     paths:
       - 'app/**'
       - 'scripts/**'
@@ -83,7 +83,7 @@ jobs:
             adb shell screenrecord --size 720x1600 --bit-rate 4000000 --time-limit 240 /sdcard/Download/walkthrough.mp4 &
             sleep 3
 
-            adb shell am instrument -w -r \
+            timeout 900 adb shell am instrument -w -r \
               -e class com.guestvault.GuestVaultFlowTest \
               com.guestvault.test/androidx.test.runner.AndroidJUnitRunner > instrumentation.log 2>&1
             TEST_STATUS=$?
