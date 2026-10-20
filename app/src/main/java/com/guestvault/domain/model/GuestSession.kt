@@ -25,11 +25,11 @@ data class GuestSession(
         endsAt?.let { (it - now).coerceAtLeast(0L) }
 }
 
-enum class EndReason(val label: String) {
-    OWNER_UNLOCK("Returned to owner"),
-    TIMER_EXPIRED("Timer expired"),
-    DATA_WIPED("Session & data cleared"),
-    RECOVERED("Recovered after restart");
+enum class EndReason(val label: String, val shortLabel: String) {
+    OWNER_UNLOCK("Returned to owner", "Owner"),
+    TIMER_EXPIRED("Timer expired", "Timer"),
+    DATA_WIPED("Session & data cleared", "Cleared"),
+    RECOVERED("Recovered after restart", "Recovered");
 
     companion object {
         fun fromName(name: String?): EndReason =

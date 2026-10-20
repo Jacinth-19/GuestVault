@@ -4,7 +4,7 @@
     <!-- Show a persistent notification while a guest session is running. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- Used for the optional "return to owner" biometric check. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
@@ -52,7 +52,11 @@
         <service
             android:name=".guest.GuestSessionService"
             android:exported="false"
-            android:foregroundServiceType="shortService" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="guest_session_timer" />
+        </service>
 
     </application>
 
