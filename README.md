@@ -33,20 +33,39 @@ Everything else — gallery, messages, files, settings, Play Store — stays beh
 
 ## 🎬 Demo
 
-| | | | |
+**▶ [Watch the full walkthrough video (79 s, MP4)](docs/media/walkthrough.mp4)** — recorded on a Pixel 6
+emulator by the `Screenshots & Demo Video` workflow: onboarding → PIN → dashboard → allow-list →
+session setup → guest home → wrong PIN → unlock → history → dark mode.
+
+[![GuestVault walkthrough](docs/media/preview.gif)](docs/media/walkthrough.mp4)
+
+<sub>Every image and the video below are produced by CI from the real app — no mockups.</sub>
+
+## 📸 Screens
+
+**Getting started**
+
+| Splash & onboarding | Only approved apps | Your data stays private | Create the owner PIN |
 |:--:|:--:|:--:|:--:|
-| <img src="docs/media/06-dashboard-light.png" width="210"/><br/><sub><b>Owner dashboard</b></sub> | <img src="docs/media/08-select-apps.png" width="210"/><br/><sub><b>Choose allowed apps</b></sub> | <img src="docs/media/11-guest-home.png" width="210"/><br/><sub><b>Restricted guest home</b></sub> | <img src="docs/media/12-lock-screen.png" width="210"/><br/><sub><b>PIN-protected exit</b></sub> |
-| <img src="docs/media/04-pin-create.png" width="210"/><br/><sub><b>Set the owner PIN</b></sub> | <img src="docs/media/09-confirm-session.png" width="210"/><br/><sub><b>Session setup</b></sub> | <img src="docs/media/15-dashboard-dark.png" width="210"/><br/><sub><b>Dark theme</b></sub> | <img src="docs/media/14-dashboard-history.png" width="210"/><br/><sub><b>Session history</b></sub> |
+| <img src="docs/media/01-onboarding-welcome.png" width="190"/> | <img src="docs/media/02-onboarding-apps.png" width="190"/> | <img src="docs/media/03-onboarding-keys.png" width="190"/> | <img src="docs/media/04-pin-create.png" width="190"/> |
 
-<div align="center">
+**Owner mode**
 
-[![Watch the full walkthrough](docs/media/11-guest-home.png)](docs/media/walkthrough.mp4)
+| Dashboard | Choose allowed apps | Confirm & start | Settings |
+|:--:|:--:|:--:|:--:|
+| <img src="docs/media/06-dashboard-light.png" width="190"/> | <img src="docs/media/08-select-apps.png" width="190"/> | <img src="docs/media/09-confirm-session.png" width="190"/> | <img src="docs/media/07-settings.png" width="190"/> |
 
-**▶ [Watch the full walkthrough video (MP4)](docs/media/walkthrough.mp4)** — recorded on a Pixel 6 emulator by the `Screenshots & Demo Video` workflow.
+**Guest mode**
 
-<sub>Screenshots and video are generated automatically by CI on every change — they always show the real app.</sub>
+| Restricted guest home | Session options | PIN-protected exit | Wrong PIN → cool-down |
+|:--:|:--:|:--:|:--:|
+| <img src="docs/media/11-guest-home.png" width="190"/> | <img src="docs/media/10-confirm-options.png" width="190"/> | <img src="docs/media/12-lock-screen.png" width="190"/> | <img src="docs/media/13-lock-wrong-pin.png" width="190"/> |
 
-</div>
+**After the session**
+
+| Dashboard + history | Dark theme | About & limitations | PIN confirmation |
+|:--:|:--:|:--:|:--:|
+| <img src="docs/media/14-dashboard-history.png" width="190"/> | <img src="docs/media/15-dashboard-dark.png" width="190"/> | <img src="docs/media/16-about-dark.png" width="190"/> | <img src="docs/media/05-pin-confirm.png" width="190"/> |
 
 ## ✨ Features
 

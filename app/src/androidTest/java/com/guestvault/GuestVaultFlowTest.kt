@@ -153,12 +153,14 @@ class GuestVaultFlowTest {
         Thread.sleep(2_800)
         shot("15-dashboard-dark.png")
 
-        tapText("Learn more")
-        if (waitFor("What needs system access", 12_000)) {
-            Thread.sleep(900)
-            shot("16-about-dark.png")
-            tapDesc("Back")
-            Thread.sleep(800)
+        if (scrollToText("Learn more")) {
+            tapText("Learn more")
+            if (waitFor("What needs system access", 12_000)) {
+                Thread.sleep(900)
+                shot("16-about-dark.png")
+                tapDesc("Back")
+                Thread.sleep(800)
+            }
         }
         shell("cmd uimode night no")
         Thread.sleep(1_500)
@@ -240,6 +242,23 @@ class GuestVaultFlowTest {
 
     private fun waitForContains(text: String, timeout: Long = 15_000): Boolean =
         device.wait(Until.hasObject(By.textContains(text)), timeout)
+
+    /** Swipes up until [text] is on screen (LazyColumn pages need this). */
+    private fun scrollToText(text: String, maxSwipes: Int = 4): Boolean {
+        repeat(maxSwipes) {
+            if (device.hasObject(By.text(text))) return true
+            val centerX = device.displayWidth / 2
+            device.swipe(
+                centerX,
+                (device.displayHeight * 0.78f).toInt(),
+                centerX,
+                (device.displayHeight * 0.32f).toInt(),
+                18
+            )
+            Thread.sleep(450)
+        }
+        return device.hasObject(By.text(text))
+    }
 
     private fun waitForAny(vararg candidates: String, timeout: Long = 20_000): String? {
         val deadline = System.currentTimeMillis() + timeout
