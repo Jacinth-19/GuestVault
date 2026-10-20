@@ -216,7 +216,7 @@ Every push also builds a debug APK: open the green **Android CI** run → *Artif
 **guestvault-debug-apk**.
 
 ```bash
-adb install -r GuestVault-1.0.0.apk
+adb install -r GuestVault-1.0.1.apk
 ```
 
 The **Screenshots & Demo Video** workflow can be started from the *Actions* tab (or runs on `main`);
