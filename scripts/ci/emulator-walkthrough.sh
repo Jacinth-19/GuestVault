@@ -83,6 +83,31 @@ ls -la shots/00-splash.png 2>/dev/null || echo "splash capture failed"
 adb shell rm -rf /sdcard/Pictures/GuestVault || true
 adb shell rm -f /sdcard/Download/walkthrough.mp4 || true
 
+# ---------------------------------------------------------------------------
+# Optional: prove the *release* APK (R8-minified) also works on device.
+# Screenshots from the debug run are already pulled, so this pass is not
+# allowed to overwrite them.
+# ---------------------------------------------------------------------------
+if [ -n "${VERIFY_RELEASE_APK:-}" ] && [ -f "$VERIFY_RELEASE_APK" ]; then
+  echo "== verify release APK =="
+  adb uninstall "$PACKAGE" >/dev/null 2>&1 || true
+  adb install -r -t "$VERIFY_RELEASE_APK"
+  adb shell pm grant "$PACKAGE" android.permission.POST_NOTIFICATIONS || true
+  adb shell am force-stop "$PACKAGE" || true
+
+  timeout 900 adb shell am instrument -w -r \
+    -e class com.guestvault.GuestVaultFlowTest \
+    "$RUNNER" > instrumentation-release.log 2>&1
+  RELEASE_STATUS=$?
+  tail -n 40 instrumentation-release.log || true
+  echo "release instrumentation exit code: $RELEASE_STATUS"
+  if [ "$RELEASE_STATUS" -ne 0 ]; then
+    echo "RELEASE APK FAILED THE WALKTHROUGH"
+    TEST_STATUS=1
+  fi
+  adb shell rm -rf /sdcard/Pictures/GuestVault || true
+fi
+
 echo "== app logcat =="
 adb logcat -d -v brief -s GuestVaultApp:V AndroidRuntime:E ActivityTaskManager:W \
   GuestSessionService:V GuestHomeActivity:V > logcat-app.txt 2>&1 || true

@@ -48,7 +48,7 @@ jobs:
       - name: Build app and test APKs
         run: |
           set -o pipefail
-          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee media-build.log
+          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease 2>&1 | tee media-build.log
 
       - name: Enable KVM
         run: |
@@ -73,6 +73,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-snapshot-save
           script: |
             set +e
+            export VERIFY_RELEASE_APK="app/build/outputs/apk/release/app-release.apk"
             bash scripts/ci/emulator-walkthrough.sh > emulator.log 2>&1
             STATUS=$?
             if [ "$STATUS" -ne 0 ]; then
@@ -131,7 +132,9 @@ jobs:
         if: failure() && env.TEST_FAILED == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/ci/report_failure.py
+        run: |
+          cp instrumentation-release.log instrumentation.log 2>/dev/null || true
+          python3 scripts/ci/report_failure.py
 
       - name: Upload media artifacts
         if: always()

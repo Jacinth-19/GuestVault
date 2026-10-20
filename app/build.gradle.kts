@@ -26,10 +26,11 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
-            // Kept unminified so the CI artifact is easy to inspect. Signed with the
-            // debug key so release builds from GitHub Actions are installable.
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8 + resource shrinking keep the downloadable APK small (~8 MB
+            // instead of ~46 MB). Signed with the debug key so release builds
+            // from GitHub Actions are installable without extra secrets.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
