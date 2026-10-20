@@ -220,7 +220,7 @@ jobs:
           profile: ${{ matrix.profile }}
           avd-name: guestvault
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-snapshot-save
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-snapshot-save -memory 4096
           script: |
             set +e
             export SKIP_MEDIA_CAPTURE=1
