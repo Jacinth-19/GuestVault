@@ -66,9 +66,10 @@ class GuestDataWiper @Inject constructor(
             val executor = ContextCompat.getMainExecutor(context)
             packages.forEach { packageName ->
                 runCatching {
-                    devicePolicyManager.clearApplicationUserData(packageName, executor) { _, success ->
+                    val listener = DevicePolicyManager.OnClearApplicationUserDataListener { _, success ->
                         Log.i(TAG, "Device-owner data clear for $packageName: $success")
                     }
+                    devicePolicyManager.clearApplicationUserData(packageName, executor, listener)
                 }.onFailure { Log.w(TAG, "Device-owner wipe failed for $packageName", it) }
             }
         }

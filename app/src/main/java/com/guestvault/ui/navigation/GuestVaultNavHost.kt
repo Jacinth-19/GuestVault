@@ -1,6 +1,7 @@
 package com.guestvault.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -63,9 +64,7 @@ fun GuestVaultNavHost(navController: NavHostController = rememberNavController()
                     if (mode == "change") {
                         navController.popBackStack()
                     } else {
-                        navController.navigate(Routes.DASHBOARD) {
-                            popUpTo(Routes.PIN_SETUP) { inclusive = true }
-                        }
+                        navController.navigateClearingBackStack(Routes.DASHBOARD)
                     }
                 },
                 onBack = if (mode == "change") {
@@ -114,9 +113,7 @@ fun GuestVaultNavHost(navController: NavHostController = rememberNavController()
                 onBack = { navController.popBackStack() },
                 onEditApps = { navController.navigate(Routes.selectApps(next = "confirm")) },
                 onSessionStarted = {
-                    navController.navigate(Routes.DASHBOARD) {
-                        popUpTo(Routes.DASHBOARD) { inclusive = true }
-                    }
+                    navController.navigateClearingBackStack(Routes.DASHBOARD)
                 }
             )
         }
@@ -138,5 +135,16 @@ fun GuestVaultNavHost(navController: NavHostController = rememberNavController()
         composable(Routes.ABOUT) {
             AboutRoute(onBack = { navController.popBackStack() })
         }
+    }
+}
+
+/**
+ * Navigates after a flow has completed and there is nothing sensible to go
+ * back to (e.g. right after setting the owner PIN).
+ */
+private fun NavHostController.navigateClearingBackStack(route: String) {
+    navigate(route) {
+        popUpTo(graph.findStartDestination().id) { inclusive = true }
+        launchSingleTop = true
     }
 }

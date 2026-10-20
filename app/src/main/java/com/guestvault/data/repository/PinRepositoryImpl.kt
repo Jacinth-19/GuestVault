@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
+import androidx.security.crypto.MasterKeys
 import com.guestvault.core.security.PinHasher
 import com.guestvault.domain.repository.PinRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,12 +30,10 @@ class PinRepositoryImpl @Inject constructor(
     private val prefs: SharedPreferences by lazy { openPreferences() }
 
     private fun openPreferences(): SharedPreferences = try {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
+        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
         EncryptedSharedPreferences.create(
             ENCRYPTED_FILE,
-            masterKey,
+            masterKeyAlias,
             context,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM

@@ -10,14 +10,14 @@ import java.util.concurrent.TimeUnit
 object Formatters {
 
     fun duration(millis: Long): String {
-        val totalMinutes = TimeUnit.MILLISECONDS.toMinutes(millis).coerceAtLeast(0)
+        val totalMinutes = TimeUnit.MILLISECONDS.toMinutes(millis).coerceAtLeast(0L)
         return when {
             totalMinutes < 1 -> "Less than a minute"
             totalMinutes < 60 -> "$totalMinutes min"
             else -> {
                 val hours = totalMinutes / 60
                 val minutes = totalMinutes % 60
-                if (minutes == 0) "$hours h" else "$hours h ${minutes.toString().padStart(2, '0')} min"
+                if (minutes == 0L) "$hours h" else "$hours h ${minutes.toString().padStart(2, '0')} min"
             }
         }
     }
