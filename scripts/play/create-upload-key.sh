@@ -1,97 +1,179 @@
 #!/usr/bin/env bash
 # Creates the Google Play upload keystore and stores it as repository secrets.
 #
-# Run this once, in a GitHub Codespace (a terminal that already has the `gh`
-# CLI logged in as the repository owner) or on any machine with JDK 17 + `gh`:
+# Run this once, in a GitHub Codespace (it also works on any machine with a
+# JDK 17 and the `gh` CLI), from the repository root:
 #
 #   bash scripts/play/create-upload-key.sh
 #
-# It is interactive on purpose: the passwords never appear in shell history and
-# the keystore never leaves your machine except as an encrypted GitHub secret.
-#
-# What it does NOT do: commit anything. The .jks stays local — back it up.
+# Design notes:
+#   * The password is generated for you by default — you can just press Enter,
+#     which matters when the only "keyboard" is a phone.
+#   * You sign in with your own GitHub account through a device code, because a
+#     Codespace's built-in token cannot write repository secrets. That is one
+#     `gh auth login`, not a personal access token, and nothing is typed here.
+#   * The keystore never leaves the machine except as an encrypted GitHub
+#     secret, and nothing is ever committed (see .gitignore).
 
 set -euo pipefail
 
-REPO="${GH_REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
+REPO="${GH_REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo Jacinth-19/GuestVault)}"
 KEYSTORE="${UPLOAD_KEYSTORE_FILE:-$HOME/upload-keystore.jks}"
+CREDENTIALS="$KEYSTORE.credentials.txt"
 ALIAS="${UPLOAD_KEY_ALIAS:-upload}"
+SECRETS_URL="https://github.com/$REPO/settings/secrets/actions"
 
 say() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
+ok() { printf '    \033[1;32m✓\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m!\033[0m  %s\n' "$*"; }
+err() { printf '\033[1;31m✗\033[0m  %s\n' "$*" >&2; }
 
-say "GuestVault upload key for $REPO"
+gen_password() {
+  # 32 URL-safe characters, ~190 bits — no quoting surprises in keytool/gh.
+  LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32
+}
 
-command -v keytool >/dev/null || { echo "keytool not found — install a JDK 17 first."; exit 1; }
-command -v gh >/dev/null || { echo "gh CLI not found."; exit 1; }
-gh auth status >/dev/null 2>&1 || { echo "Run 'gh auth login' first."; exit 1; }
+# --------------------------------------------------------------------------
+# 0. Sanity: interactive terminal + a JDK that ships keytool.
+# --------------------------------------------------------------------------
+if [ ! -t 0 ]; then
+  err "This script is interactive. Run it in a terminal (Codespaces: Terminal → New Terminal)."
+  exit 1
+fi
 
+ensure_keytool() {
+  command -v keytool >/dev/null && return 0
+  # The Codespaces universal image keeps JDKs behind SDKMAN; prefer adding the
+  # binary directory to PATH over sourcing sdkman-init.sh (which is not -u safe).
+  for dir in \
+    "$HOME/.sdkman/candidates/java/current/bin" \
+    /usr/local/sdkman/candidates/java/current/bin \
+    /usr/lib/jvm/*/bin; do
+    if [ -x "$dir/keytool" ]; then PATH="$dir:$PATH"; fi
+  done
+  command -v keytool >/dev/null && return 0
+
+  if command -v apt-get >/dev/null && sudo -n true 2>/dev/null; then
+    say "Installing OpenJDK (only needed for keytool)"
+    sudo apt-get update -qq
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-17-jdk-headless >/dev/null
+  fi
+  command -v keytool >/dev/null || {
+    err "No keytool found. Install a JDK 17 (macOS: brew install openjdk@17) and re-run."
+    exit 1
+  }
+}
+
+command -v gh >/dev/null || { err "The GitHub CLI (gh) is not installed."; exit 1; }
+ensure_keytool
+
+# --------------------------------------------------------------------------
+# 1. Sign in as *you*. A Codespace exports GITHUB_TOKEN, which gh prefers over
+#    stored credentials and which cannot write secrets; drop it for this shell.
+# --------------------------------------------------------------------------
+say "GitHub account for $REPO"
+if [ -n "${GITHUB_TOKEN:-}${GH_TOKEN:-}" ]; then
+  warn "Ignoring the Codespace's built-in GITHUB_TOKEN (it can only read)."
+fi
+unset GITHUB_TOKEN GH_TOKEN
+
+if ! gh auth status --hostname github.com >/dev/null 2>&1; then
+  echo "    Sign in once. gh prints an 8-character code — open"
+  echo "    https://github.com/login/device on any browser (your phone is fine)"
+  echo "    and enter it. Nothing secret is typed into this terminal."
+  echo
+  gh auth login --hostname github.com --git-protocol https --web --scopes repo
+fi
+ok "signed in as $(gh api user --jq .login 2>/dev/null || echo 'your account')"
+
+# --------------------------------------------------------------------------
+# 2. Create the key (or reuse one you already have).
+# --------------------------------------------------------------------------
+say "Upload key"
 if [ -f "$KEYSTORE" ]; then
   warn "$KEYSTORE already exists — reusing it."
-  warn "Only create a NEW key if Play has never accepted this one; changing it later"
-  warn "requires a Play App Signing key reset."
+  warn "Only create a NEW key if Play has never accepted this one; replacing it"
+  warn "later needs a Play App Signing upload-key reset."
+  read -r -s -p "    Keystore password: " STORE_PASS; echo
+  KEY_PASS="$STORE_PASS"
 else
-  say "Choose two passwords (store password and key password)"
-  echo "   Use different values if you like; 16+ random characters is ideal."
-  echo "   They are never written to disk by this script."
+  read -r -s -p "    Password (press Enter to generate a strong one): " STORE_PASS; echo
+  if [ -z "$STORE_PASS" ]; then
+    STORE_PASS="$(gen_password)"
+    ok "generated a 32-character password"
+  fi
+  [ ${#STORE_PASS} -ge 6 ] || { err "Google Play requires at least 6 characters."; exit 1; }
+  KEY_PASS="$STORE_PASS"
 
-  read -r -s -p "Keystore password: " STORE_PASS; echo
-  read -r -s -p "Repeat: " STORE_PASS2; echo
-  [ "$STORE_PASS" = "$STORE_PASS2" ] || { echo "Passwords do not match."; exit 1; }
-  [ ${#STORE_PASS} -ge 6 ] || { echo "Google requires at least 6 characters."; exit 1; }
-
-  read -r -s -p "Key password (press Enter to reuse the keystore password): " KEY_PASS; echo
-  [ -n "${KEY_PASS:-}" ] || KEY_PASS="$STORE_PASS"
-
-  read -r -p "Your name (or company), shown on the certificate: " DNAME
-  DNAME="${DNAME:-GuestVault}"
-
-  say "Generating $KEYSTORE with alias '$ALIAS'"
+  say "Generating $KEYSTORE"
   keytool -genkeypair \
     -keystore "$KEYSTORE" \
     -alias "$ALIAS" \
     -keyalg RSA -keysize 2048 -validity 10000 \
-    -storepass "$STORE_PASS" \
-    -keypass "$KEY_PASS" \
-    -dname "CN=$DNAME, OU=Mobile, O=GuestVault, L=Accra, S=Greater Accra, C=GH"
+    -storepass "$STORE_PASS" -keypass "$KEY_PASS" \
+    -dname "${UPLOAD_KEY_DNAME:-CN=GuestVault, OU=Mobile, O=GuestVault, C=GH}" >/dev/null
 fi
 
-if [ -z "${STORE_PASS:-}" ]; then
-  read -r -s -p "Keystore password (for the existing file): " STORE_PASS; echo
-fi
-if [ -z "${KEY_PASS:-}" ]; then
-  read -r -s -p "Key password (Enter to reuse): " KEY_PASS; echo
-  [ -n "${KEY_PASS:-}" ] || KEY_PASS="$STORE_PASS"
+keytool -list -keystore "$KEYSTORE" -storepass "$STORE_PASS" -alias "$ALIAS" >/dev/null 2>&1 || {
+  err "That password does not open $KEYSTORE."
+  exit 1
+}
+ok "key opens (alias: $ALIAS)"
+
+# Save the credentials next to the keystore first, so a later network hiccup
+# never leaves you with a key whose password exists nowhere.
+umask 077
+{
+  echo "GuestVault upload key"
+  echo "keystore: $KEYSTORE"
+  echo "alias:    $ALIAS"
+  echo "password: $STORE_PASS"
+  echo "created:  $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} >"$CREDENTIALS"
+ok "credentials written to $CREDENTIALS (mode 600)"
+
+# --------------------------------------------------------------------------
+# 3. Store the four secrets. Probe first so we fail with instructions rather
+#    than half-way through.
+# --------------------------------------------------------------------------
+say "Repository secrets"
+if ! gh api "repos/$REPO/actions/secrets/public-key" --silent >/dev/null 2>&1; then
+  err "This account cannot write secrets for $REPO."
+  echo "    Your GitHub login needs admin on the repository. Sign in again with:"
+  echo "      gh auth login --hostname github.com --git-protocol https --web --scopes repo"
+  echo "    Then re-run this script — it will reuse the keystore you just made."
+  echo
+  echo "    Manual fallback: set the four UPLOAD_* secrets at"
+  echo "      $SECRETS_URL"
+  echo "    using  base64 -w0 $KEYSTORE  for UPLOAD_KEYSTORE_BASE64,"
+  echo "    and the password/alias printed in $CREDENTIALS."
+  exit 1
 fi
 
-say "Checking the key opens"
-keytool -list -keystore "$KEYSTORE" -storepass "$STORE_PASS" -alias "$ALIAS" >/dev/null
-echo "   OK"
-
-say "Storing four repository secrets"
 printf '%s' "$STORE_PASS" | gh secret set UPLOAD_KEYSTORE_PASSWORD --repo "$REPO"
 printf '%s' "$KEY_PASS"   | gh secret set UPLOAD_KEY_PASSWORD      --repo "$REPO"
 printf '%s' "$ALIAS"      | gh secret set UPLOAD_KEY_ALIAS         --repo "$REPO"
-base64 < "$KEYSTORE" | tr -d '\n' | gh secret set UPLOAD_KEYSTORE_BASE64 --repo "$REPO"
+base64 <"$KEYSTORE" | tr -d '\n' | gh secret set UPLOAD_KEYSTORE_BASE64 --repo "$REPO"
+ok "four secrets stored"
 
-say "Secrets in place"
-gh secret list --repo "$REPO" | grep -E '^UPLOAD_' || true
+if list=$(gh secret list --repo "$REPO" 2>/dev/null); then
+  printf '%s\n' "$list" | grep -E '^UPLOAD_' | sed 's/^/    /' || true
+else
+  echo "    (gh could not list them here; check $SECRETS_URL)"
+fi
 
 cat <<EOF
 
 ------------------------------------------------------------
-Done. Two things left, both on you:
+Keystore:    $KEYSTORE
+Credentials: $CREDENTIALS
 
-1. BACK UP $KEYSTORE somewhere safe (password manager / encrypted drive).
-   If you lose it, Play App Signing lets you request an upload-key reset.
-   If it leaks, anyone can publish updates as you until you reset it.
+BACK BOTH UP NOW — password manager or encrypted drive, off this machine.
+Lose the key and you can still request an upload-key reset in Play Console;
+leak it and someone else can publish updates as you until you reset it.
+Neither file is ever committed (see .gitignore).
 
-2. Cut a release so the workflow rebuilds with the real key:
-
-     git tag -a v1.1.1 -m "GuestVault 1.1.1"
-     git push origin v1.1.1
-
-   The workflow prints the signing certificate and fails loudly if the
-   bundle is still debug-signed.
+Next (the agent does this for you): tag v1.1.1 so the release workflow
+rebuilds with this key, then confirm the certificate is not "Android Debug".
 ------------------------------------------------------------
 EOF

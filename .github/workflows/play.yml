@@ -52,6 +52,18 @@ jobs:
             gradle wrapper --gradle-version 8.11.1 --distribution-type bin
           fi
 
+      # A keystore in a public repository is a publish-as-you vulnerability;
+      # this fails the build if one ever slips past .gitignore.
+      - name: Assert no signing material is committed
+        run: |
+          tracked=$(git ls-files | grep -Ei '\.(jks|keystore|p12)$|keystore\.properties$|credentials\.txt$' || true)
+          if [ -n "$tracked" ]; then
+            echo "::error::Signing material is tracked by git:"
+            echo "$tracked"
+            exit 1
+          fi
+          echo "No keystore or credential file is tracked."
+
       # Same key material the release workflow uses. Without it the bundle is
       # still built (to prove it compiles) but it is deleted before upload, so
       # nobody can accidentally grab a debug-signed .aab and send it to Play.

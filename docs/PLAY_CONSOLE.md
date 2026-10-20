@@ -35,13 +35,25 @@ You do **not** need a laptop. Open a Codespace from the repository page
 bash scripts/play/create-upload-key.sh
 ```
 
-It generates `upload-keystore.jks`, verifies it opens, and stores the four repository
-secrets (`UPLOAD_KEYSTORE_BASE64`, `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS`,
-`UPLOAD_KEY_PASSWORD`) through `gh`.
+The script does four things, and pauses only twice:
 
-Then download `~/upload-keystore.jks` from the Codespace file explorer and back it up
-in a password manager. **If it leaks, someone can publish updates as you. If you lose
-it, Play App Signing can reset it — a leak is worse than a loss.**
+1. It asks for a password — **press Enter** and it generates a 32-character one, so
+   there is nothing to type on a phone.
+2. It signs you in with a device code: `gh` prints eight characters, you open
+   <https://github.com/login/device> on any browser and paste them. (A Codespace's
+   built-in token can only *read* secrets, so this one-time sign-in is what lets the
+   script write them.)
+3. It creates `~/upload-keystore.jks`, verifies it opens, and writes
+   `~/upload-keystore.jks.credentials.txt` (alias + password, mode 600).
+4. It stores the four repository secrets — `UPLOAD_KEYSTORE_BASE64`,
+   `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS`, `UPLOAD_KEY_PASSWORD` — and lists
+   them back so you can see they landed.
+
+Then download both files from the Codespace file explorer (right-click the file in the
+Explorer → **Download**) and put them in a password manager. **If the key leaks, someone
+can publish updates as you. If you lose it, Play App Signing can reset it — a leak is
+worse than a loss.** Neither file can be committed: `.gitignore` covers
+`*.jks`, `upload-keystore*` and `*.credentials.txt`.
 
 ---
 

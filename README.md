@@ -302,7 +302,10 @@ Ranked against the competition in [`docs/COMPETITORS.md`](docs/COMPETITORS.md).
 >    ```
 >
 >    It generates the keystore, stores the four `UPLOAD_*` secrets, and verifies them.
->    Back up `~/upload-keystore.jks`; the file is never committed.
+>    You only press Enter for a generated password and approve one device-code sign-in
+>    (`github.com/login/device`) — a Codespace token can read secrets but not write them.
+>    Back up `~/upload-keystore.jks` **and** its `.credentials.txt`; neither file can
+>    be committed.
 >
 > Everything else — listing copy, graphics, privacy policy, data-safety answers,
 > foreground-service declaration and the review checklist — is written out in
