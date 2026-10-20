@@ -107,8 +107,10 @@ jobs:
         if: always()
         run: |
           mkdir -p docs/media
+          rm -f docs/media/splash-frame-*.png
           if [ -d shots ]; then
-            cp shots/*.png docs/media/ 2>/dev/null || true
+            # Only the numbered, documented screenshots are published.
+            cp shots/[0-9][0-9]-*.png docs/media/ 2>/dev/null || true
           fi
           if [ -f walkthrough.mp4 ]; then
             cp walkthrough.mp4 docs/media/walkthrough.mp4

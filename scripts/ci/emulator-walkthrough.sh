@@ -79,6 +79,8 @@ sleep 0.25; adb exec-out screencap -p > shots/splash-frame-e.png || true
 # Pick the frame that shows the indigo splash with the title faded in.
 python3 scripts/ci/pick_splash.py || cp shots/splash-frame-c.png shots/00-splash.png 2>/dev/null || true
 ls -la shots/00-splash.png 2>/dev/null || echo "splash capture failed"
+# Never let intermediate candidate frames reach the repository.
+rm -f shots/splash-frame-*.png
 
 adb shell rm -rf /sdcard/Pictures/GuestVault || true
 adb shell rm -f /sdcard/Download/walkthrough.mp4 || true
