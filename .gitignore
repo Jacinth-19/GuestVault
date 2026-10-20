@@ -22,6 +22,8 @@ Thumbs.db
 *.jks
 *.keystore
 keystore.properties
+upload-keystore*
+*.credentials.txt
 
 # --- CI media (large generated artifacts) -------------------------------
 # Screenshots and the demo video are produced by the "Screenshots & Demo
