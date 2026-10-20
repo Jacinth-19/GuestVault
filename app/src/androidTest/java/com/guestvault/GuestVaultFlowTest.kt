@@ -172,6 +172,24 @@ class GuestVaultFlowTest {
         shell("cmd uimode night no")
         Thread.sleep(1_500)
 
+        // ------------------------------------------------ permissions screen --
+        // Non-fatal on purpose: this is a documentation capture, not a
+        // confinement assertion, so a layout change must not fail the suite.
+        step("permissions screen")
+        if (scrollToText("Permissions & privacy")) {
+            device.findObject(By.text("Permissions & privacy"))?.click()
+            if (waitFor("No internet permission", 12_000)) {
+                Thread.sleep(800)
+                shot("17-permissions.png")
+                tapDesc("Back")
+                Thread.sleep(600)
+            } else {
+                step("permissions screen not reached")
+            }
+        } else {
+            step("permissions row not found")
+        }
+
         step("done")
     }
 
