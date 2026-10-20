@@ -52,10 +52,41 @@ jobs:
             gradle wrapper --gradle-version 8.11.1 --distribution-type bin
           fi
 
+      # Same key material the release workflow uses. Without it the bundle is
+      # still built (to prove it compiles) but it is deleted before upload, so
+      # nobody can accidentally grab a debug-signed .aab and send it to Play.
+      - name: Prepare upload signing
+        id: signing
+        env:
+          UPLOAD_KEYSTORE_BASE64: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+        run: bash scripts/play/prepare-signing.sh
+
       - name: Build the app bundle
+        env:
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
         run: |
           set -o pipefail
           gradle --no-daemon :app:bundleRelease 2>&1 | tee play-build.log
+
+      - name: Verify the bundle is release-signed
+        if: env.SIGNED_FOR_PLAY == 'true'
+        run: bash scripts/play/verify-signing.sh app/build/outputs/bundle/release/app-release.aab
+
+      - name: Withhold a debug-signed bundle
+        if: env.SIGNED_FOR_PLAY != 'true'
+        run: |
+          echo "### Signing: debug key ⚠️" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "The bundle compiled, but no upload keystore is configured, so it is debug-signed" >> "$GITHUB_STEP_SUMMARY"
+          echo "and Google Play would reject it. It has been deleted so it cannot be uploaded by mistake." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Create the key once with \`bash scripts/play/create-upload-key.sh\` — see docs/PLAY_CONSOLE.md." >> "$GITHUB_STEP_SUMMARY"
+          rm -f app/build/outputs/bundle/release/*.aab
+          echo "::warning::Bundle is debug-signed and was withheld. Run scripts/play/create-upload-key.sh to enable Play uploads."
 
       - name: Lint the release variant
         run: |

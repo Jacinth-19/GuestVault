@@ -26,26 +26,49 @@ no letterboxing that would read as a device frame.
 
 ## Signing
 
-Release builds in CI are signed with the **debug** key so the GitHub release APKs install
-without secrets. That is acceptable for sideloading and for an internal/closed Play track
-(Play re-signs the bundle with the app signing key), but production requires a real upload key:
+Release artifacts must be signed with a **Play upload key**. A debug-signed bundle is
+rejected at upload time:
+
+> *"You uploaded an APK or Android App Bundle that was signed in debug mode."*
+
+The key is never committed. Create it once, from a Codespace or any machine with JDK 17
+and `gh`:
 
 ```bash
-keytool -genkeypair -v -keystore upload-keystore.jks -alias upload \
-  -keyalg RSA -keysize 2048 -validity 10000
+bash scripts/play/create-upload-key.sh
 ```
 
-Then store it as repository secrets and read it in `app/build.gradle.kts`:
+That writes `~/upload-keystore.jks`, verifies it opens, and stores four repository
+secrets:
 
-| Secret | Purpose |
+| Secret | Contents |
 |---|---|
 | `UPLOAD_KEYSTORE_BASE64` | `base64 -w0 upload-keystore.jks` |
 | `UPLOAD_KEYSTORE_PASSWORD` | keystore password |
 | `UPLOAD_KEY_ALIAS` | `upload` |
 | `UPLOAD_KEY_PASSWORD` | key password |
 
-Never commit the keystore. Losing it means losing the ability to update the app under the same
-listing (unless Play App Signing key upgrade is used).
+CI decodes the keystore with `scripts/play/prepare-signing.sh` and asserts the result
+with `scripts/play/verify-signing.sh`, which fails if the certificate says
+`CN=Android Debug`.
+
+### Without the key
+
+Sideloadable APKs still build and publish. The **App Bundle is withheld** — building one
+without a key would only produce a file Play refuses. Configure the secrets and cut a
+new tag to get an `.aab`.
+
+### Verify locally
+
+```bash
+keytool -printcert -jarfile GuestVault-<version>.aab | head -3
+```
+
+`Owner:` must not be `CN=Android Debug`.
+
+**Never commit the keystore.** This repository is public. With Play App Signing a lost
+upload key can be reset from the console; a leaked one lets someone else publish as you
+until you do.
 
 ## Upload checklist
 

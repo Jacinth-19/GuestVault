@@ -287,16 +287,40 @@ Ranked against the competition in [`docs/COMPETITORS.md`](docs/COMPETITORS.md).
 
 ## 🏪 Google Play readiness
 
+> **Status: code is ready; two human steps remain.**
+>
+> 1. **Play developer account** — not created yet. Start at
+>    <https://play.google.com/console/signup> ($25 one-time, identity verification takes 1–3 days).
+>    A new personal account then needs **12 testers for 14 continuous days** of closed
+>    testing before Production is unlocked — start that clock as soon as the account verifies.
+> 2. **Upload key** — not created yet, so releases publish sideloadable APKs but
+>    **withhold the `.aab`** (Play rejects debug-signed bundles). One command, no laptop
+>    needed — in a Codespace:
+>
+>    ```bash
+>    bash scripts/play/create-upload-key.sh
+>    ```
+>
+>    It generates the keystore, stores the four `UPLOAD_*` secrets, and verifies them.
+>    Back up `~/upload-keystore.jks`; the file is never committed.
+>
+> Everything else — listing copy, graphics, privacy policy, data-safety answers,
+> foreground-service declaration and the review checklist — is written out in
+> **[docs/PLAY_CONSOLE.md](docs/PLAY_CONSOLE.md)**, in the order that minimises waiting.
+
 The app is prepared for a Play submission, and every claim here is checked in CI:
 
 | | |
 |---|---|
 | Target | `compileSdk`/`targetSdk` **36** (Play's floor since 31 Aug 2026) |
-| Artifact | signed **AAB** from `:app:bundleRelease` |
+| Artifact | **AAB** from `:app:bundleRelease`, published only when release-signed |
 | Permissions | `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE(_SPECIAL_USE)`, `USE_BIOMETRIC`, `RECEIVE_BOOT_COMPLETED` — **no** internet, storage, location, contacts, SMS, device-admin or accessibility |
 | Store graphics | 512² icon, 1024×500 feature graphic, 8 screenshots at 1080×2160 (exactly 2:1) — validated on every push |
 | Policy | Device Administration removed, FGS declared as `specialUse`, privacy policy published |
+| Signing | upload-key signing wired in; the bundle is withheld unless it is release-signed |
+| Privacy policy | <https://jacinth-19.github.io/GuestVault/privacy.html> |
 
+- 📱 [**Play Console walkthrough**](docs/PLAY_CONSOLE.md) — account → listing → closed testing → production
 - 🔍 [**Play review**](docs/PLAY_REVIEW.md) — what a reviewer would reject, and what changed
 - 🔐 [**Security audit**](docs/SECURITY_AUDIT.md) — guest-escape analysis and residual risk
 - 🥇 [**Competitors**](docs/COMPETITORS.md) — feature matrix and ranked roadmap

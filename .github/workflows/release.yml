@@ -39,10 +39,50 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      # Decodes the upload keystore into $RUNNER_TEMP. When the secrets are not
+      # configured this is a warning, and the bundle step below is skipped so a
+      # debug-signed .aab (which Play rejects outright) is never published.
+      - name: Prepare upload signing
+        env:
+          UPLOAD_KEYSTORE_BASE64: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+        run: bash scripts/play/prepare-signing.sh
+
       - name: Build release APK and Play bundle
+        env:
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
         run: |
           set -o pipefail
-          gradle --no-daemon :app:assembleRelease :app:assembleDebug :app:bundleRelease 2>&1 | tee release-build.log
+          if [ "${SIGNED_FOR_PLAY:-false}" = "true" ]; then
+            TASKS=":app:assembleRelease :app:assembleDebug :app:bundleRelease"
+          else
+            echo "::notice::Building without the upload key — APKs only, no Play bundle."
+            TASKS=":app:assembleRelease :app:assembleDebug"
+          fi
+          gradle --no-daemon $TASKS 2>&1 | tee release-build.log
+
+      - name: Verify the bundle is release-signed
+        if: env.SIGNED_FOR_PLAY == 'true' && hashFiles('app/build/outputs/bundle/release/app-release.aab') != ''
+        run: bash scripts/play/verify-signing.sh app/build/outputs/bundle/release/app-release.aab
+
+      - name: Summarise signing
+        if: always()
+        run: |
+          if [ "${SIGNED_FOR_PLAY:-false}" = "true" ]; then
+            echo "### Signing: upload key ✅" >> "$GITHUB_STEP_SUMMARY"
+            echo "The bundle is signed with your Play upload key and can be uploaded to Play Console." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Signing: debug key ⚠️" >> "$GITHUB_STEP_SUMMARY"
+            echo "No upload keystore is configured, so no Android App Bundle was published." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Google Play rejects debug-signed bundles. Create the key with:" >> "$GITHUB_STEP_SUMMARY"
+            echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+            echo "bash scripts/play/create-upload-key.sh" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Prepare release assets
         run: |
@@ -54,7 +94,13 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk "release-assets/GuestVault-${VERSION}.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "release-assets/GuestVault-${VERSION}-debug.apk"
           # The bundle is what Google Play accepts; the APK is for sideloading.
-          cp app/build/outputs/bundle/release/app-release.aab "release-assets/GuestVault-${VERSION}.aab"
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          if [ "${SIGNED_FOR_PLAY:-false}" = "true" ] && [ -f "$AAB" ]; then
+            cp "$AAB" "release-assets/GuestVault-${VERSION}.aab"
+            echo "SIGNING_NOTE=Play bundle included — **release-signed** with the upload key." >> "$GITHUB_ENV"
+          else
+            echo "SIGNING_NOTE=No Play bundle in this release: the upload key is not configured, and Google Play rejects debug-signed bundles. See \`docs/PLAY_CONSOLE.md\` → *Upload key*." >> "$GITHUB_ENV"
+          fi
           ls -lh release-assets
           echo "APK_SHA=$(sha256sum release-assets/GuestVault-*.apk | grep -v debug | awk '{print $1}')" >> "$GITHUB_ENV"
 
@@ -80,10 +126,7 @@ jobs:
 
             Requires **Android 10 (API 29) or newer**, targets Android 16 (API 36).
 
-            `GuestVault-${{ env.VERSION }}.aab` is the Android App Bundle for Google Play
-            (upload it in Play Console). Both artifacts are signed with the standard debug
-            key, which is fine for sideloading and testing but must be replaced with an
-            upload key before a production rollout.
+            ${{ env.SIGNING_NOTE }}
 
             ### What's inside
             - Restricted guest launcher with an app allow-list

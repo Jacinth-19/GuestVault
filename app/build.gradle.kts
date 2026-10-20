@@ -14,11 +14,31 @@ android {
         applicationId = "com.guestvault"
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+    }
+
+    // Google Play upload key.
+    //
+    // The keystore itself is never committed: CI decodes it from the
+    // UPLOAD_KEYSTORE_BASE64 secret into $RUNNER_TEMP and exports the four
+    // variables below. When they are absent (a fresh clone, a contributor's
+    // machine, or a repository that has not been set up yet) the release build
+    // falls back to the debug key — which Play rejects — so the release
+    // workflow refuses to publish an .aab unless it is release-signed.
+    signingConfigs {
+        create("upload") {
+            val keystorePath = System.getenv("UPLOAD_KEYSTORE_PATH")
+            if (keystorePath != null) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("UPLOAD_KEY_ALIAS")
+                keyPassword = System.getenv("UPLOAD_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -31,15 +51,20 @@ android {
         }
         release {
             // R8 + resource shrinking keep the downloadable APK small (~8 MB
-            // instead of ~46 MB). Signed with the debug key so release builds
-            // from GitHub Actions are installable without extra secrets.
+            // instead of ~46 MB).
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            // Release-signed when the upload key is configured, debug-signed
+            // otherwise so sideloadable builds never depend on secrets.
+            signingConfig = if (System.getenv("UPLOAD_KEYSTORE_PATH") != null) {
+                signingConfigs.getByName("upload")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             // Blocks screenshots, screen recording and the Recents thumbnail
             // while the guest/PIN UI is on screen.
             buildConfigField("boolean", "SECURE_WINDOWS", "true")
