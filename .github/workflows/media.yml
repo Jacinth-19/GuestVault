@@ -129,7 +129,7 @@ jobs:
           python3 scripts/make_preview_gif.py
 
       - name: Report failure details
-        if: failure() && env.TEST_FAILED == 'true'
+        if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
