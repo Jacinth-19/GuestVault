@@ -119,9 +119,10 @@ jobs:
         run: python3 scripts/ci/report_failure.py
 
   instrumented:
-    name: Guest-mode walkthrough (API ${{ matrix.api }})
+    name: Guest-mode walkthrough
     # The emulator is only worth the minutes once the build is known-good, and a
-    # PR does not need the full matrix on every push.
+    # PR does not need the full matrix on every push. The action creates and
+    # boots its own AVD, so no custom avdmanager step is needed here.
     needs: bundle
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -168,21 +169,6 @@ jobs:
         run: |
           set -o pipefail
           gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee -a matrix-build.log
-
-      - uses: actions/cache@v4
-        id: avd-cache
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-${{ matrix.api }}-${{ matrix.target }}
-
-      - name: Create AVD
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        run: |
-          echo "no" | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
-            -n guestvault -k "system-images;android-${{ matrix.api }};${{ matrix.target }};x86_64" \
-            -d "${{ matrix.profile }}" --force
 
       - name: Enable KVM
         run: |
