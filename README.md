@@ -287,25 +287,17 @@ Ranked against the competition in [`docs/COMPETITORS.md`](docs/COMPETITORS.md).
 
 ## 🏪 Google Play readiness
 
-> **Status: code is ready; two human steps remain.**
+> **Status: signed, published, ready to upload. One human step remains.**
 >
-> 1. **Play developer account** — not created yet. Start at
+> ✅ **Upload key created** — the four `UPLOAD_*` secrets are set and
+>    [`v1.1.1`](https://github.com/Jacinth-19/GuestVault/releases/tag/v1.1.1) shipped a
+>    **release-signed** `GuestVault-1.1.1.aab` (5.1 MB). Play accepts it as-is.
+>    Back up `~/upload-keystore.jks` **and** its `.credentials.txt`; neither can be committed.
+>
+> ⏳ **Play developer account** — not created yet, and it gates everything else. Start at
 >    <https://play.google.com/console/signup> ($25 one-time, identity verification takes 1–3 days).
 >    A new personal account then needs **12 testers for 14 continuous days** of closed
 >    testing before Production is unlocked — start that clock as soon as the account verifies.
-> 2. **Upload key** — not created yet, so releases publish sideloadable APKs but
->    **withhold the `.aab`** (Play rejects debug-signed bundles). One command, no laptop
->    needed — in a Codespace:
->
->    ```bash
->    bash scripts/play/create-upload-key.sh
->    ```
->
->    It generates the keystore, stores the four `UPLOAD_*` secrets, and verifies them.
->    You only press Enter for a generated password and approve one device-code sign-in
->    (`github.com/login/device`) — a Codespace token can read secrets but not write them.
->    Back up `~/upload-keystore.jks` **and** its `.credentials.txt`; neither file can
->    be committed.
 >
 > Everything else — listing copy, graphics, privacy policy, data-safety answers,
 > foreground-service declaration and the review checklist — is written out in
@@ -324,6 +316,7 @@ The app is prepared for a Play submission, and every claim here is checked in CI
 | Privacy policy | <https://jacinth-19.github.io/GuestVault/privacy.html> |
 
 - 📱 [**Play Console walkthrough**](docs/PLAY_CONSOLE.md) — account → listing → closed testing → production
+- 🧠 [**App-build prompt**](docs/APP_BUILD_PROMPT.md) — the model-agnostic method behind this repo, reusable for any app
 - 🔍 [**Play review**](docs/PLAY_REVIEW.md) — what a reviewer would reject, and what changed
 - 🔐 [**Security audit**](docs/SECURITY_AUDIT.md) — guest-escape analysis and residual risk
 - 🥇 [**Competitors**](docs/COMPETITORS.md) — feature matrix and ranked roadmap
