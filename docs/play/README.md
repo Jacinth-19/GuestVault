@@ -4,7 +4,7 @@
 |---|---|---|
 | `icon-512.png` | App icon | 512×512, 32-bit PNG, alpha allowed, ≤ 1 MB |
 | `feature-graphic.png` | Feature graphic | exactly 1024×500, no alpha |
-| `screenshots/01…08.png` | Phone screenshots | 1200×2400 (2:1), no alpha, 2–8 files |
+| `screenshots/01…08.png` | Phone screenshots | 1080×2160 (2:1), no alpha, 2–8 files |
 
 Everything here is generated, not hand-edited:
 
@@ -17,11 +17,12 @@ python3 scripts/ci/validate_store_assets.py
 The **Play Readiness** workflow runs the validator on every push, so a screenshot that is
 regenerated at the wrong aspect ratio fails CI instead of the store submission.
 
-## Why the screenshots are padded, not cropped
+## Why the screenshots are trimmed, not padded
 
-The emulator captures are 1080×2400 (2.22:1). Play rejects anything above 2:1. Cropping would
-cut the PIN pad and the bottom CTA, so the generator scales to 2400 px tall and centres the
-result on a 1200×2400 brand-coloured canvas. No UI is lost and the status bar stays intact.
+The emulator captures are 1080×2400 (2.22:1) and Play rejects anything above 2:1. The generator
+removes the same number of pixels from the top and the bottom — which is exactly the status bar
+and the gesture bar — leaving 1080×2160 of pure app UI. No screen element is lost, and there is
+no letterboxing that would read as a device frame.
 
 ## Signing
 

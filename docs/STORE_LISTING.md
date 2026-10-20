@@ -113,7 +113,7 @@ GuestVault requires Android 10 or newer. It is open source under the MIT licence
 |---|---|---|
 | App icon | `docs/play/icon-512.png` | 512×512, 32-bit PNG, 38 KB |
 | Feature graphic | `docs/play/feature-graphic.png` | 1024×500, no alpha |
-| Phone screenshots | `docs/play/screenshots/*.png` | 8 × 1200×2400 (exactly 2:1) |
+| Phone screenshots | `docs/play/screenshots/*.png` | 8 × 1080×2160 (exactly 2:1) |
 | Promo video | `docs/media/walkthrough.mp4` → upload to YouTube | 94 s, unlisted is fine |
 
 Suggested screenshot order (the files are already prefixed 01–08 in visual order):
