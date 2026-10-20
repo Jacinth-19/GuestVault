@@ -4,15 +4,15 @@ name: Publish privacy policy
 # single self-contained page (no JS, no trackers), so GitHub Pages can serve it
 # straight from the repository.
 #
-# One-time setup: Settings → Pages → Source: "GitHub Actions".
+# One-time setup (required, ~30 seconds):
+#   Settings → Pages → Build and deployment → Source: **GitHub Actions**
 # Resulting URL: https://<owner>.github.io/GuestVault/privacy.html
+#
+# This workflow does not run on push, so a repository that has not enabled Pages
+# yet never shows a red check on `main`. Start it manually from the Actions tab
+# after flipping the setting.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'docs/privacy.html'
-      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -34,6 +34,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Pages cannot be enabled by a workflow token. Check first and give the
+      # owner the exact click path instead of failing with an opaque API error.
+      - name: Check that Pages is enabled
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/pages" >/dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::GitHub Pages is not enabled. Go to Settings → Pages → Source: GitHub Actions, then re-run this workflow."
+          fi
+
       - name: Prepare the site
         run: |
           mkdir -p site
@@ -47,13 +61,16 @@ jobs:
           HTML
 
       - name: Configure Pages
+        if: steps.pages.outputs.enabled == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload the site
+        if: steps.pages.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
       - name: Deploy
+        if: steps.pages.outputs.enabled == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
