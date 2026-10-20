@@ -47,7 +47,10 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
+          # Manual runs pass a plain version ("1.0.0"); tag runs look like "v1.0.1".
           VERSION="${{ inputs.version || github.ref_name }}"
+          VERSION="${VERSION#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           cp app/build/outputs/apk/release/app-release.apk "release-assets/GuestVault-${VERSION}.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "release-assets/GuestVault-${VERSION}-debug.apk"
           ls -lh release-assets
@@ -57,18 +60,18 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
-          name: GuestVault ${{ inputs.version || github.ref_name }}
+          name: GuestVault ${{ env.VERSION }}
           prerelease: ${{ inputs.prerelease || false }}
           generate_release_notes: true
           body: |
-            ## GuestVault ${{ inputs.version || github.ref_name }}
+            ## GuestVault ${{ env.VERSION }}
 
             **Borrow my phone. Keep your privacy.**
 
             Installable Android build produced by GitHub Actions.
 
             ### Install
-            1. Download `GuestVault-${{ inputs.version || github.ref_name }}.apk` below.
+            1. Download `GuestVault-${{ env.VERSION }}.apk` below.
             2. On the phone, allow installing from this source when prompted.
             3. Open GuestVault, finish onboarding, and set a 4-digit owner PIN.
             4. Pick the apps a guest may use → **Start Guest Session**.
