@@ -1,6 +1,7 @@
 package com.guestvault
 
 import android.content.Context
+import android.os.Bundle
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -57,6 +58,7 @@ class GuestVaultFlowTest {
 
     @Test
     fun ownerLendsPhoneToGuestAndReturns() {
+        step("launch")
         launchApp()
 
         val firstScreen = waitForAny(
@@ -153,6 +155,7 @@ class GuestVaultFlowTest {
         Thread.sleep(2_800)
         shot("15-dashboard-dark.png")
 
+        step("open about")
         if (scrollToText("Learn more")) {
             tapText("Learn more")
             if (waitFor("What needs system access", 12_000)) {
@@ -160,10 +163,15 @@ class GuestVaultFlowTest {
                 shot("16-about-dark.png")
                 tapDesc("Back")
                 Thread.sleep(800)
+            } else {
+                step("about screen not reached")
             }
+        } else {
+            step("learn more not found")
         }
         shell("cmd uimode night no")
         Thread.sleep(1_500)
+        step("done")
     }
 
     // ------------------------------------------------------------------ steps
@@ -230,6 +238,16 @@ class GuestVaultFlowTest {
     }
 
     // ---------------------------------------------------------------- helpers
+
+    /** Reports progress so CI logs show exactly which step ran. */
+    private fun step(name: String) {
+        runCatching {
+            InstrumentationRegistry.getInstrumentation().sendStatus(
+                2,
+                Bundle().apply { putString("guestvault-step", name) }
+            )
+        }
+    }
 
     private fun shell(command: String): String =
         runCatching { device.executeShellCommand(command) }.getOrDefault("")

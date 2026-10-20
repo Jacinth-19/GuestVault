@@ -70,6 +70,9 @@ jobs:
             set +e
             bash scripts/ci/emulator-walkthrough.sh > emulator.log 2>&1
             STATUS=$?
+            if [ "$STATUS" -ne 0 ]; then
+              echo "TEST_FAILED=true" >> "$GITHUB_ENV"
+            fi
             echo "=== emulator.log (tail) ==="
             tail -n 140 emulator.log
             exit $STATUS
@@ -85,6 +88,12 @@ jobs:
             cp walkthrough.mp4 docs/media/walkthrough.mp4
           fi
           ls -la docs/media || true
+
+      - name: Report incomplete media
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/report_media.py
 
       - name: Build the GIF preview
         if: always()
