@@ -38,9 +38,11 @@ adb shell rm -f /sdcard/Download/walkthrough.mp4
 adb logcat -c || true
 
 echo "== start screen recording =="
-adb shell screenrecord --size 720x1600 --bit-rate 4000000 --time-limit 240 \
-  /sdcard/Download/walkthrough.mp4 &
-sleep 3
+# Started device-side (not as a local background adb client) so the CI action's
+# cleanup never trips over a lingering process on the runner.
+adb shell "screenrecord --size 720x1600 --bit-rate 4000000 --time-limit 240 \
+  /sdcard/Download/walkthrough.mp4 >/dev/null 2>&1 &" || true
+sleep 4
 
 echo "== run instrumentation =="
 timeout 900 adb shell am instrument -w -r \
@@ -51,7 +53,8 @@ echo "instrumentation exit code: $TEST_STATUS"
 
 echo "== stop recording =="
 adb shell 'pidof screenrecord | xargs -r kill -2' || true
-sleep 6
+sleep 8
+adb shell 'pidof screenrecord' || true
 
 echo "== collect artifacts =="
 adb pull /sdcard/Download/walkthrough.mp4 walkthrough.mp4 || true
