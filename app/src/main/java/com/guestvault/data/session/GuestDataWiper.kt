@@ -1,9 +1,11 @@
 package com.guestvault.data.session
 
 import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.guestvault.core.GuestDeviceAdmin
 import com.guestvault.domain.model.WipeResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -63,13 +65,14 @@ class GuestDataWiper @Inject constructor(
         val devicePolicyManager = context.getSystemService(DevicePolicyManager::class.java)
         if (devicePolicyManager?.isDeviceOwnerApp(context.packageName) == true) {
             clearedByOwner = true
+            val admin = ComponentName(context, GuestDeviceAdmin::class.java)
             val executor = ContextCompat.getMainExecutor(context)
             packages.forEach { packageName ->
                 runCatching {
                     val listener = DevicePolicyManager.OnClearApplicationUserDataListener { _, success ->
                         Log.i(TAG, "Device-owner data clear for $packageName: $success")
                     }
-                    devicePolicyManager.clearApplicationUserData(packageName, executor, listener)
+                    devicePolicyManager.clearApplicationUserData(admin, packageName, executor, listener)
                 }.onFailure { Log.w(TAG, "Device-owner wipe failed for $packageName", it) }
             }
         }

@@ -47,6 +47,21 @@
             android:taskAffinity="com.guestvault.guest"
             android:theme="@style/Theme.GuestVault" />
 
+        <!-- Optional Device Owner provisioning (advanced, see README). -->
+        <receiver
+            android:name=".core.GuestDeviceAdmin"
+            android:description="@string/device_admin_description"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Keeps the session alive (and enforces the optional timer) even if the
              guest swipes GuestVault away from recents. -->
         <service
