@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Fails the build if a Play-policy-sensitive permission creeps back in.
 
-Reads `aapt2 dump permissions` output (or the merged manifest) and asserts the
-shipping build only declares the four permissions the store listing documents:
+Reads the merged release manifest (XML) or `aapt2 dump permissions` output and
+asserts the shipping build only declares the permissions the listing documents:
 
     POST_NOTIFICATIONS, FOREGROUND_SERVICE, FOREGROUND_SERVICE_SPECIAL_USE,
     USE_BIOMETRIC, RECEIVE_BOOT_COMPLETED
@@ -53,9 +53,21 @@ FORBIDDEN = {
 }
 
 
+def permissions_from_xml(text: str) -> set[str]:
+    """Only real <uses-permission> declarations, not comments or metadata."""
+    found: set[str] = set()
+    for element in re.findall(r"<uses-permission[^>]*>", text):
+        name = re.search(r'android:name="([^"]+)"', element)
+        if name:
+            found.add(name.group(1))
+    return found
+
+
 def main(path: str) -> int:
     text = open(path, encoding="utf-8", errors="replace").read()
-    declared = set(re.findall(r"android\.permission\.[A-Z0-9_]+", text))
+    declared = permissions_from_xml(text) if text.lstrip().startswith("<") else set(
+        re.findall(r"android\.permission\.[A-Z0-9_]+", text)
+    )
 
     failures: list[str] = []
 
@@ -66,6 +78,10 @@ def main(path: str) -> int:
     for permission in sorted(REQUIRED):
         if permission not in declared:
             failures.append(f"documented permission is missing: {permission}")
+
+    # The receiver must be gone entirely, not merely unreferenced by a permission.
+    if "device_admin" in text or "DeviceAdminReceiver" in text:
+        failures.append("the manifest still references Device Administration")
 
     print("Declared permissions:")
     for permission in sorted(declared):

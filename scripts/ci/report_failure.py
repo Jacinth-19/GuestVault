@@ -48,7 +48,7 @@ def main() -> int:
         body = "### CI failure\n\n" + "\n\n".join(sections)
 
     body = body[:MAX_TOTAL]
-    pathlib.Path("comment.json").write_text(json.dumps({"body": body}))
+    pathlib.Path("comment.md").write_text(body)
 
     repo = os.environ.get("GITHUB_REPOSITORY", "")
     sha = os.environ.get("GITHUB_SHA", "")
@@ -57,9 +57,21 @@ def main() -> int:
         print(body)
         return 0
 
-    # `gh` reads GH_TOKEN / GITHUB_TOKEN from the environment.
-    result = subprocess.run(
-        [
+    # On a pull request GITHUB_SHA points at the synthetic merge commit, which
+    # nobody watches; comment on the PR instead.
+    pr_number = None
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if os.environ.get("GITHUB_EVENT_NAME") == "pull_request" and event_path:
+        try:
+            payload = json.loads(pathlib.Path(event_path).read_text())
+            pr_number = (payload.get("pull_request") or {}).get("number") or payload.get("number")
+        except (OSError, ValueError):
+            pr_number = None
+
+    if pr_number:
+        command = ["gh", "pr", "comment", str(pr_number), "--body-file", "comment.md"]
+    else:
+        command = [
             "gh",
             "api",
             "-X",
@@ -67,10 +79,11 @@ def main() -> int:
             f"repos/{repo}/commits/{sha}/comments",
             "--input",
             "comment.json",
-        ],
-        capture_output=True,
-        text=True,
-    )
+        ]
+        pathlib.Path("comment.json").write_text(json.dumps({"body": body}))
+
+    # `gh` reads GH_TOKEN / GITHUB_TOKEN from the environment.
+    result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
         print("Could not post the commit comment:", result.stderr, file=sys.stderr)
         print(body)

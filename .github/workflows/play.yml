@@ -86,21 +86,24 @@ jobs:
             app/build/reports/lint-results-release.xml
           if-no-files-found: ignore
 
-      # Merged-manifest checks that plain grep cannot do (flavour merges, tooling
-      # that re-adds a permission). A small Python script keeps this dependency
-      # free: `aapt2` ships with the Android SDK already on the runner.
+      # Checks the *merged* release manifest, which is what ships. Parsing the
+      # build output directly avoids depending on aapt2 or a second APK build.
       - name: Assert the shipping manifest is Play-safe
         run: |
-          set -o pipefail
-          APK=$(ls app/build/outputs/apk/release/*.apk 2>/dev/null | head -1)
-          if [ -z "$APK" ]; then
-            gradle --no-daemon :app:assembleRelease 2>&1 | tail -20
-            APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          MANIFEST=$(find app/build/intermediates -path '*release*' -name AndroidManifest.xml \
+            -newer app/build.gradle.kts 2>/dev/null | grep -i merge | head -1)
+          if [ -z "$MANIFEST" ]; then
+            MANIFEST=$(find app/build/intermediates -path '*release*' -name AndroidManifest.xml | grep -i merge | head -1)
           fi
-          AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
-          "$AAPT2" dump permissions "$APK" > permissions.txt 2>&1 || true
-          cat permissions.txt
-          python3 scripts/ci/assert_play_manifest.py permissions.txt
+          echo "merged manifest: $MANIFEST"
+          cp "$MANIFEST" permissions-manifest.xml
+          python3 scripts/ci/assert_play_manifest.py permissions-manifest.xml
+
+      - name: Dump packaging metadata
+        if: always()
+        run: |
+          ls -la app/build/outputs/bundle/release/ || true
+          unzip -l app/build/outputs/bundle/release/*.aab | head -20 || true
 
       - name: Validate store graphics
         run: |
