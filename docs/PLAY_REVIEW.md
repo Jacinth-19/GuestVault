@@ -8,7 +8,7 @@ repository at the time of writing, not against the README.
 | `targetSdk` / `compileSdk` | 35 | **36** (Play blocks API < 36 submissions since 31 Aug 2026) |
 | Device Admin receiver | declared, `BIND_DEVICE_ADMIN` | **removed** |
 | FGS declaration | `specialUse`, subtype `guest_session_timer` | reworded, declaration text in [`STORE_LISTING.md`](STORE_LISTING.md) |
-| Release artifact | APK only | **AAB** (`bundleRelease`) + APK for sideloading |
+| Release artifact | APK only | **AAB** (`bundleRelease`), release-signed, + APK for sideloading |
 | Privacy policy | dialog inside the app only | public page + in-app link |
 | In-app permission disclosure | none | **Permissions & privacy** screen |
 | Lock-screen screenshots | possible | `FLAG_SECURE` on shipping builds |
@@ -182,6 +182,7 @@ Measured on this branch, not asserted:
 | `:app:lintRelease` with zero errors | pass — the only error was `StartActivityAndCollapseDeprecated`, fixed with a justified suppression for the pre-Android-14 overload |
 | Merged-manifest assertion (no Device Admin / internet / storage / contacts / location) | pass |
 | Store graphics validation | pass — icon 512² RGBA 38 KB, feature graphic 1024×500 RGB 75 KB, 8 screenshots 1080×2160 |
+| Upload-key signing gate | wired in — the bundle is verified with `keytool -printcert` and withheld if it is debug-signed (Play rejects those at upload) |
 | Guest walkthrough on **API 29** | pass (3m54s) |
 | Guest walkthrough on **API 34** | pass (4m52s) |
 | Guest walkthrough on **API 35** | pass (3m56s) |

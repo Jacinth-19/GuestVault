@@ -23,6 +23,25 @@ adb shell getprop ro.build.version.sdk || true
 adb shell wm size || true
 adb shell wm density || true
 
+# The Android system server occasionally OOMs on the lighter system images and
+# never publishes `package`/`window`/`input`, which makes every later adb command
+# fail with a misleading error. Wait for it explicitly so the log says what broke.
+echo "== wait for the system server =="
+SYSTEM_READY=0
+for i in $(seq 1 60); do
+  if adb shell pm path android >/dev/null 2>&1; then
+    SYSTEM_READY=1
+    echo "package service ready after $((i * 2))s"
+    break
+  fi
+  sleep 2
+done
+if [ "$SYSTEM_READY" -ne 1 ]; then
+  echo "EMULATOR UNHEALTHY: the Android system server never started (out of memory?)."
+  adb logcat -d -b crash -v brief 2>/dev/null | tail -40 || true
+  exit 1
+fi
+
 echo "== system settings =="
 adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
