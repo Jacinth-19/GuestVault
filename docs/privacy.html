@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GuestVault — Privacy Policy</title>
+<meta name="description" content="GuestVault privacy policy: no account, no analytics, no internet permission. Everything stays on your device.">
+<style>
+  :root {
+    --indigo: #312e81;
+    --indigo-soft: #e0e7ff;
+    --teal: #0d9488;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #cbd5e1;
+    --surface: #ffffff;
+    --bg: #f8fafc;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header {
+    background: linear-gradient(135deg, #4f46e5 0%, #312e81 55%, #1e1b4b 100%);
+    color: #fff;
+    padding: 56px 24px 44px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+  .mark {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: rgba(255,255,255,.16);
+    display: grid; place-items: center; font-size: 24px;
+  }
+  .brand b { font-size: 19px; letter-spacing: .2px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 10px; letter-spacing: -.5px; }
+  header p { margin: 0; color: rgba(255,255,255,.82); }
+  main { padding: 36px 24px 72px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 26px 28px;
+    margin-bottom: 20px;
+  }
+  h2 { font-size: 19px; margin: 0 0 12px; letter-spacing: -.2px; }
+  h2 .n {
+    display: inline-grid; place-items: center;
+    width: 26px; height: 26px; margin-right: 10px;
+    border-radius: 9px; background: var(--indigo-soft);
+    color: var(--indigo); font-size: 13px; font-weight: 700;
+    vertical-align: 2px;
+  }
+  p, li { color: #1e293b; }
+  ul { padding-left: 22px; margin: 10px 0 0; }
+  li { margin: 6px 0; }
+  .grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 620px) { .grid { grid-template-columns: 1fr; } }
+  .pill {
+    border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px 16px; background: #fff;
+  }
+  .pill strong { display: block; font-size: 14px; margin-bottom: 2px; }
+  .pill span { font-size: 13px; color: var(--muted); }
+  .no strong { color: #b91c1c; }
+  .yes strong { color: var(--teal); }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  code {
+    background: #f1f5f9; border-radius: 6px; padding: 1px 6px;
+    font-size: 13px; color: #334155;
+  }
+  footer { color: var(--muted); font-size: 13px; text-align: center; padding: 0 24px 60px; }
+  a { color: var(--indigo); }
+  .updated {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    background: rgba(255,255,255,.16); border-radius: 999px;
+    padding: 5px 12px; margin-bottom: 18px; letter-spacing: .04em;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">🛡️</div>
+      <b>GuestVault</b>
+    </div>
+    <span class="updated">Last updated 20 October 2026</span>
+    <h1>Privacy Policy</h1>
+    <p>Borrow my phone. Keep your privacy.</p>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+
+    <div class="card">
+      <h2><span class="n">1</span>The short version</h2>
+      <p>
+        GuestVault is a local app. It has <strong>no account, no cloud, no analytics and no
+        advertising</strong>, and it does not request the Android <code>INTERNET</code>
+        permission — so it is technically incapable of sending your data anywhere, even if
+        it wanted to. Everything it stores stays in this app's private storage on your phone,
+        and uninstalling GuestVault deletes all of it.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">2</span>What GuestVault stores — and why</h2>
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Why</th><th>Where</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Owner settings</td>
+            <td>Allow-list, auto-wipe choice, session timer, theme and lock preferences.</td>
+            <td>App-private DataStore file</td>
+          </tr>
+          <tr>
+            <td>PIN verifier</td>
+            <td>A salted PBKDF2 hash of your 4-digit PIN. The PIN itself is never written to disk.</td>
+            <td>Android encrypted preferences (AES-256)</td>
+          </tr>
+          <tr>
+            <td>Unlock attempt counter</td>
+            <td>Makes sure the 5-attempt limit and cool-down survive a restart, so a guest cannot reset them.</td>
+            <td>App-private DataStore file</td>
+          </tr>
+          <tr>
+            <td>Session history</td>
+            <td>Start time, end time, number of allowed apps and how a session ended. Last 50 sessions.</td>
+            <td>App-private DataStore file</td>
+          </tr>
+          <tr>
+            <td>Guest scratch folder</td>
+            <td>Created when a session starts and emptied on exit, so no guest leftovers remain.</td>
+            <td>App-private files directory</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="margin-top:14px;color:var(--muted);font-size:14px">
+        Not stored, ever: what the guest did, which apps the guest opened, keystrokes,
+        screenshots, location, contacts, messages, or any device identifier.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">3</span>Permissions and what they are for</h2>
+      <div class="grid">
+        <div class="pill yes"><strong>Notifications</strong><span>Shows the ongoing “Guest Mode is on” notice and the session timer. Optional.</span></div>
+        <div class="pill yes"><strong>Foreground service</strong><span>Keeps a running session and its timer alive. No runtime prompt.</span></div>
+        <div class="pill yes"><strong>Biometrics</strong><span>Unlocks owner mode. The fingerprint never reaches the app; Android’s Keystore compares it.</span></div>
+        <div class="pill yes"><strong>Start at boot</strong><span>Only closes and wipes a session that was left open when the phone restarted.</span></div>
+        <div class="pill no"><strong>Internet</strong><span>Not requested. No network access, no ads, no telemetry.</span></div>
+        <div class="pill no"><strong>Location</strong><span>Not requested.</span></div>
+        <div class="pill no"><strong>Contacts, SMS, call log</strong><span>Not requested.</span></div>
+        <div class="pill no"><strong>Photos, files, storage</strong><span>Not requested.</span></div>
+        <div class="pill no"><strong>Accessibility service</strong><span>Not requested and never will be.</span></div>
+        <div class="pill no"><strong>Device administrator</strong><span>Not requested.</span></div>
+        <div class="pill no"><strong>Usage access</strong><span>Not requested.</span></div>
+        <div class="pill no"><strong>Query all packages</strong><span>Not requested; only launcher apps are listed.</span></div>
+      </div>
+      <p style="margin-top:16px">
+        The same list, live and animated, is available inside the app under
+        <em>Settings → Permissions &amp; privacy</em>.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">4</span>What GuestVault can and cannot clear after a session</h2>
+      <p>
+        With “auto-wipe” on, GuestVault empties its own cache, its guest scratch folder and
+        any WebView/code-cache it owns. A normal Android app cannot erase other apps' data
+        (their messages, browser history or photo caches) — Android reserves that for the
+        device-owner role, which GuestVault deliberately does not request. Browsing inside an
+        allowed browser is still that browser's data. The app says so in
+        <em>Settings → How GuestVault works</em> instead of pretending otherwise.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">5</span>Children</h2>
+      <p>
+        GuestVault is a tool for adults lending their own phone. It is not directed at
+        children, collects no data from anyone, and contains no ads or purchases.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">6</span>Your control and data deletion</h2>
+      <ul>
+        <li><strong>Delete everything:</strong> uninstall GuestVault, or clear its storage in
+          Android Settings → Apps → GuestVault → Storage. This removes settings, the PIN hash,
+          the attempt counter and all session history instantly.</li>
+        <li><strong>Delete history only:</strong> Settings → Session history → Clear history.</li>
+        <li><strong>Revoke a permission:</strong> Android Settings → Apps → GuestVault →
+          Permissions. The PIN always remains a working way out.</li>
+        <li><strong>No data request is needed:</strong> because no data ever leaves the device,
+          there is nothing for the developer to look up, export or delete on your behalf.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">7</span>Changes and contact</h2>
+      <p>
+        Material changes to this policy will be published on this page and noted in the
+        app's release notes before they take effect. Questions or security reports are
+        welcome through the project's issue tracker:
+        <a href="https://github.com/Jacinth-19/GuestVault/issues">github.com/Jacinth-19/GuestVault/issues</a>.
+      </p>
+      <p style="color:var(--muted);font-size:14px">
+        GuestVault is open source under the MIT licence. The full source — including the
+        proof that no network permission is declared — is public on GitHub.
+      </p>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  GuestVault · com.guestvault · <span id="year">2026</span> · This page works without JavaScript and loads no trackers.
+</footer>
+</body>
+</html>

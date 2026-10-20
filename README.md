@@ -10,7 +10,9 @@ A practical, privacy-first Guest Mode for Android phones that don't ship one.
 
 [![Android CI](https://github.com/Jacinth-19/GuestVault/actions/workflows/android.yml/badge.svg)](https://github.com/Jacinth-19/GuestVault/actions/workflows/android.yml)
 [![Screenshots & Demo](https://github.com/Jacinth-19/GuestVault/actions/workflows/media.yml/badge.svg)](https://github.com/Jacinth-19/GuestVault/actions/workflows/media.yml)
+[![Play Readiness](https://github.com/Jacinth-19/GuestVault/actions/workflows/play.yml/badge.svg)](https://github.com/Jacinth-19/GuestVault/actions/workflows/play.yml)
 ![API](https://img.shields.io/badge/API-29%2B-312E81?style=flat-square)
+![Target](https://img.shields.io/badge/target-Android%2016%20·%20API%2036-0D9488?style=flat-square)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.0-7F52FF?style=flat-square)
 ![Compose](https://img.shields.io/badge/Compose-Material%203-4285F4?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-0D9488?style=flat-square)
@@ -77,6 +79,10 @@ allow-list → session setup → guest home → wrong PIN → unlock → history
 - Allow-list with search, categories, "recommended" and "sensitive" markers
 - Session setup: allowed-app summary, optional timer, auto-wipe, screen pinning
 - Settings: change PIN, biometrics, screen pinning, default timer, theme, history
+- **Permissions & privacy** screen: every permission it holds, and the eight it deliberately
+  never asks for
+- **Quick Settings tile**: start a session (or jump back into a running one) without opening
+  the app
 
 **Guest**
 - A clean, launcher-style home that only shows the apps you approved
@@ -85,12 +91,19 @@ allow-list → session setup → guest home → wrong PIN → unlock → history
 
 **Protection**
 - PIN is stored only as a salted **PBKDF2-SHA256** hash inside `EncryptedSharedPreferences`
-- 5 wrong attempts → 30 second cool-down
-- Optional Android **screen pinning** (`startLockTask`) so Home/Recents can't escape the guest UI
+- 5 wrong attempts start a cool-down that **doubles** (30 s → 60 s → … capped at 15 min) and is
+  persisted, so rotating the device or killing the activity never resets it
+- Optional Android **screen pinning** (`startLockTask`) so Home/Recents can't escape the guest UI,
+  with an explicit warning banner when pinning was declined
+- **Back is always consumed** inside the guest space — it can never finish the guest activity and
+  drop the guest on the real launcher
+- `FLAG_SECURE` on shipping builds: no screenshots, screen recordings or Recents thumbnails of
+  the guest UI or the PIN pad
 - Session is persisted to disk *before* the guest UI opens, so a crash can't "forget" a stranger is holding the phone
 - Foreground service keeps timed sessions running even if the guest swipes the app away
+- A reboot closes and (if auto-wipe is on) clears any session left open
 - Auto-wipe of GuestVault's cache and guest scratch space when a session ends
-- No internet permission, no analytics, no accounts, no backups
+- No internet permission, no analytics, no accounts, no backups, **no Device Administrator**
 
 ## 🖥️ Screens
 
@@ -134,7 +147,7 @@ ordinary-app techniques so the result behaves like a guest profile:
 |---|---|---|
 | Create a real Android guest user | ❌ system permission | Replaced by a restricted launcher |
 | Fully block Home / Recents | ⚠️ only with screen pinning | Offered per session; needs the system confirmation |
-| Read or wipe another app's private data | ❌ | Only when GuestVault is provisioned as **Device Owner** |
+| Read or wipe another app's private data | ❌ | **Not offered.** Device Owner needs provisioning a Play app cannot do, and Device Admin is a Play-policy minefield |
 | Block the notification shade / quick settings | ❌ (needs kiosk/Device Owner) | Documented limitation; pinning reduces the risk |
 | Watch what the guest types or opens | ❌ without an Accessibility Service | **Not implemented on purpose** |
 
@@ -186,10 +199,12 @@ androidx.security (encrypted prefs) · BiometricPrompt · coroutines/Flow · min
 |---|---|
 | [**Android CI**](.github/workflows/android.yml) | Assembles the debug APK, runs JVM unit tests and Android Lint, uploads the APK and reports. |
 | [**Screenshots & Demo Video**](.github/workflows/media.yml) | Boots a Pixel 6 emulator, records the walkthrough with `screenrecord`, runs the UiAutomator end-to-end test and commits fresh screenshots + video to `docs/media`. |
-| [**Release APK**](.github/workflows/release.yml) | Builds the release + debug APKs and publishes them (with the demo media) on a [GitHub Release](https://github.com/Jacinth-19/GuestVault/releases). |
+| [**Play Readiness**](.github/workflows/play.yml) | Builds the **release App Bundle**, runs release lint, asserts the manifest is Play-safe (no Device Admin, no internet, no storage/contacts/location), validates the store graphics, and runs the guest-mode walkthrough on **API 29, 34, 35 and 36**. |
+| [**Release APK**](.github/workflows/release.yml) | Builds the release + debug APKs **and the Play bundle**, and publishes them (with the demo media and store graphics) on a [GitHub Release](https://github.com/Jacinth-19/GuestVault/releases). |
 
 - **Unit tests** (`app/src/test`): PIN hashing (round-trip, salt uniqueness, tamper rejection),
-  session timer math, history model, formatters.
+  session timer math, history model, formatters, and the lockout escalation policy
+  (5 attempts → 30 s, doubling to a 15-minute cap, counter surviving a cool-down).
 - **Instrumented E2E** (`GuestVaultFlowTest`): onboarding → PIN creation → dashboard → settings →
   allow-list → session setup → guest home → wrong PIN → correct PIN → dashboard history → dark mode.
   The same test captures every screenshot in this README, and the flow is recorded to
@@ -231,12 +246,18 @@ cd GuestVault
 ```
 
 > The Gradle wrapper jar is binary, so CI bootstraps it on the first run with
-> `gradle wrapper --gradle-version 8.10.2` and commits it back to the branch automatically.
+> `gradle wrapper --gradle-version 8.11.1` and commits it back to the branch automatically.
 > If it is missing in your checkout, run that same command once (or download the
-> `gradle-wrapper` artifact from the latest Android CI run). Everything else — AGP 8.7,
+> `gradle-wrapper` artifact from the latest Android CI run). Everything else — AGP 8.9,
 > Kotlin 2.0, Compose BOM, Hilt — is pinned in `gradle/libs.versions.toml`.
 
-**Requirements:** JDK 17, Android SDK 35, a device or emulator on Android 10+ (API 29).
+Building the Play bundle:
+
+```bash
+./gradlew :app:bundleRelease     # app/build/outputs/bundle/release/app-release.aab
+```
+
+**Requirements:** JDK 17, Android SDK 36, a device or emulator on Android 10+ (API 29).
 
 ## 🔒 Privacy
 
@@ -244,17 +265,43 @@ cd GuestVault
 - Settings and the PIN hash stay in app-private storage; `android:allowBackup="false"`.
 - Session history stores *when* a session ran, how many apps were allowed and *how it ended* —
   never what the guest opened or typed.
-- Auto-wipe clears GuestVault's own cache and scratch directory. Other apps' data can only be
-  cleared when GuestVault is Device Owner.
-- Full text: Settings → Privacy policy (also available in `core/LegalText.kt`).
+- Auto-wipe clears GuestVault's own cache and scratch directory. Other apps' data cannot be
+  cleared by a normal app, and GuestVault does not request the Device Administrator role that
+  would be needed on managed devices.
+- Full text: [docs/privacy.html](docs/privacy.html) (published via GitHub Pages) and
+  Settings → Privacy policy.
+- Permission-by-permission disclosure: Settings → **Permissions & privacy**, or the same table
+  in the privacy policy.
 
 ## 🗺️ Roadmap
 
-- [ ] Device Owner provisioning helper for true per-app data wipes
-- [ ] Multiple guest profiles
-- [ ] Quick Settings tile to start a session
-- [ ] Optional emergency unlock code
-- [ ] Per-session app time limits
+- [x] Quick Settings tile to start a session
+- [ ] Website allow-list / built-in safe browser
+- [ ] Per-app and daily time budgets, plus schedules
+- [ ] Multiple named guest profiles ("Mum", "the kids")
+- [ ] Intruder photo after repeated failed unlocks
+- [ ] Optional 6-digit PIN
+- [ ] Emergency unlock code
+
+Ranked against the competition in [`docs/COMPETITORS.md`](docs/COMPETITORS.md).
+
+## 🏪 Google Play readiness
+
+The app is prepared for a Play submission, and every claim here is checked in CI:
+
+| | |
+|---|---|
+| Target | `compileSdk`/`targetSdk` **36** (Play's floor since 31 Aug 2026) |
+| Artifact | signed **AAB** from `:app:bundleRelease` |
+| Permissions | `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE(_SPECIAL_USE)`, `USE_BIOMETRIC`, `RECEIVE_BOOT_COMPLETED` — **no** internet, storage, location, contacts, SMS, device-admin or accessibility |
+| Store graphics | 512² icon, 1024×500 feature graphic, 8 screenshots at 1200×2400 — validated on every push |
+| Policy | Device Administration removed, FGS declared as `specialUse`, privacy policy published |
+
+- 🔍 [**Play review**](docs/PLAY_REVIEW.md) — what a reviewer would reject, and what changed
+- 🔐 [**Security audit**](docs/SECURITY_AUDIT.md) — guest-escape analysis and residual risk
+- 🥇 [**Competitors**](docs/COMPETITORS.md) — feature matrix and ranked roadmap
+- 🏪 [**Store listing**](docs/STORE_LISTING.md) — copy-paste listing text and console answers
+- 🎨 [**Listing assets**](docs/play/) — icon, feature graphic and screenshots
 
 ## 📄 License
 

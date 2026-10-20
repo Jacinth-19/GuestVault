@@ -1,0 +1,216 @@
+name: Play Readiness
+
+# Guards everything Google Play rejects an app for at submission time:
+#   * an Android App Bundle that actually builds and is signed
+#   * release lint with zero errors
+#   * a manifest that never regains the Device Admin receiver
+#   * store graphics that satisfy Play's dimension / alpha rules
+#   * the instrumented guest-mode walkthrough on several API levels
+#
+# Runs on every push, so a regression is caught long before a release tag.
+
+on:
+  push:
+    branches: [main, 'arena/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: play-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bundle:
+    name: Release bundle, lint & policy manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Bootstrap Gradle wrapper
+        run: |
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            gradle wrapper --gradle-version 8.11.1 --distribution-type bin
+          fi
+
+      - name: Build the app bundle
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:bundleRelease 2>&1 | tee play-build.log
+
+      - name: Lint the release variant
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:lintRelease 2>&1 | tee -a play-build.log
+
+      # `lint { abortOnError = false }` keeps warnings out of the way of hotfix
+      # builds; this step is the explicit gate that still refuses real errors.
+      - name: Fail on lint errors
+        run: python3 scripts/ci/check_lint.py app/build/reports/lint-results-release.xml
+
+      - name: Upload release bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guestvault-release-bundle
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: warn
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guestvault-lint-release
+          path: |
+            app/build/reports/lint-results-release.html
+            app/build/reports/lint-results-release.xml
+          if-no-files-found: ignore
+
+      # Merged-manifest checks that plain grep cannot do (flavour merges, tooling
+      # that re-adds a permission). A small Python script keeps this dependency
+      # free: `aapt2` ships with the Android SDK already on the runner.
+      - name: Assert the shipping manifest is Play-safe
+        run: |
+          set -o pipefail
+          APK=$(ls app/build/outputs/apk/release/*.apk 2>/dev/null | head -1)
+          if [ -z "$APK" ]; then
+            gradle --no-daemon :app:assembleRelease 2>&1 | tail -20
+            APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          fi
+          AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          "$AAPT2" dump permissions "$APK" > permissions.txt 2>&1 || true
+          cat permissions.txt
+          python3 scripts/ci/assert_play_manifest.py permissions.txt
+
+      - name: Validate store graphics
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 scripts/ci/validate_store_assets.py
+
+      - name: Report failure details
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/report_failure.py
+
+  instrumented:
+    name: Guest-mode walkthrough (API ${{ matrix.api }})
+    # The emulator is only worth the minutes once the build is known-good, and a
+    # PR does not need the full matrix on every push.
+    needs: bundle
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 29
+            target: google_apis
+            profile: pixel_2
+          - api: 34
+            target: google_apis
+            profile: pixel_6
+          - api: 35
+            target: google_apis
+            profile: pixel_6
+          - api: 36
+            target: google_apis
+            profile: pixel_6
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Bootstrap Gradle wrapper
+        run: |
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            gradle wrapper --gradle-version 8.11.1 --distribution-type bin
+          fi
+
+      - name: Build debug + test APKs
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee -a matrix-build.log
+
+      - uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ matrix.api }}-${{ matrix.target }}
+
+      - name: Create AVD
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        run: |
+          echo "no" | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
+            -n guestvault -k "system-images;android-${{ matrix.api }};${{ matrix.target }};x86_64" \
+            -d "${{ matrix.profile }}" --force
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the instrumented walkthrough
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: ${{ matrix.target }}
+          arch: x86_64
+          profile: ${{ matrix.profile }}
+          avd-name: guestvault
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-snapshot-save
+          script: |
+            adb install -r -t app/build/outputs/apk/debug/app-debug.apk
+            adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell pm grant com.guestvault android.permission.POST_NOTIFICATIONS || true
+            adb shell am instrument -w -r \
+              -e class com.guestvault.GuestVaultFlowTest \
+              com.guestvault.test/androidx.test.runner.AndroidJUnitRunner
+
+      - name: Upload instrumentation output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumentation-api-${{ matrix.api }}
+          path: |
+            matrix-build.log
+          if-no-files-found: ignore
+
+      - name: Report failure details
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/report_failure.py
