@@ -187,12 +187,17 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-snapshot-save
           script: |
-            adb install -r -t app/build/outputs/apk/debug/app-debug.apk
-            adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell pm grant com.guestvault android.permission.POST_NOTIFICATIONS || true
-            adb shell am instrument -w -r \
-              -e class com.guestvault.GuestVaultFlowTest \
-              com.guestvault.test/androidx.test.runner.AndroidJUnitRunner
+            set -uo pipefail
+            {
+              adb shell getprop ro.build.version.sdk
+              adb install -r -t app/build/outputs/apk/debug/app-debug.apk
+              adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+              adb shell pm grant com.guestvault android.permission.POST_NOTIFICATIONS || true
+              adb shell am instrument -w -r \
+                -e class com.guestvault.GuestVaultFlowTest \
+                com.guestvault.test/androidx.test.runner.AndroidJUnitRunner
+            } 2>&1 | tee emulator-matrix.log
+            exit ${PIPESTATUS[0]}
 
       - name: Upload instrumentation output
         if: always()
@@ -201,6 +206,7 @@ jobs:
           name: instrumentation-api-${{ matrix.api }}
           path: |
             matrix-build.log
+            emulator-matrix.log
           if-no-files-found: ignore
 
       - name: Report failure details
