@@ -63,7 +63,7 @@ class GuestVaultFlowTest {
             "Skip",
             "Create your owner PIN",
             "Start Guest Session",
-            "Resume Guest Mode",
+            "Welcome to Guest Mode",
             timeout = 45_000
         )
         assertNotNull("App never reached a known screen", firstScreen)
@@ -76,10 +76,9 @@ class GuestVaultFlowTest {
 
             "Create your owner PIN" -> createPin()
 
-            "Resume Guest Mode" -> {
-                // A previous run left a session open: close it first.
-                tapText("Resume Guest Mode")
-                assertTrue(waitFor("Welcome to Guest Mode", 25_000))
+            "Welcome to Guest Mode" -> {
+                // A previous run left a session open, so the app opened
+                // straight into the restricted guest home: unlock it first.
                 tapText("Return to Owner")
                 unlockWithPin()
                 assertTrue(waitFor("Start Guest Session", 30_000))

@@ -337,6 +337,17 @@ fun GuestHomeScreen(
                                 GuestAppTile(app = app, onClick = { onLaunchApp(app.packageName) })
                             }
                         }
+
+                        Text(
+                            text = "Only the apps your host approved appear here. " +
+                                "Everything else on this phone stays private.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
                     }
 
                     Spacer(Modifier.height(10.dp))

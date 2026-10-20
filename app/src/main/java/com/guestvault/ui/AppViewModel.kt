@@ -24,15 +24,30 @@ class AppViewModel @Inject constructor(
     private val pinRepository: PinRepository
 ) : ViewModel() {
 
-    val themeMode: StateFlow<ThemeMode> = observeSettings()
-        .map { it.themeMode }
+    private val settings = observeSettings()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    val themeMode: StateFlow<ThemeMode> = settings
+        .map { it?.themeMode ?: ThemeMode.SYSTEM }
         .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
+
+    /**
+     * True while a guest session is running.
+     *
+     * The owner UI is never shown while this is true: if anyone launches
+     * GuestVault from the launcher during a session, MainActivity immediately
+     * hands over to the restricted guest home. Ending a session always requires
+     * the owner PIN / biometrics first.
+     */
+    val sessionActive: StateFlow<Boolean> = settings
+        .map { it?.activeSession != null }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /** Decides where the splash screen should send the user. */
     suspend fun startState(): AppStartState {
-        val settings = observeSettings().first()
+        val current = settings.first()
         return AppStartState(
-            onboardingCompleted = settings.onboardingCompleted,
+            onboardingCompleted = current?.onboardingCompleted == true,
             pinSet = pinRepository.isPinSet()
         )
     }
