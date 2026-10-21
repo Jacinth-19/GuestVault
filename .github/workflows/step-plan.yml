@@ -105,6 +105,7 @@ jobs:
           path: |
             build/step-results.jsonl
             build/phase-log.md
+            build/verdict-count.txt
             step-plan.log
             step-plan-build.log
             build/logcat/*.txt
@@ -112,10 +113,18 @@ jobs:
           if-no-files-found: warn
 
       - name: Report failure details
-        if: failure()
+        if: failure() || success()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/ci/report_failure.py
+          GROUP: ${{ matrix.group }}
+        run: |
+          count="$(cat build/verdict-count.txt 2>/dev/null || echo 0)"
+          if [ "$count" -gt 0 ]; then
+            echo "group $GROUP reported $count verdicts"
+            exit 0
+          fi
+          echo "::error::group $GROUP produced no verdicts"
+          python3 scripts/ci/report_failure.py
 
   report:
     name: Verdict table
@@ -149,7 +158,12 @@ jobs:
         run: |
           missing=0
           for dir in merged/*/; do
-            count="$(cat "$dir/build/verdict-count.txt" 2>/dev/null || echo 0)"
+            # Fall back to the results file itself, so an artifact from an older
+            # run (no counter) is still graded, not skipped.
+            count="$(cat "$dir/build/verdict-count.txt" 2>/dev/null || echo "")"
+            if [ -z "$count" ]; then
+              count="$(grep -c '^{' "$dir/build/step-results.jsonl" 2>/dev/null || echo 0)"
+            fi
             echo "$(basename "$dir"): ${count} verdict(s)"
             if [ "$count" -eq 0 ]; then
               echo "::error::$(basename "$dir") produced no verdicts — that emulator run never executed the plan"
@@ -161,6 +175,7 @@ jobs:
           fi
 
       - name: Grade the plan
+        if: always()
         run: |
           python3 scripts/ci/step_report.py \
             --manifest scripts/ci/step-plan.json \
