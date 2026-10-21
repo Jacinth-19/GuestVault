@@ -43,7 +43,10 @@ run_phase() {
     | tail -n 2 | tr '\n' ' ' | cut -c1-260)"
   local focus crash
   focus="$(adb shell dumpsys window 2>/dev/null | grep -m1 -E "mCurrentFocus|mFocusedApp" | tr -d '\r' | cut -c1-110)"
-  crash="$(adb shell logcat -d -b crash -t 80 2>/dev/null | grep -E "FATAL EXCEPTION|com.guestvault" | tail -n 2 | tr '\n' ' ' | cut -c1-240)"
+  # A crash line on its own is useless: keep the exception and its first frame.
+  crash="$(adb shell logcat -d -b crash -t 120 2>/dev/null \
+    | awk '/FATAL EXCEPTION/{flag=1; count=0} flag{print; count++} count>3{flag=0}' \
+    | tr -d '\r' | tr '\n' ' ' | cut -c1-320)"
   printf '| %s | %s | %s | %s | %s |\n' "$name" "$status" "$device" "${focus:-?}" "${summary:-${crash:-no error line}}" >> "$PHASES"
   echo "$out" | tail -n 10
   # Pull before the next host action can wipe the app's data directory.
@@ -194,6 +197,12 @@ done 3< <(python3 scripts/ci/plan_ops.py "$MANIFEST" ${PLAN_GROUP:+--group "$PLA
 
 echo "== verdicts =="
 cat "$RAW" || true
+VERDICT_COUNT="$(grep -c '^{' "$RAW" 2>/dev/null || echo 0)"
+echo "verdict lines: $VERDICT_COUNT"
+printf '%s\n' "$VERDICT_COUNT" > build/verdict-count.txt
+if [ "$VERDICT_COUNT" -eq 0 ]; then
+  echo "::error::this group produced no verdicts; the emulator phase never ran"
+fi
 
 echo "== phases =="
 cat "$PHASES" || true

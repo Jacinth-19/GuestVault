@@ -145,6 +145,21 @@ jobs:
           for f in merged/*/build/phase-log.md; do tail -n +3 "$f" >> build/phase-log.md; done
           echo "verdict lines: $(wc -l < build/step-results.jsonl)"
 
+      - name: Every group must have reported something
+        run: |
+          missing=0
+          for dir in merged/*/; do
+            count="$(cat "$dir/build/verdict-count.txt" 2>/dev/null || echo 0)"
+            echo "$(basename "$dir"): ${count} verdict(s)"
+            if [ "$count" -eq 0 ]; then
+              echo "::error::$(basename "$dir") produced no verdicts — that emulator run never executed the plan"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+
       - name: Grade the plan
         run: |
           python3 scripts/ci/step_report.py \

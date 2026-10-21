@@ -262,14 +262,18 @@ fun GuestHomeScreen(
                     }
                 }
 
-                Spacer(Modifier.height(if (compact) 10.dp else 22.dp))
+                Spacer(Modifier.height(if (compact) 8.dp else 22.dp))
+                Text(
+                    text = "Welcome to Guest Mode",
+                    style = if (compact) {
+                        MaterialTheme.typography.titleMedium
+                    } else {
+                        MaterialTheme.typography.headlineSmall
+                    },
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
                 if (!compact) {
-                    Text(
-                        text = "Welcome to Guest Mode",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "This phone is in a temporary, limited space.",

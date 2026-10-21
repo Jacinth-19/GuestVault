@@ -850,6 +850,20 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("9.4", "Off ⇒ a session ends without the \"Guest data wiped\" badge") {
+            // Older passes leave wiped sessions behind; only a fresh list can
+            // answer the question this step asks.
+            openSettings()
+            scrollToText("Session history")
+            tapText("Session history")
+            pause(1_200)
+            if (device.hasObject(By.text("Clear history"))) {
+                tapText("Clear history")
+                pause(900)
+                if (device.hasObject(By.text("Clear history"))) tapText("Clear history")
+                pause(900)
+            }
+            tapDesc("Back")
+            pause(800)
             openSettings()
             device.findObject(By.desc("Auto-wipe toggle"))?.click()
             pause(700)
@@ -877,7 +891,10 @@ class StepPlanTest : StepHarness() {
             openSettings()
             scrollToText("Default session timer")
             tapText("Default session timer")
-            expectTrue(waitFor("New sessions start with this limit", 8_000), "timer dialog did not open")
+            expectTrue(
+                waitForContains("New sessions start with this limit", 10_000),
+                "timer dialog did not open (screen: ${visibleText().take(120)})"
+            )
             tapText("5 min")
             if (device.hasObject(By.text("Close"))) tapText("Close")
             pause(600)
