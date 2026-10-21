@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
+import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import java.io.File
@@ -542,7 +543,21 @@ abstract class StepHarness {
             )
             pause(500)
         }
+        // Swipes can be swallowed by rows with their own gestures (a switch, a
+        // channel with an action). Accessibility scrolling goes straight to the
+        // list and is the fallback that reaches the end of a long Compose list.
+        repeat(6) {
+            if (device.hasObject(By.text(text))) return true
+            scrollForward()
+            pause(400)
+        }
         return device.hasObject(By.text(text))
+    }
+
+    /** One accessibility scroll down the page's own scrollable list. */
+    protected fun scrollForward(percent: Float = 0.9f) {
+        val list = device.findObject(By.scrollable(true)) ?: return
+        runCatching { list.scroll(Direction.DOWN, percent) }
     }
 
     protected fun scrollToDesc(desc: String, maxSwipes: Int = 5): Boolean {

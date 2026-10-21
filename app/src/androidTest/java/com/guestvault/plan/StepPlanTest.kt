@@ -468,22 +468,18 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("5.4", "Says plainly that Android can't truly wipe other apps' data") {
-            var scrolls = 0
-            while (scrolls < 10 &&
-                device.findObjects(By.textContains("Honest limits")).isEmpty() &&
-                device.findObjects(By.textContains("remain available unless")).isEmpty()
-            ) {
-                val x = device.displayWidth / 2
-                device.swipe(x, (device.displayHeight * 0.8f).toInt(), x, (device.displayHeight * 0.25f).toInt(), 14)
-                pause(600)
-                scrolls++
-            }
-            val card = device.findObjects(By.textContains("remain available unless you")).firstOrNull()?.text
-                ?: device.findObjects(By.textContains("Android does not let one app")).firstOrNull()?.text
-            val mentionsWipe = card?.contains("wipe", ignoreCase = true) == true
+            scrollToText("Honest limits", maxSwipes = 12)
+            val card = listOf("erase another app", "remain available", "wipe only clears")
+                .flatMap { phrase ->
+                    runCatching {
+                        device.findObjects(By.textContains(phrase)).mapNotNull { it.text }
+                    }.getOrDefault(emptyList())
+                }
+                .firstOrNull { it.contains("wipe", ignoreCase = true) }
             expectTrue(
-                card != null && mentionsWipe,
-                "the Honest limits card reads \"${card ?: "nothing"}\" — it does not mention wiping other apps"
+                card != null,
+                "the Honest limits card reads \"${card ?: visibleText().take(180)}\" — " +
+                    "it does not mention wiping other apps"
             )
         }
 
@@ -1098,8 +1094,11 @@ class StepPlanTest : StepHarness() {
             listOf("Notifications", "Biometrics", "Foreground service", "Start at boot").forEach {
                 expectTrue(device.hasObject(By.text(it)), "missing permission row: $it")
             }
+            // PermissionGroup renders the header in caps ("NEVER REQUESTED").
             expectTrue(
-                scrollToText("Never requested", maxSwipes = 12),
+                scrollToText("Internet", maxSwipes = 12) &&
+                    (device.hasObject(By.text("Never requested")) ||
+                        device.hasObject(By.text("NEVER REQUESTED"))),
                 "no Never requested section (text=${visibleText().take(160)})"
             )
             scrollToText("Internet", maxSwipes = 12)

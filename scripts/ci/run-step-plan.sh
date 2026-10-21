@@ -43,6 +43,13 @@ run_phase() {
     | tail -n 2 | tr '\n' ' ' | cut -c1-260)"
   local focus crash
   focus="$(adb shell dumpsys window 2>/dev/null | grep -m1 -E "mCurrentFocus|mFocusedApp" | tr -d '\r' | cut -c1-110)"
+  # A bare "Process crashed" says nothing. Keep the runner's own stack lines so
+  # the reason survives even when the crash buffer is empty.
+  if echo "$out" | grep -q "Process crashed"; then
+    local detail
+    detail="$(echo "$out" | grep -E "stack=|Exception|Error|Caused by" | tail -n 3 | tr '\n' ' ' | cut -c1-300)"
+    summary="${summary} :: ${detail}"
+  fi
   # A crash line on its own is useless: keep the exception and its first frame.
   crash="$(adb shell logcat -d -b crash -t 120 2>/dev/null \
     | awk '/FATAL EXCEPTION/{flag=1; count=0} flag{print; count++} count>3{flag=0}' \
