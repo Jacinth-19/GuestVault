@@ -221,12 +221,12 @@ class GuestVaultFlowTest {
         shot("01-onboarding-welcome.png")
 
         tapText("Next")
-        assertTrue(waitFor("Only the apps you allow", 12_000))
+        assertTrue(waitFor("Only approved apps", 12_000))
         Thread.sleep(600)
         shot("02-onboarding-apps.png")
 
         tapText("Next")
-        assertTrue(waitFor("You hold the keys", 12_000))
+        assertTrue(waitFor("Your data stays private", 12_000))
         Thread.sleep(600)
         shot("03-onboarding-keys.png")
 
