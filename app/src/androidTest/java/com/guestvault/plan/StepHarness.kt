@@ -262,8 +262,12 @@ abstract class StepHarness {
                     pause(1_200)
                 }
                 "lock" -> {
-                    tryEnterPin(pinDigits)
-                    pause(1_200)
+                    if (tryEnterPin(pinDigits)) {
+                        // The wipe and the hand-over back to the owner take a
+                        // moment; wait for the outcome instead of sampling.
+                        runCatching { device.wait(Until.hasObject(By.text("Start Guest Session")), 12_000) }
+                    }
+                    pause(800)
                 }
                 else -> {
                     // A nested screen (picker, settings, history) is not "home".
@@ -382,6 +386,32 @@ abstract class StepHarness {
             .joinToString(" ~ ") { line ->
                 line.substringAfter(": ", line).trim().take(120)
             }
+    }
+
+    /**
+     * A duration chip may start off-screen in the confirm screen's LazyRow.
+     * Scrolls the row horizontally until the label is reachable.
+     */
+    protected fun tapChip(label: String): Boolean {
+        if (has(By.text(label))) {
+            tapText(label, timeout = 3_000)
+            return true
+        }
+        val row = runCatching { device.findObjects(By.scrollable(true)).firstOrNull() }.getOrNull()
+        val y = device.displayHeight / 2
+        repeat(4) {
+            device.swipe(
+                (device.displayWidth * 0.85f).toInt(), y,
+                (device.displayWidth * 0.25f).toInt(), y,
+                12
+            )
+            pause(500)
+            if (has(By.text(label))) {
+                tapText(label, timeout = 3_000)
+                return true
+            }
+        }
+        return runCatching { row != null && has(By.text(label)) }.getOrDefault(false)
     }
 
     protected fun waitFor(text: String, timeout: Long = 15_000): Boolean =

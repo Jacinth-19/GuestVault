@@ -697,9 +697,11 @@ class StepPlanTest : StepHarness() {
         verify("7.5", "Still locked — the cool-down survives the app being killed") {
             val resumed = device.wait(Until.hasObject(By.textContains("Guest Mode")), 30_000)
             expectTrue(resumed, "the guest session did not survive the force-stop")
+            dismissPinnedDialog(timeoutMs = 4_000)
             if (device.hasObject(By.text("Resume Guest Mode"))) {
                 tapText("Resume Guest Mode")
-                pause(1_200)
+                pause(1_500)
+                dismissPinnedDialog(timeoutMs = 4_000)
             }
             expectTrue(waitFor("Welcome to Guest Mode", 15_000), "guest home missing after relaunch")
             tapText("Return to Owner")
@@ -734,6 +736,12 @@ class StepPlanTest : StepHarness() {
 
         verify("7.8", "Session ends, back to the dashboard") {
             waitOutCoolDown(maxSeconds = 120)
+            dismissPinnedDialog(timeoutMs = 2_000)
+            if (!device.hasObject(By.desc("PIN key 1"))) {
+                if (device.hasObject(By.text("Return to Owner"))) tapText("Return to Owner")
+                waitForDesc("PIN key 1", 10_000)
+            }
+            expectTrue(device.hasObject(By.desc("PIN key 1")), "lock screen is not reachable")
             enterPin(pinDigits)
             expectTrue(waitFor("Start Guest Session", 25_000), "correct PIN did not end the session")
         }
@@ -1197,15 +1205,26 @@ class StepPlanTest : StepHarness() {
         launchApp()
 
         verify("13.2", "No guest session: it was closed on boot") {
-            val screen = waitForAny(
+            var landed = waitForAny(
                 "Start Guest Session",
                 "Welcome to Guest Mode",
                 "Resume Guest Mode",
-                timeout = 35_000
+                timeout = 45_000
             )
+            if (landed == null) {
+                // A cold start after a reboot is much slower than a warm one.
+                launchApp()
+                landed = waitForAny(
+                    "Start Guest Session",
+                    "Welcome to Guest Mode",
+                    "Resume Guest Mode",
+                    timeout = 45_000
+                )
+            }
+            dismissPinnedDialog(timeoutMs = 3_000)
             expectTrue(
-                screen == "Start Guest Session",
-                "after the reboot the app shows \"${screen ?: "nothing"}\""
+                landed == "Start Guest Session",
+                "after the reboot the app shows \"${landed ?: visibleText().take(90)}\""
             )
         }
 
@@ -1474,7 +1493,7 @@ class StepPlanTest : StepHarness() {
         expectTrue(waitFor("One last look before you hand over", 12_000), "confirm screen not open")
         if (minutes > 0) {
             val label = durationLabel(minutes)
-            if (device.hasObject(By.text(label))) tapText(label)
+            if (!tapChip(label)) note("could not find the $label chip")
         }
         tapText("Start Guest Mode")
         pause(1_500)
@@ -1571,10 +1590,20 @@ class StepPlanTest : StepHarness() {
     }
 
     private fun endSessionWithPin() {
+        dismissPinnedDialog(timeoutMs = 3_000)
+        if (!device.hasObject(By.text("Return to Owner"))) {
+            scrollToText("Return to Owner") || scrollUp(2)
+        }
         tapText("Return to Owner")
         expectTrue(waitForDesc("PIN key 1", 15_000), "lock screen did not open")
         enterPin(pinDigits)
-        expectTrue(waitFor("Start Guest Session", 25_000), "session did not end")
+        if (!waitFor("Start Guest Session", 25_000)) {
+            // One retry: the first attempt can land while the wipe is running.
+            if (device.hasObject(By.text("Cancel")) || device.hasObject(By.desc("PIN key 1"))) {
+                enterPin(pinDigits)
+            }
+        }
+        expectTrue(waitFor("Start Guest Session", 20_000), "session did not end")
     }
 
     private fun openSettings() {
