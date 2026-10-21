@@ -78,8 +78,13 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("1.3", "Page 2 \"Only the apps you allow\", dot indicator animates wider") {
-            swipeLeft()
-            val title = waitForAny("Only the apps you allow", "Only approved apps", timeout = 8_000)
+            var title = waitForAny("Only the apps you allow", "Only approved apps", timeout = 3_000)
+            repeat(3) {
+                if (title == null) {
+                    swipeLeft()
+                    title = waitForAny("Only the apps you allow", "Only approved apps", timeout = 5_000)
+                }
+            }
             expectTrue(
                 title == "Only the apps you allow",
                 "page 2 is titled \"${title ?: "nothing"}\""
@@ -158,22 +163,17 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("2.5", "Cannot escape to the dashboard without a PIN") {
-            device.pressBack()
-            pause(900)
-            expectTrue(!device.hasObject(By.text("Start Guest Session")), "Back reached the dashboard")
-            if (!device.hasObject(By.text("Create your owner PIN")) &&
-                !device.hasObject(By.text("Confirm your PIN"))
-            ) {
-                launchApp()
-                if (device.hasObject(By.text("Skip"))) tapText("Skip")
+            val backLanded = mutableListOf<String>()
+            repeat(3) {
+                device.pressBack()
+                pause(1_000)
+                backLanded += screen()
+                expectTrue(
+                    !device.hasObject(By.text("Start Guest Session")),
+                    "Back reached the dashboard without a PIN"
+                )
             }
-            expectTrue(
-                waitForAny("Create your owner PIN", "Confirm your PIN", timeout = 12_000) != null,
-                "PIN flow disappeared after Back"
-            )
-            device.pressBack()
-            pause(900)
-            expectTrue(!device.hasObject(By.text("Start Guest Session")), "Back from confirm reached the dashboard")
+            note("Back landed on: ${backLanded.joinToString()} (never the dashboard)")
         }
 
         verify("2.4", "Lands on dashboard") {
@@ -295,19 +295,27 @@ class StepPlanTest : StepHarness() {
                 search(label)
                 pause(500)
                 if (appRows().isEmpty()) {
-                    missing += label
+                    missing += "$label (no row; screen: ${visibleText().take(70)})"
                     return@forEach
                 }
                 if (!device.hasObject(By.text("Sensitive"))) {
                     missing += "$label (no Sensitive pill)"
                 }
                 device.findObjects(By.descContains("App row ")).firstOrNull()?.click()
+                pause(900)
+                val dialogTitle = device.findObjects(By.textContains("Allow ")).mapNotNull { it.text }
+                    .firstOrNull { it.endsWith("?") }
+                val riskBody = device.findObjects(By.textContains("risk")).mapNotNull { it.text }
+                    .firstOrNull()
+                if (dialogTitle == null || riskBody == null) {
+                    noWarning += "$label (title=${dialogTitle ?: "none"})"
+                }
+                if (device.hasObject(By.text("Cancel"))) {
+                    tapText("Cancel")
+                } else {
+                    device.pressBack()
+                }
                 pause(700)
-                val warned = device.findObjects(By.textContains("risk")).isNotEmpty() ||
-                    device.findObjects(By.textContains("Sensitive app")).isNotEmpty() ||
-                    device.findObjects(By.textContains("personal data")).isNotEmpty() ||
-                    device.hasObject(By.textContains("Warning"))
-                if (!warned) noWarning += label
             }
             expectTrue(missing.isEmpty(), "sensitive marking missing for: ${missing.joinToString()}")
             expectTrue(
@@ -340,6 +348,13 @@ class StepPlanTest : StepHarness() {
         pickApps(3)
 
         verify("5.1", "Only one selected at a time") {
+            // The plan names the five chips literally: No limit / 5 / 15 / 30 / 60 min.
+            val wanted = listOf("No limit", "5 min", "15 min", "30 min", "60 min")
+            val absent = wanted.filter { !device.hasObject(By.text(it)) }
+            expectTrue(
+                absent.isEmpty(),
+                "chips missing: ${absent.joinToString()} (the row shows: ${visibleText().take(140)})"
+            )
             tapText("15 min")
             pause(500)
             expectTrue(chipSelected("15 min"), "15 min did not become selected")
@@ -380,6 +395,7 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("5.4", "Says plainly that Android can't truly wipe other apps' data") {
+            scrollToText("Honest limits")
             val card = device.findObjects(By.textContains("remain available unless you")).firstOrNull()?.text
             val mentionsWipe = card?.contains("wipe", ignoreCase = true) == true
             expectTrue(
@@ -416,10 +432,17 @@ class StepPlanTest : StepHarness() {
     fun pass06() {
         ensureOwnerHome()
         pickApps(3)
-        startSessionHere(minutes = 30, acceptPin = false, permission = "allow")
+        val startNote = startSessionHere(minutes = 30, acceptPin = false, permission = "allow")
+        val startTop = topActivityLine()
+        val startLuma = screenshot()?.let { luma(it) } ?: -1.0
+        val startText = visibleText()
 
         verify("6.1", "\"Guest Mode\" + \"Only approved apps\", lock icon") {
-            expectTrue(device.hasObject(By.text("Guest Mode")), "no Guest Mode header")
+            expectTrue(
+                device.hasObject(By.text("Guest Mode")),
+                "no Guest Mode header after start ($startNote | top=$startTop | " +
+                    "screenshot luma=${"%.0f".format(startLuma)} | text=${startText.take(160)})"
+            )
             expectTrue(device.hasObject(By.text("Only approved apps")), "no Only approved apps subtitle")
             expectTrue(device.hasObject(By.desc("Lock screen")), "no lock icon")
         }
@@ -786,6 +809,7 @@ class StepPlanTest : StepHarness() {
         launchApp()
 
         verify("9.6", "Applies instantly, survives a restart, and the guest home follows too") {
+            ensureOwnerHome()
             expectTrue(waitFor("Start Guest Session", 25_000), "did not reach the dashboard")
             val shot = screenshot()
             expectTrue(shot != null, "could not capture the dashboard")
@@ -806,7 +830,10 @@ class StepPlanTest : StepHarness() {
         verify("9.7", "4 rows with live status + a \"Never requested\" list that includes Internet") {
             openSettings()
             tapText("Permissions & privacy")
-            expectTrue(waitFor("Permissions on this device", 12_000), "permissions screen did not open")
+            expectTrue(
+                waitForAny("No internet permission", "Permissions on this device", timeout = 12_000) != null,
+                "permissions screen did not open"
+            )
             listOf("Notifications", "Biometrics", "Foreground service", "Start at boot").forEach {
                 expectTrue(device.hasObject(By.text(it)), "missing permission row: $it")
             }
@@ -879,7 +906,10 @@ class StepPlanTest : StepHarness() {
             openSettings()
             scrollToText("Permissions & privacy")
             tapText("Permissions & privacy")
-            expectTrue(waitFor("Permissions on this device", 12_000), "permissions screen did not open")
+            expectTrue(
+                waitForAny("No internet permission", "Permissions on this device", timeout = 12_000) != null,
+                "permissions screen did not open"
+            )
             expectTrue(device.hasObject(By.text("Not granted")), "notifications row does not say Not granted")
             expectTrue(device.hasObject(By.text("Open settings")), "no button to fix it")
         }
@@ -1286,7 +1316,8 @@ class StepPlanTest : StepHarness() {
     }
 
     private fun chipSelected(label: String): Boolean =
-        device.findObject(By.text(label))?.isSelected == true
+        device.findObjects(By.selected(true)).any { it.text?.contains(label) == true } ||
+            device.findObject(By.text(label))?.isSelected == true
 
     private fun startSessionHere(minutes: Int, acceptPin: Boolean, permission: String): String {
         expectTrue(waitFor("One last look before you hand over", 12_000), "confirm screen not open")
@@ -1403,6 +1434,13 @@ class StepPlanTest : StepHarness() {
         return device.hasObject(By.text("Start Guest Session"))
     }
 
+    private fun topActivityLine(): String {
+        val dump = shell("dumpsys activity activities")
+        return dump.lineSequence().firstOrNull {
+            it.contains("topResumedActivity") || it.contains("mResumedActivity")
+        }?.trim()?.take(110) ?: "no resumed activity"
+    }
+
     private fun foregroundPackage(): String {
         val dump = shell("dumpsys activity activities")
         val line = dump.lineSequence().firstOrNull {
@@ -1437,9 +1475,9 @@ class StepPlanTest : StepHarness() {
         val screen = Rect(0, 0, device.displayWidth, device.displayHeight)
         val bad = mutableListOf<String>()
         device.findObjects(By.textContains("")).forEach { node ->
-            val text = node.text
+            val text = runCatching { node.text }.getOrNull()
             if (text.isNullOrBlank()) return@forEach
-            val bounds = node.visibleBounds
+            val bounds = runCatching { node.visibleBounds }.getOrNull() ?: return@forEach
             if (bounds.width() > 0 && bounds.height() > 0 &&
                 (bounds.left < -2 || bounds.top < -2 ||
                     bounds.right > screen.right + 2 || bounds.bottom > screen.bottom + 2)

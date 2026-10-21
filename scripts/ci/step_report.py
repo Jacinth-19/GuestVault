@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
-"""Grade the numbered manual test plan, one verdict per step.
+"""Turn the numbered manual plan into a per-step pass/fail table.
 
-The plan lives in ``scripts/ci/step-plan.json``: every numbered step carries the
-verbatim "Expect" text from the plan, which is the acceptance criterion. Device
-results come from ``step-results.jsonl`` (written by the instrumented tests and
-pulled with ``run-as``), so a step that never ran is visibly *not run* instead
-of silently green.
+The plan is data (`scripts/ci/step-plan.json`), not prose: every numbered row
+carries the *action* the tester performs and the *expected* result, so the
+verdict can never drift away from what was asked for.
+
+The device writes one JSON line per executed check to its own files dir:
+
+    {"id": "1.1", "status": "pass", "expect": "...", "note": "...", "ms": 812}
+
+This script joins those results with the manifest and renders a markdown
+table. A step that the manifest describes but no test reported is a failure
+("not run") — silence is never allowed to look like success.
 
 Usage:
-  step_report.py --manifest M --results R --out step-report.md
-  step_report.py --manifest M --list-tests
-
-Exit code is 1 when a step that should have run on the device is missing or
-failed. Steps marked ``"mode": "manual"`` (hardware, wall-clock, real
-fingerprint) are reported as not-automated and never fail the build.
+    step_report.py --manifest scripts/ci/step-plan.json \
+                   --results build/step-results.jsonl \
+                   --out step-report.md
+    step_report.py --manifest scripts/ci/step-plan.json --list-tests
 """
 
 from __future__ import annotations
@@ -24,166 +28,154 @@ import os
 import sys
 from pathlib import Path
 
-PASS = "PASS"
-FAIL = "FAIL"
-SKIP = "SKIP"
+PASS = "pass"
+FAIL = "fail"
+SKIP = "skip"
 
-BADGE = {
+STATUS_ICON = {
     PASS: "✅ pass",
     FAIL: "❌ failed",
     SKIP: "⚠️ not automated",
-    "MISSING": "❌ not run",
 }
 
 
 def load_manifest(path: Path) -> dict:
-    with path.open(encoding="utf-8") as handle:
-        return json.load(handle)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if "passes" not in data or not data["passes"]:
+        raise SystemExit(f"{path}: no passes[] found")
+    return data
 
 
 def load_results(path: Path) -> dict[str, dict]:
+    """Last result wins, so a retried step reports its final outcome."""
     results: dict[str, dict] = {}
     if not path.exists():
         return results
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        line = line.strip().lstrip("\ufeff")
+        line = line.strip()
         if not line.startswith("{"):
             continue
         try:
-            entry = json.loads(line)
+            row = json.loads(line)
         except json.JSONDecodeError:
             continue
-        step_id = str(entry.get("id", "")).strip()
+        step_id = str(row.get("id", "")).strip()
         if step_id:
-            # A rerun supersedes the earlier verdict for the same step.
-            results[step_id] = entry
+            results[step_id] = row
     return results
 
 
 def cell(text: str) -> str:
-    return str(text).replace("|", "\\|").replace("\n", " ").strip()
+    text = " ".join(str(text or "").split())
+    return text.replace("|", "\\|")
 
 
-def iter_steps(manifest: dict):
-    for order, block in enumerate(manifest.get("passes", []), start=1):
-        yield order, block, block.get("steps", [])
+def verdict(step: dict, result: dict | None) -> tuple[str, str]:
+    manual = step.get("mode") == "manual"
+    if result is None:
+        if manual:
+            return SKIP, step.get("why", "needs a physical device")
+        return FAIL, "the test never reported a result for this step"
+
+    status = str(result.get("status", "")).lower()
+    note = str(result.get("note", "")).strip()
+    if status == PASS:
+        return PASS, note
+    if status == SKIP:
+        return SKIP, note or "the test skipped this step on this device"
+    return FAIL, note or "failed"
 
 
-def list_tests(manifest: dict) -> int:
-    """Every instrumented phase, in manifest order.
-
-    Derived from `run`, not from `steps`: a phase may exist only to set up the
-    next one (pass10a creates the PIN that pass10b then needs).
-    """
-    for block in manifest.get("passes", []):
-        for entry in block.get("run", []):
-            if "test" in entry:
-                print(entry["test"])
-    return 0
-
-
-def build_report(manifest: dict, results: dict[str, dict]) -> tuple[str, dict[str, int]]:
-    counts = {PASS: 0, FAIL: 0, SKIP: 0, "MISSING": 0}
+def render(manifest: dict, results: dict[str, dict]) -> tuple[str, int, int]:
     lines: list[str] = []
-    lines.append("# GuestVault — manual test plan verdicts\n")
-    lines.append(
-        "Every numbered step below is graded against the **Expect** text you supplied. "
-        "A step is only green when the device produced a PASS for that exact ID.\n"
-    )
+    total = passed = failed = skipped = 0
+    groups: list[str] = []
 
-    for order, block, steps in iter_steps(manifest):
-        number = block.get("pass", order)
-        title = block.get("title", f"Pass {number}")
-        lines.append(f"\n## Pass {number} — {title}\n")
-        lines.append("| Step | Action | Expect (acceptance criterion) | Verdict | Evidence |")
-        lines.append("| --- | --- | --- | --- | --- |")
+    for block in manifest["passes"]:
+        pid = str(block.get("id", "")).strip()
+        title = block.get("title", "")
+        rows = block.get("steps", [])
+        counts = {PASS: 0, FAIL: 0, SKIP: 0}
+        body: list[str] = []
 
-        for step in steps:
-            step_id = str(step.get("id", "?"))
-            mode = step.get("mode", "device")
-            result = results.get(step_id)
-
-            if result is not None:
-                status = result.get("status", FAIL)
-                if status not in counts:
-                    status = FAIL
-                note = result.get("note", "")
-            elif mode == "manual":
-                status = SKIP
-                note = step.get("why", "needs hardware or wall-clock timing")
-            else:
-                status = "MISSING"
-                note = "the instrumented run produced no verdict for this step"
-
-            counts[status] += 1
-            lines.append(
-                "| **{id}** | {action} | {expect} | {badge} | {note} |".format(
+        for step in rows:
+            step_id = str(step.get("id", "")).strip()
+            state, note = verdict(step, results.get(step_id))
+            counts[state] += 1
+            total += 1
+            body.append(
+                "| {id} | {action} | {expect} | {icon} | {note} |".format(
                     id=cell(step_id),
                     action=cell(step.get("action", "")),
                     expect=cell(step.get("expect", "")),
-                    badge=BADGE.get(status, status),
-                    note=cell(note)[:300],
+                    icon=STATUS_ICON[state],
+                    note=cell(note),
                 )
             )
 
-    total = sum(counts.values())
-    graded = counts[PASS] + counts[FAIL] + counts["MISSING"]
-    lines.append("\n## Summary\n")
-    lines.append(
-        f"- **{counts[PASS]} of {graded}** executable steps passed"
-        + (f", **{counts[FAIL]} failed**." if counts[FAIL] else ".")
-    )
-    if counts["MISSING"]:
-        lines.append(f"- **{counts['MISSING']} step(s) never ran** — treated as failures.")
-    if counts[SKIP]:
-        lines.append(
-            f"- **{counts[SKIP]} step(s)** need physical hardware or wall-clock timing "
-            "and are marked not-automated, with the reason."
+        passed += counts[PASS]
+        failed += counts[FAIL]
+        skipped += counts[SKIP]
+        mark = "✅" if counts[FAIL] == 0 else "❌"
+        groups.append(
+            f"- {mark} **Pass {pid} — {title}**: "
+            f"{counts[PASS]} passed, {counts[FAIL]} failed, {counts[SKIP]} not automated"
         )
-    lines.append(f"- {total} steps in the plan.\n")
-    return "\n".join(lines) + "\n", counts
+        lines.append("")
+        lines.append(f"### Pass {pid} — {title}")
+        lines.append("")
+        lines.append("| Step | Action | Expected | Result | Evidence / note |")
+        lines.append("| --- | --- | --- | --- | --- |")
+        lines.extend(body)
+
+    executable = total - skipped
+    header = [
+        "## Summary",
+        "",
+        f"- **{passed} of {executable}** executable steps passed, **{failed} failed**, "
+        f"**{skipped} not automated** (of {total} plan steps).",
+        "- A step with no recorded result counts as failed: the harness did not "
+        "verify it, so it is not allowed to look green.",
+        "",
+    ]
+    header.extend(groups)
+    return "\n".join(header + lines) + "\n", failed, skipped
 
 
-def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--manifest", required=True)
-    parser.add_argument("--results")
-    parser.add_argument("--out", default="step-report.md")
-    parser.add_argument("--phase-log", default="")
-    parser.add_argument("--list-tests", action="store_true")
-    args = parser.parse_args(argv[1:])
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--manifest", required=True, type=Path)
+    ap.add_argument("--results", type=Path, default=Path("build/step-results.jsonl"))
+    ap.add_argument("--out", type=Path, default=Path("step-report.md"))
+    ap.add_argument("--list-tests", action="store_true", help="print test methods to run, one per line")
+    args = ap.parse_args()
 
-    manifest = load_manifest(Path(args.manifest))
+    manifest = load_manifest(args.manifest)
+
     if args.list_tests:
-        return list_tests(manifest)
+        for block in manifest["passes"]:
+            test = block.get("test")
+            if test:
+                print(test)
+        return 0
 
-    if not args.results:
-        parser.error("--results is required unless --list-tests is used")
+    results = load_results(args.results)
+    markdown, failed, skipped = render(manifest, results)
 
-    results = load_results(Path(args.results))
-    report, counts = build_report(manifest, results)
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(markdown, encoding="utf-8")
+    print(markdown)
 
-    if args.phase_log:
-        phases = Path(args.phase_log)
-        if phases.exists():
-            report += "\n## Device phases\n\n" + phases.read_text(encoding="utf-8") + "\n"
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as handle:
+            handle.write(markdown)
 
-    out = Path(args.out)
-    out.write_text(report, encoding="utf-8")
-    print(report)
-
-    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-    if summary_path:
-        with open(summary_path, "a", encoding="utf-8") as handle:
-            handle.write(report)
-
-    failed = counts[FAIL] + counts["MISSING"]
     if failed:
-        print(f"::error::{failed} plan step(s) failed or never ran")
+        print(f"\n{failed} step(s) failed or never ran.", file=sys.stderr)
         return 1
-    print(f"All {counts[PASS]} executable plan steps passed")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    raise SystemExit(main())

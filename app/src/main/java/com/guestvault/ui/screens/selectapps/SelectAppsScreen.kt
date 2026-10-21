@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -36,6 +37,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -192,6 +196,21 @@ fun SelectAppsScreen(
     onUseRecommended: () -> Unit,
     onContinue: () -> Unit
 ) {
+    // Sensitive apps stay one tap away from being allowed, but the owner is told
+    // what that tap costs before it happens.
+    var pendingSensitive by remember { mutableStateOf<GuestApp?>(null) }
+
+    pendingSensitive?.let { app ->
+        SensitiveAppDialog(
+            app = app,
+            onDismiss = { pendingSensitive = null },
+            onConfirm = {
+                pendingSensitive = null
+                onToggle(app.packageName)
+            }
+        )
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -309,7 +328,13 @@ fun SelectAppsScreen(
                             AppRow(
                                 app = app,
                                 checked = app.packageName in state.selected,
-                                onToggle = { onToggle(app.packageName) }
+                                onToggle = {
+                                    if (app.isSensitive && app.packageName !in state.selected) {
+                                        pendingSensitive = app
+                                    } else {
+                                        onToggle(app.packageName)
+                                    }
+                                }
                             )
                             GuestVaultDivider()
                         }
@@ -377,4 +402,54 @@ private fun AppRow(
             modifier = Modifier.size(24.dp)
         )
     }
+}
+
+/**
+ * Shown when the owner ticks an app that exposes personal data or device
+ * control. It names the concrete risk instead of a generic "are you sure".
+ */
+@Composable
+private fun SensitiveAppDialog(
+    app: GuestApp,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Rounded.WarningAmber, contentDescription = null) },
+        title = { Text("Allow ${app.label}?") },
+        text = { Text(sensitiveRisk(app)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text("Allow anyway") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+/** The concrete risk each sensitive app carries for the owner. */
+private fun sensitiveRisk(app: GuestApp): String = when (app.packageName) {
+    "com.android.settings" ->
+        "Settings can change device settings, including switching off GuestVault's PIN " +
+            "lock. The risk is that a guest can leave the restricted space."
+    "com.android.vending" ->
+        "Play Store can install apps and make purchases with the account on this phone. " +
+            "The risk is unexpected charges and new apps appearing mid-session."
+    "com.android.contacts", "com.google.android.contacts" ->
+        "Contacts shows names, phone numbers and email addresses saved on this phone. " +
+            "The risk is that your guest can read or share them."
+    "com.google.android.apps.messaging", "com.android.messaging", "com.samsung.android.messaging" ->
+        "Messages shows your conversations and can send texts as you. The risk is " +
+            "private messages being read or replies sent in your name."
+    "com.google.android.apps.photos", "com.google.android.apps.gallery",
+    "com.android.gallery3d", "com.sec.android.gallery3d" ->
+        "Photos and files show every picture stored on this phone, including ones " +
+            "taken before the session. The risk is private photos being seen or shared."
+    "com.google.android.gm", "com.google.android.gm.lite", "com.android.email" ->
+        "This mail app is signed in as you and can read and send email. The risk is " +
+            "private mail being read or messages sent in your name."
+    else ->
+        "${app.label} can show personal data saved on this phone. The risk is that " +
+            "your guest can read, change or share it."
 }

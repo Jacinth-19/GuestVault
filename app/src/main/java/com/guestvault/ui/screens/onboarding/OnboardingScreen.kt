@@ -56,7 +56,6 @@ import com.airbnb.lottie.compose.rememberLottieComposition
 import com.guestvault.R
 import com.guestvault.domain.model.ThemeMode
 import com.guestvault.domain.repository.SettingsRepository
-import com.guestvault.domain.usecase.ApplyRecommendedDefaultsUseCase
 import com.guestvault.domain.usecase.ObserveSettingsUseCase
 import com.guestvault.ui.components.GuestVaultMark
 import com.guestvault.ui.components.PrimaryButton
@@ -122,7 +121,6 @@ private val pages = listOf(
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
-    private val applyRecommendedDefaults: ApplyRecommendedDefaultsUseCase,
     observeSettings: ObserveSettingsUseCase
 ) : ViewModel() {
 
@@ -136,7 +134,6 @@ class OnboardingViewModel @Inject constructor(
     fun complete() {
         if (_completed.value) return
         viewModelScope.launch {
-            applyRecommendedDefaults()
             settingsRepository.setOnboardingCompleted(true)
             _completed.value = true
         }

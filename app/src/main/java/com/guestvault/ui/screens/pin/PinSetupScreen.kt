@@ -172,16 +172,17 @@ class PinSetupViewModel @Inject constructor(
             pinRepository.setPin(pin)
             _state.update { it.copy(completed = true, filled = PIN_LENGTH, error = null) }
         } else {
+            // Stay on the confirm step: losing the first entry would make a
+            // single mistyped digit restart the whole flow.
             entered = ""
-            firstEntry = ""
             _state.update {
                 it.copy(
-                    stage = PinStage.NEW,
-                    title = "Choose a new PIN",
-                    subtitle = "The PINs didn't match, so let's start again.",
-                    pill = if (mode == PinMode.CHANGE) "Change PIN · 2 of 3" else "Step 1 of 2",
+                    stage = PinStage.CONFIRM,
+                    title = "Confirm your PIN",
+                    subtitle = "Enter the same four digits one more time.",
+                    pill = "Step 2 of 2",
                     filled = 0,
-                    error = "Those PINs didn't match."
+                    error = "That PIN doesn't match. Try again."
                 )
             }
         }

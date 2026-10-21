@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
@@ -61,6 +62,14 @@ class MainActivity : FragmentActivity() {
             // A guest session may be running when the app is (re)opened. In that
             // case the owner dashboard must never be rendered: hand straight
             // over to the restricted guest home instead.
+            // A session can start from this screen (the confirm page navigates
+            // back to the dashboard). Only reacting to ON_RESUME left the app on
+            // a blank gradient until the owner backgrounded and reopened it, so
+            // the hand-over has to happen the moment the session becomes active.
+            LaunchedEffect(sessionActive) {
+                if (sessionActive) openGuestMode()
+            }
+
             val lifecycleOwner = LocalLifecycleOwner.current
             DisposableEffect(lifecycleOwner, sessionActive) {
                 val observer = LifecycleEventObserver { _, event ->
@@ -127,6 +136,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun openGuestMode() {
+        if (isFinishing || isDestroyed) return
         val intent = Intent(this, GuestHomeActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }

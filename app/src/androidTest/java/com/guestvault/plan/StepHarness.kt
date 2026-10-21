@@ -79,8 +79,11 @@ abstract class StepHarness {
             val message = t.message?.takeIf { it.isNotBlank() } ?: t.javaClass.simpleName
             val onScreen = runCatching { visibleText().take(200) }.getOrDefault("")
             val focus = runCatching {
-                device.executeShellCommand("dumpsys window | grep -m1 mCurrentFocus")
-                    .trim().replace("mCurrentFocus=", "").take(60)
+                // No shell pipes here: executeShellCommand does not run `sh`,
+                // so `| grep` would be passed to dumpsys as an argument.
+                shell("dumpsys window").lineSequence()
+                    .firstOrNull { it.contains("mCurrentFocus") }
+                    ?.replace("mCurrentFocus=", "")?.trim()?.take(60).orEmpty()
             }.getOrDefault("")
             val evidence = buildString {
                 append(message)
