@@ -228,7 +228,10 @@ private fun ShieldMark(size: Dp, modifier: Modifier = Modifier) {
 private fun IndeterminateLine(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "progress")
     val sweep by transition.animateFloat(
-        initialValue = -0.40f,
+        // Starts fully on the track rather than off its left edge: a screenshot
+        // has no idea when the cycle began, and the one frame the README shows
+        // must not be the instant the highlight is invisible.
+        initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 1_150, easing = LinearEasing),
