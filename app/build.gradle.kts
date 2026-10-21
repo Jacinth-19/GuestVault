@@ -14,8 +14,8 @@ android {
         applicationId = "com.guestvault"
         minSdk = 29
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.1.1"
+        versionCode = 4
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -129,6 +129,10 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.security.crypto)
     implementation(libs.biometric)
+    // Onboarding animations. Kept in res/raw as generated JSON so they are
+    // reviewed like code; the screens fall back to static art if a file ever
+    // fails to parse.
+    implementation(libs.lottie.compose)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.kotlinx.coroutines.android)
 

@@ -1,25 +1,32 @@
 package com.guestvault.ui.screens.splash
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,54 +40,92 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.guestvault.ui.theme.HeroGradient
-import com.guestvault.ui.theme.Indigo300
+import com.guestvault.BuildConfig
+import com.guestvault.R
+import com.guestvault.ui.theme.Indigo800
+import com.guestvault.ui.theme.LightSystemBarIcons
 
+/**
+ * Brand splash.
+ *
+ * Deliberately flat: one solid brand colour, one logo, the wordmark with a
+ * version pill, the tagline, and a hairline progress bar. The previous version
+ * used a gradient plus three decorative circles, which read as a generic
+ * placeholder and made the README screenshot ambiguous with the onboarding
+ * pages.
+ *
+ * The version comes from [BuildConfig.VERSION_NAME] rather than a literal, so it
+ * can never drift from the build again.
+ */
 @Composable
-fun SplashScreen(modifier: Modifier = Modifier) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { visible = true }
+fun SplashScreen(
+    modifier: Modifier = Modifier,
+    versionName: String = BuildConfig.VERSION_NAME
+) {
+    LightSystemBarIcons()
+
+    val versionDescription = stringResource(R.string.splash_version_description, versionName)
+
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
 
     val logoScale by animateFloatAsState(
-        targetValue = if (visible) 1f else 0.82f,
-        animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessLow),
+        targetValue = if (entered) 1f else 0.86f,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
         label = "logoScale"
     )
-    val contentAlpha by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(durationMillis = 700),
-        label = "contentAlpha"
+    val logoAlpha by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = tween(durationMillis = 420),
+        label = "logoAlpha"
+    )
+    val textAlpha by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = tween(durationMillis = 520, delayMillis = 180),
+        label = "textAlpha"
+    )
+    val pillAlpha by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = tween(durationMillis = 420, delayMillis = 380),
+        label = "pillAlpha"
+    )
+    val progress by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = tween(durationMillis = 1_300, easing = LinearEasing),
+        label = "progress"
+    )
+
+    // A very slow halo behind the mark, so the screen breathes without moving.
+    val halo = rememberInfiniteTransition(label = "halo")
+    val haloAlpha by halo.animateFloat(
+        initialValue = 0.06f,
+        targetValue = 0.14f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1_800),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "haloAlpha"
     )
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(HeroGradient)
+            .background(Indigo800)
     ) {
-        // Soft decorative glows.
         Box(
             modifier = Modifier
-                .size(320.dp)
-                .offset(x = 170.dp, y = (-110).dp)
+                .align(Alignment.Center)
+                .size(300.dp)
+                .alpha(haloAlpha)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.05f))
-        )
-        Box(
-            modifier = Modifier
-                .size(260.dp)
-                .offset(x = (-120).dp, y = 470.dp)
-                .clip(CircleShape)
-                .background(Indigo300.copy(alpha = 0.08f))
-        )
-        Box(
-            modifier = Modifier
-                .size(140.dp)
-                .offset(x = 250.dp, y = 600.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.04f))
+                .background(Color.White)
         )
 
         Column(
@@ -89,62 +134,119 @@ fun SplashScreen(modifier: Modifier = Modifier) {
                 .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // The mark, the wordmark, the pill and the tagline form one block.
+            // They used to be separated by a weighted spacer, which pushed the
+            // wordmark 300 dp below the logo on a tall phone.
             Spacer(Modifier.weight(1f))
 
-            Box(
+            ShieldMark(
                 modifier = Modifier
-                    .size(112.dp)
                     .graphicsLayer {
                         scaleX = logoScale
                         scaleY = logoScale
+                        alpha = logoAlpha
                     }
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(Color.White),
-                contentAlignment = Alignment.Center
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.alpha(textAlpha)
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Shield,
-                    contentDescription = null,
-                    tint = Color(0xFF312E81),
-                    modifier = Modifier.size(70.dp)
+                Text(
+                    text = stringResource(R.string.app_name),
+                    color = Color.White,
+                    fontSize = 40.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-1.2).sp,
+                    maxLines = 1,
+                    softWrap = false
                 )
-                Icon(
-                    imageVector = Icons.Rounded.Lock,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
+                Spacer(Modifier.width(10.dp))
+                Box(
+                    modifier = Modifier
+                        .alpha(pillAlpha)
+                        .clip(RoundedCornerShape(percent = 50))
+                        .background(Color.White.copy(alpha = 0.20f))
+                        .padding(horizontal = 9.dp, vertical = 3.dp)
+                        .semantics {
+                            contentDescription = versionDescription
+                        }
+                ) {
+                    Text(
+                        text = versionName,
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.2.sp
+                    )
+                }
             }
 
-            Spacer(Modifier.height(28.dp))
-            Text(
-                text = "GuestVault",
-                color = Color.White,
-                fontSize = 38.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.5).sp,
-                modifier = Modifier.alpha(contentAlpha)
-            )
             Spacer(Modifier.height(10.dp))
-            Text(
-                text = "Borrow my phone. Keep your privacy.",
-                color = Color.White.copy(alpha = 0.78f),
-                fontSize = 15.sp,
-                modifier = Modifier.alpha(contentAlpha)
-            )
-
-            Spacer(Modifier.weight(1f))
 
             Text(
-                text = "PRIVACY-FIRST GUEST MODE",
-                color = Color.White.copy(alpha = 0.45f),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 1.6.sp,
-                modifier = Modifier
-                    .padding(bottom = 40.dp)
-                    .alpha(contentAlpha)
+                text = stringResource(R.string.app_tagline),
+                color = Color.White.copy(alpha = 0.76f),
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.alpha(textAlpha)
             )
+
+            Spacer(Modifier.height(28.dp))
+
+            ProgressBar(
+                progress = progress,
+                modifier = Modifier.alpha(textAlpha)
+            )
+
+            Spacer(Modifier.weight(1.15f))
+            Spacer(Modifier.height(46.dp))
         }
+    }
+}
+
+/** White shield with an indigo keyhole, matching the launcher icon. */
+@Composable
+private fun ShieldMark(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.size(132.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Shield,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(132.dp)
+        )
+        Icon(
+            imageVector = Icons.Rounded.Lock,
+            contentDescription = null,
+            tint = Indigo800,
+            modifier = Modifier
+                .size(44.dp)
+                .padding(top = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun ProgressBar(progress: Float, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .width(112.dp)
+            .height(3.dp)
+            .clip(RoundedCornerShape(percent = 50))
+            .background(Color.White.copy(alpha = 0.18f))
+    ) {
+        Box(
+            modifier = Modifier
+                .width(112.dp * progress.coerceIn(0f, 1f))
+                .height(3.dp)
+                .clip(RoundedCornerShape(percent = 50))
+                .background(MaterialTheme.colorScheme.secondary)
+        )
     }
 }

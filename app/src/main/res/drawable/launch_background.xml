@@ -2,36 +2,21 @@
 <!--
     Window background shown by the OS while MainActivity starts.
 
-    It mirrors the first frame of SplashScreen.kt (indigo gradient + the
-    white rounded logo tile) so a cold start never flashes plain white.
+    It mirrors the first frame of SplashScreen.kt exactly: a flat brand-indigo
+    fill with the white shield mark centred, on the same baseline as the Compose
+    splash. The old version used a gradient plus a white rounded tile, which
+    flashed noticeably when the Compose splash took over.
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
-            <gradient
-                android:angle="270"
-                android:endColor="@color/brand_indigo_deep"
-                android:startColor="@color/brand_indigo"
-                android:type="linear" />
+            <solid android:color="@color/brand_indigo" />
         </shape>
     </item>
 
     <item
-        android:width="112dp"
-        android:height="112dp"
-        android:gravity="center">
-        <layer-list>
-            <item>
-                <shape android:shape="rectangle">
-                    <solid android:color="@color/white" />
-                    <corners android:radius="32dp" />
-                </shape>
-            </item>
-            <item
-                android:width="76dp"
-                android:height="76dp"
-                android:drawable="@drawable/ic_splash_logo"
-                android:gravity="center" />
-        </layer-list>
-    </item>
+        android:width="132dp"
+        android:height="132dp"
+        android:drawable="@drawable/ic_splash_logo"
+        android:gravity="center" />
 </layer-list>

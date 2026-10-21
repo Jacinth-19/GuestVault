@@ -109,8 +109,8 @@ allow-list → session setup → guest home → wrong PIN → unlock → history
 
 | Screen | What it does |
 |---|---|
-| **Splash** | Brand mark and a fade into onboarding / dashboard. |
-| **Onboarding** | Explains the three promises: lend safely, only approved apps, owner holds the keys. |
+| **Splash** | Flat indigo brand screen: shield, wordmark, a version pill built from `BuildConfig.VERSION_NAME`, and a 1.4 s fade into onboarding / dashboard. |
+| **Onboarding** | Three pages, each with a hand-authored Lottie animation (static fallback if decoding fails, final frame when animations are off). |
 | **PIN setup** | Create and confirm the 4-digit owner PIN. Change-PIN verifies the current one first. |
 | **Dashboard** | Hero CTA, allowed apps preview, lock method, auto-wipe state, recent sessions. |
 | **Allowed apps** | Searchable list of every launchable app, with categories and sensitive-app warnings. |
@@ -191,7 +191,7 @@ use cases for every owner action, Hilt for DI, DataStore for preferences, `State
 `collectAsStateWithLifecycle` in the UI.
 
 **Stack** — 100% Kotlin · Jetpack Compose · Material 3 · Hilt · Navigation Compose · DataStore ·
-androidx.security (encrypted prefs) · BiometricPrompt · coroutines/Flow · minSdk 29 · targetSdk 35.
+androidx.security (encrypted prefs) · BiometricPrompt · coroutines/Flow · minSdk 29 · targetSdk 36.
 
 ## 🧪 Testing & CI
 
@@ -210,6 +210,10 @@ androidx.security (encrypted prefs) · BiometricPrompt · coroutines/Flow · min
   The same test captures every screenshot in this README, and the flow is recorded to
   `docs/media/walkthrough.mp4`. It runs against a real emulator on every push.
 
+Everything above is written up as an **18-pass manual test plan** — every screen, every toggle,
+brute force, reboot recovery, accessibility and the Play Store submission checks:
+**[docs/TESTING.md](docs/TESTING.md)**.
+
 Run them yourself:
 
 ```bash
@@ -219,6 +223,37 @@ Run them yourself:
 
 > The E2E test uses the owner PIN `4726`. It is idempotent: it detects a previous onboarding and
 > reuses the same PIN, so you can run it repeatedly on a warm emulator.
+
+## 🧑‍💻 Read this README in a Codespace
+
+No laptop setup, no Android SDK, no clone: GitHub renders the whole thing — screenshots, the
+demo video link and the tables — inside a browser-based VS Code.
+
+**[▶ Open the repository in a Codespace](https://codespaces.new/Jacinth-19/GuestVault)** —
+sign in with GitHub, pick the default machine, wait for the container. (Free accounts include
+60 core-hours a month; stop the Codespace when you are done.)
+
+Inside the Codespace:
+
+1. In the **Explorer** (left bar), click `README.md`.
+2. Press **Ctrl+Shift+V** (Windows/Linux) or **⌘+Shift+V** (macOS), or click the
+   **Open Preview to the Side** icon at the top right. The Markdown preview renders the images
+   from `docs/media/` exactly as GitHub does.
+3. Clicking `docs/media/walkthrough.mp4` in the preview downloads or plays the demo video.
+4. To view an image full size: Explorer → `docs/media` → click the file.
+5. To serve the repository as a web page instead:
+   ```bash
+   python3 -m http.server 8000
+   ```
+   then open the forwarded **Ports** tab → port `8000` → `/README.md`. GitHub's Markdown
+   renderer is not applied there, but the raw text and every linked image are reachable.
+
+Prefer the terminal? `gh repo view Jacinth-19/GuestVault` prints the rendered README of the
+default branch, and `glow README.md` renders it in the terminal if you install `glow`.
+
+> The Codespace is also the fastest way to *build* the app without installing anything locally:
+> JDK 17 and Gradle are in the container, and `./gradlew :app:assembleDebug` produces
+> `app/build/outputs/apk/debug/app-debug.apk` (download it from the Explorer, then sideload it).
 
 ## 🚀 Build & run
 
@@ -231,7 +266,7 @@ Every push also builds a debug APK: open the green **Android CI** run → *Artif
 **guestvault-debug-apk**.
 
 ```bash
-adb install -r GuestVault-1.0.1.apk
+adb install -r GuestVault-<version>.apk
 ```
 
 The **Screenshots & Demo Video** workflow can be started from the *Actions* tab (or runs on `main`);

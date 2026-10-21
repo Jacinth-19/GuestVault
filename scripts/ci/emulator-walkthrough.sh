@@ -92,29 +92,45 @@ adb pull /sdcard/Pictures/GuestVault shots || true
 mkdir -p shots
 fi
 
-# The splash screen only lives for ~1.1s. It is captured here, outside the
+# The splash screen only lives for ~1.4s. It is captured here, outside the
 # instrumentation process, because a cold start requires force-stopping the app
-# (which would also kill the running test process).
+# (which would also kill the running test process). Frames are taken blindly and
+# then *validated* by pick_splash.py: a frame that is not the indigo splash is
+# discarded rather than published (the previous 00-splash.png was an onboarding
+# screen because a blind `cp frame-c` fallback published whatever happened to be
+# on screen at 1.1s).
 if [ "$SKIP_MEDIA_CAPTURE" = "1" ]; then
   echo "== splash capture skipped (SKIP_MEDIA_CAPTURE=1) =="
   adb shell rm -rf /sdcard/Pictures/GuestVault || true
   adb shell rm -f /sdcard/Download/walkthrough.mp4 || true
 else
 echo "== cold-start splash screenshot =="
+rm -f shots/splash-frame-*.png shots/00-splash.png
 adb shell am force-stop com.guestvault || true
 sleep 1
 adb shell am force-stop com.guestvault || true
 adb shell am start -n com.guestvault/.MainActivity >/dev/null || true
-# Grab frames while the Compose splash (logo + name + tagline) is on screen.
-sleep 0.60; adb exec-out screencap -p > shots/splash-frame-a.png || true
-sleep 0.25; adb exec-out screencap -p > shots/splash-frame-b.png || true
-sleep 0.25; adb exec-out screencap -p > shots/splash-frame-c.png || true
-sleep 0.25; adb exec-out screencap -p > shots/splash-frame-d.png || true
-sleep 0.25; adb exec-out screencap -p > shots/splash-frame-e.png || true
 
-# Pick the frame that shows the indigo splash with the title faded in.
-python3 scripts/ci/pick_splash.py || cp shots/splash-frame-c.png shots/00-splash.png 2>/dev/null || true
-ls -la shots/00-splash.png 2>/dev/null || echo "splash capture failed"
+# A cold start on a software-rendered emulator spends 1-3s before the first
+# Compose frame (the system splash covers it), and the Compose splash then holds
+# for 1.4s. Fourteen frames with a short gap cover ~4-6s of wall clock, which is
+# enough to include the hand-off without depending on a specific start latency.
+# pick_splash.py decides; this loop only has to *see* the screen.
+for frame in a b c d e f g h i j k l m n; do
+  adb exec-out screencap -p > "shots/splash-frame-$frame.png" || true
+  sleep 0.12
+done
+
+# Keep only a frame that genuinely shows the splash. If none does, leave the
+# committed screenshot alone and say so: a wrong picture is worse than an old one.
+python3 -c "import PIL" 2>/dev/null || python3 -m pip install --quiet pillow || true
+if python3 scripts/ci/pick_splash.py; then
+  echo "== splash captured =="
+else
+  echo "::warning::No frame looked like the splash; keeping the previous docs/media/00-splash.png"
+  rm -f shots/00-splash.png
+fi
+ls -la shots/00-splash.png 2>/dev/null || echo "splash capture skipped"
 # Never let intermediate candidate frames reach the repository.
 rm -f shots/splash-frame-*.png
 
