@@ -311,6 +311,19 @@ fun ConfirmSessionScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(10.dp))
+                    // The chips show what exists; this line shows what is chosen,
+                    // which is also the only place the choice is stated in words.
+                    Text(
+                        text = if (state.durationMinutes > 0) {
+                            "Ends automatically after ${Formatters.minutesLabel(state.durationMinutes)}"
+                        } else {
+                            "No time limit"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(DURATION_OPTIONS) { minutes ->
                             FilterChip(
