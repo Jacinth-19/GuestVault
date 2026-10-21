@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.guestvault.R
 import com.guestvault.core.AppVersion
+import com.guestvault.ui.rememberAnimationsDisabled
 import com.guestvault.ui.theme.Indigo800
 import com.guestvault.ui.theme.LightSystemBarIcons
 
@@ -218,31 +219,69 @@ private fun ShieldMark(size: Dp, modifier: Modifier = Modifier) {
     }
 }
 
+/** Track width of the progress line, in dp. */
+private const val SWEEP_TRACK_DP = 112f
+
+/** One full left->right->left cycle. Slower than the old one-way sweep. */
+private const val SWEEP_CYCLE_MS = 2_300
+
+/** Where the highlight sits when animations are off. */
+internal const val SWEEP_STATIC_FRACTION = 0.30f
+
+/**
+ * Maps a ping-pong clock (0..2) onto a position along the track (0..1).
+ *
+ * `animateFloat` runs `0f -> 2f`; this folds the second half back on itself, so
+ * the highlight travels left to right and then right to left, and the wrap from
+ * 2 back to 0 is invisible because both ends sit at the left edge.
+ *
+ * The important property is the range: because the *ends* of the animation are
+ * on the track, a frozen clock cannot park the highlight off-screen. The
+ * previous version animated `0f -> 1f` and used the raw value as the offset,
+ * where `1` means "one full track-width to the right" — completely off the
+ * track. Whenever animations were disabled the line rendered as an empty grey
+ * bar (this is what the published `00-splash.png` caught), and roughly a third
+ * of every loop was empty even with animations on.
+ */
+internal fun sweepFraction(clock: Float): Float {
+    val clamped = clock.coerceIn(0f, 2f)
+    return (1f - kotlin.math.abs(1f - clamped)).coerceIn(0f, 1f)
+}
+
 /**
  * A thin, *indeterminate* progress line: a short highlight sweeping across a
  * dim track. It says "working" without pretending to know how far along the
- * start-up is — and unlike a bar that fills, it never sits full and static on a
- * slow device.
+ * start-up is.
+ *
+ * Reduced motion gets a deterministic frame rather than whatever the platform
+ * happens to do with an infinite animation at duration scale 0: the highlight
+ * is placed at [SWEEP_STATIC_FRACTION] and left there, which is also what a
+ * screenshot of that configuration will show.
  */
 @Composable
 private fun IndeterminateLine(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "progress")
-    val sweep by transition.animateFloat(
-        // Starts fully on the track rather than off its left edge: a screenshot
-        // has no idea when the cycle began, and the one frame the README shows
-        // must not be the instant the highlight is invisible.
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1_150, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "sweep"
-    )
+    val highlight = if (rememberAnimationsDisabled()) {
+        // No animation object at all in this configuration: an infinite
+        // transition at duration scale 0 would keep restarting and burn frames
+        // producing phases the screen deliberately ignores.
+        SWEEP_STATIC_FRACTION
+    } else {
+        val transition = rememberInfiniteTransition(label = "progress")
+        val clock by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 2f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = SWEEP_CYCLE_MS, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "sweep"
+        )
+        sweepFraction(clock)
+    }
 
     Box(
         modifier = modifier
-            .width(112.dp)
+            .width(SWEEP_TRACK_DP.dp)
             .height(3.dp)
             .clip(RoundedCornerShape(percent = 50))
             .background(Color.White.copy(alpha = 0.22f))
@@ -252,9 +291,9 @@ private fun IndeterminateLine(modifier: Modifier = Modifier) {
                 .fillMaxWidth(0.40f)
                 .fillMaxHeight()
                 .graphicsLayer {
-                    // -0.34 puts the highlight just off the left edge; 1.0 puts
-                    // it just off the right edge, so the loop never "pops".
-                    translationX = sweep * 112.dp.toPx()
+                    // The highlight is 40% of the track, so this keeps its right
+                    // edge inside the track at 1.0 and its left edge inside at 0.
+                    translationX = highlight * (SWEEP_TRACK_DP * 0.60f).dp.toPx()
                 }
                 .clip(RoundedCornerShape(percent = 50))
                 .background(MaterialTheme.colorScheme.secondary)

@@ -129,7 +129,7 @@ allow-list → session setup → guest home → wrong PIN → unlock → history
 
 | Screen | What it does |
 |---|---|
-| **Splash** | Flat `#312E81`, shield at ~30 % of the screen width (0.94 → 1 over 600 ms), 40 sp wordmark with a version pill from `BuildConfig.VERSION_NAME`, tagline, indeterminate progress line, 1.4 s. The Android 12+ system splash uses the same colour, so there is no flash. |
+| **Splash** | Flat `#312E81`, shield at ~30 % of the screen width (0.94 → 1 over 600 ms), 40 sp wordmark with a version pill from `BuildConfig.VERSION_NAME`, tagline, indeterminate progress line, 1.4 s. The Android 12+ system splash uses the same colour, so there is no flash. With **Remove animations** on, the line holds a visible teal segment instead of freezing off the end of the track. |
 | **Onboarding** | Three hand-authored Lottie scenes — `lend_hand` (a phone passes between hands, a shield locks over it), `app_grid` (unapproved tiles dim and grow padlocks), `shield_key` (a shield closes, a key spins into its keyhole). Static fallback if decoding fails; final frame when animations are off. |
 | **PIN setup** | Create and confirm the 4-digit owner PIN. Change-PIN verifies the current one first. |
 | **Dashboard** | Hero CTA, allowed apps preview, lock method, auto-wipe state, recent sessions. |

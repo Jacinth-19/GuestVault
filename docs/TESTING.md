@@ -140,8 +140,11 @@ Work through them in order on a fresh install first, then repeat the ones marked
    they disagree, that is a release blocker — it is exactly the bug this screen
    exists to prevent.
 3. The tagline "Borrow my phone. Keep your privacy." fades in below, with a
-   hairline **indeterminate** progress line: a short teal highlight sweeps across
-   the track on a loop. It must never sit full and static.
+   hairline **indeterminate** progress line: a short teal highlight travels to the
+   right, folds back to the left, and repeats. It must be visible at **every**
+   phase of the loop — a frame with an empty grey track is the bug this screen
+   shipped with once (the highlight was translating a full track-width, which
+   parks it off the end).
 4. **Expect:** after roughly 1.4 s the splash fades to onboarding. It must never
    sit forever and must never skip onboarding on a fresh install.
 5. Kill the app (`adb shell am force-stop com.guestvault`) and relaunch.
@@ -174,7 +177,16 @@ Work through them in order on a fresh install first, then repeat the ones marked
    **Expect:** onboarding is marked complete and you go to PIN setup.
 6. Turn animations off (Developer options → Animator duration scale: off, or
    Accessibility → Remove animations), repeat steps 1–4.
-   **Expect:** each illustration shows its **final frame**, not a blank box.
+   **Expect:** each illustration shows its **final frame** — the settled
+   composition with the shield/keyhole drawn — not a blank box and not frame 0.
+   Lottie scales its playback speed by the system animator scale, so at scale 0
+   an "animate once" composition *stalls* on frame 0 unless the app substitutes
+   the final frame itself; `ui/Motion.kt` is that substitution, and it is re-read
+   on every resume so toggling the setting while backgrounded still takes
+   effect.
+   **Also expect:** the splash progress line keeps a teal highlight at a fixed
+   position (about a third along), because an infinite animation at duration
+   scale 0 has no meaningful phase to sample.
 7. Temporarily break an asset (see the note in `scripts/assets/build_lottie.py`):
    delete `app_grid.json` and rebuild.
    **Expect:** page 2 falls back to the static gradient icon — the app does not

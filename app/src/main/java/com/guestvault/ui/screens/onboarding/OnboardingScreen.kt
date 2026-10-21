@@ -1,6 +1,5 @@
 package com.guestvault.ui.screens.onboarding
 
-import android.provider.Settings
 import android.util.Log
 import androidx.annotation.RawRes
 import androidx.compose.animation.core.animateDpAsState
@@ -41,7 +40,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -62,6 +60,7 @@ import com.guestvault.domain.usecase.ApplyRecommendedDefaultsUseCase
 import com.guestvault.domain.usecase.ObserveSettingsUseCase
 import com.guestvault.ui.components.GuestVaultMark
 import com.guestvault.ui.components.PrimaryButton
+import com.guestvault.ui.rememberAnimationsDisabled
 import com.guestvault.ui.theme.HeroGradient
 import com.guestvault.ui.theme.TealGradient
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -304,19 +303,16 @@ fun OnboardingScreen(
  *    the original icon artwork, so the page still explains itself;
  *  - the owner turned off animations in accessibility settings → the final
  *    frame, which is the settled composition, not a blank first frame.
+ *
+ * The second path is why [rememberAnimationsDisabled] exists. Lottie multiplies
+ * its playback speed by the system animator scale, so at scale 0 an "animate
+ * once" composition does not fast-forward — it stalls on frame 0, which is an
+ * empty canvas. Reading the setting once into `remember` also went stale as soon
+ * as the user changed it and came back.
  */
 @Composable
 private fun PageAnimation(page: OnboardingPage) {
-    val context = LocalContext.current
-    val animationsDisabled = remember(context) {
-        runCatching {
-            Settings.Global.getFloat(
-                context.contentResolver,
-                Settings.Global.ANIMATOR_DURATION_SCALE,
-                1f
-            ) == 0f
-        }.getOrDefault(false)
-    }
+    val animationsDisabled = rememberAnimationsDisabled()
 
     val compositionState = rememberLottieComposition(
         spec = LottieCompositionSpec.RawRes(page.animation)
