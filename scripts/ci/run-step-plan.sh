@@ -74,6 +74,7 @@ for TEST in $TESTS; do
 
   # Pull the verdicts before the next pass clears app data.
   adb shell run-as "$PACKAGE" cat files/step-results.jsonl 2>/dev/null >> "$RAW" || true
+  adb shell "cat /sdcard/Android/data/${PACKAGE}/files/step-results.jsonl" 2>/dev/null >> "$RAW" || true
 
   # One logcat per pass: the only way to see *why* a step failed.
   adb logcat -d -v brief > "build/logcat/${TEST}.txt" 2>/dev/null || true
@@ -95,4 +96,8 @@ STATUS=$?
 
 # Keep the table next to the workflow logs even when the run is red.
 cat step-report.md 2>/dev/null || true
+
+if [ "$STATUS" -ne 0 ]; then
+  echo "plan-failed" > plan-failed.txt
+fi
 exit "$STATUS"

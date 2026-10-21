@@ -30,8 +30,9 @@ object StepResults {
 
     fun initialise(context: Context) {
         if (file != null) return
-        val dir = context.getExternalFilesDir(null) ?: context.filesDir
-        file = File(dir, "step-results.jsonl").also { it.delete() }
+        // Internal storage: `run-as com.guestvault cat files/step-results.jsonl`
+        // reads exactly this path, and no scoped-storage rule can hide it.
+        file = File(context.filesDir, "step-results.jsonl").also { it.delete() }
     }
 
     fun pass(id: String, expect: String, note: String, millis: Long) =

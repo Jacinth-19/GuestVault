@@ -80,10 +80,6 @@ jobs:
           script: |
             set +e
             bash scripts/ci/run-step-plan.sh > step-plan.log 2>&1
-            STATUS=$?
-            if [ "$STATUS" -ne 0 ]; then
-              echo "PLAN_FAILED=true" >> "$GITHUB_ENV"
-            fi
             echo "=== step-plan.log (tail) ==="
             tail -n 160 step-plan.log
             exit 0
@@ -94,11 +90,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/ci/publish_step_report.py
 
+      # The gate reads a file, not an environment variable: the emulator action
+      # has already swallowed one non-zero exit status, and `$GITHUB_ENV`
+      # writes from inside it were not observed by the runner.
       - name: Fail on plan failures
-        if: env.PLAN_FAILED == 'true'
+        if: always()
         run: |
-          echo "At least one numbered step failed or never ran. See step-report.md."
-          exit 1
+          if [ -f plan-failed.txt ]; then
+            echo "::error::At least one numbered step failed or never ran. See the verdict comment."
+            exit 1
+          fi
+          echo "Every executable step passed."
 
       - name: Upload verdicts
         if: always()
@@ -107,6 +109,7 @@ jobs:
           name: step-plan-verdicts
           path: |
             step-report.md
+            plan-failed.txt
             step-plan.log
             step-plan-build.log
             build/step-results.jsonl
