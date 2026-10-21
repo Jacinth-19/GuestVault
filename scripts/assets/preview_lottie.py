@@ -184,6 +184,13 @@ def _with_alpha(image, alpha):
 
 
 def paint_group(items, matrix, alpha, canvas, scale, frame):
+    """Paints one group.
+
+    Ordering matches lottie-android, which walks a group's children from the end
+    backwards: the **first** item is painted last and therefore on top. Getting
+    this backwards is how a preview says "looks fine" while the device shows a
+    shield with no keyhole.
+    """
     geometries = [i for i in items if i.get("ty") in ("rc", "el", "sh")]
     paints = [i for i in items if i.get("ty") in ("fl", "st")]
 
@@ -216,7 +223,7 @@ def paint_group(items, matrix, alpha, canvas, scale, frame):
 
             canvas.alpha_composite(_with_alpha(layer, total))
 
-    for item in items:
+    for item in reversed(items):
         if item.get("ty") != "gr":
             continue
         tr = next((child for child in item["it"] if child.get("ty") == "tr"), None)

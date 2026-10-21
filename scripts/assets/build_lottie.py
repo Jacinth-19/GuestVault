@@ -98,6 +98,14 @@ def transform(pos=(0, 0), scale=(100, 100), rotate=0, opacity=100, anchor=(0, 0)
 
 
 def group(items, name="group", pos=(0, 0), scale=(100, 100), rotate=0, opacity=100):
+    """A shape group.
+
+    ORDER MATTERS, and the opposite of CSS: Lottie paints a group's children
+    from the *end* of the list backwards (``ContentGroup.draw`` walks
+    ``contents`` in reverse), so the **first** item is painted last and appears
+    on top. Every composite below is therefore authored top-most first. Getting
+    this wrong is silent — the shield simply swallows its own keyhole.
+    """
     items = list(items) + [
         {
             "ty": "tr",
@@ -182,6 +190,7 @@ def stroke(color, width, opacity=100, name="stroke"):
 
 def keyhole(color=WHITE, scale=1.0):
     """The shield's keyhole: a round bow above a tapered stem."""
+    # Bow above a tapered stem, both white on the shield's indigo.
     return [
         group([ellipse((26 * scale, 26 * scale)), fill(color)], name="keyhole-bow"),
         group(
@@ -193,14 +202,15 @@ def keyhole(color=WHITE, scale=1.0):
 
 def padlock(color=INDIGO, scale=1.0):
     """A small padlock: a shackle ring whose bottom half is hidden by the body."""
+    # Body first so it covers the bottom half of the shackle, leaving an arc.
     return [
-        group(
-            [ellipse((26 * scale, 26 * scale), (0, -7 * scale)), stroke(color, 5.5 * scale)],
-            name="shackle",
-        ),
         group(
             [rounded_rect((34 * scale, 26 * scale), 7 * scale, (0, 6 * scale)), fill(color)],
             name="body",
+        ),
+        group(
+            [ellipse((26 * scale, 26 * scale), (0, -7 * scale)), stroke(color, 5.5 * scale)],
+            name="shackle",
         ),
     ]
 
@@ -251,52 +261,35 @@ def halo(center=(200, 196), size=(286, 286), color=INDIGO_LIGHT, opacity=14, ind
 # 1. lend_hand.json — a phone passes from one hand to another, then a shield
 #    with a keyhole locks over it.
 # ---------------------------------------------------------------------------
-HAND_SKIN = [0.878, 0.906, 1.0, 1.0]  # #E0E7FF, primaryContainer
+# #C7D2FE (indigo-200): soft on white, but still reads as a hand at 232 dp.
+HAND_SKIN = [0.780, 0.824, 0.996, 1.0]
+HAND_EDGE = [0.612, 0.678, 0.988, 1.0]
 
 
 def hand(direction=1):
-    """One hand reaching in from the edge of the frame, fingers pointing inward.
+    """A hand gripping the phone, seen from behind. ``direction`` = +1 is left.
 
-    ``direction`` = +1 draws a left hand (fingers towards +x), -1 mirrors it.
-    The hand is anchored at the wrist, which sits slightly off-canvas, so only
-    the palm and fingers are visible: cropped hands read as a real hand-off at
-    illustration sizes, where a fully drawn hand looks like a mitten.
-
-    Anatomy, all rounded rects: a forearm capsule, a palm, four fanned fingers
-    and a thumb. One silhouette fill with one outline, so it stays legible on
-    both the light onboarding background and a dark one.
+    Deliberately three shapes and no fingers. Four separate finger capsules with
+    outlines read as a comb (or a mitten) at 232 dp; a palm that *overlaps* the
+    phone plus a thumb laid across its edge reads as "holding" at a glance, which
+    is the whole point of the illustration. The wrist capsule runs off-canvas so
+    the arm disappears into the edge of the frame.
     """
-    outline = stroke(INDIGO_LIGHT, 3)
     skin = fill(HAND_SKIN)
+    edge = stroke(HAND_EDGE, 3)
 
-    fingers = []
-    for index, (offset, length, tilt) in enumerate(
-        ((-23, 30, -7), (-8, 36, -2), (8, 36, 2), (23, 30, 7))
-    ):
-        fingers.append(
-            group(
-                [group([rounded_rect((length, 15), 7.5), skin, outline], name=f"finger-{index}-body")],
-                name=f"finger-{index}",
-                pos=(direction * (30 + length / 2), offset),
-                rotate=tilt,
-            )
-        )
-
-    return fingers + [
-        # Forearm: a capsule whose far end is off-canvas.
+    return [
+        # Thumb, across the front of the phone.
         group(
-            [rounded_rect((96, 42), 21), skin, outline],
-            name="forearm",
-            pos=(-direction * 46, 6),
-        ),
-        group([rounded_rect((58, 70), 20), skin, outline], name="palm", pos=(0, 0)),
-        # Thumb, tucked under the palm and pointing in the same direction.
-        group(
-            [group([rounded_rect((34, 16), 8), skin, outline], name="thumb-body")],
+            [group([rounded_rect((26, 46), 13), skin, edge], name="thumb-body")],
             name="thumb",
-            pos=(direction * 12, -32),
-            rotate=direction * -22,
+            pos=(direction * 30, -14),
+            rotate=direction * -26,
         ),
+        # Palm: overlaps the phone edge, so the grip is unambiguous.
+        group([rounded_rect((64, 92), 30), skin, edge], name="palm"),
+        # Wrist, tapering off towards the edge of the canvas.
+        group([rounded_rect((92, 46), 23), skin], name="wrist", pos=(-direction * 52, 8)),
     ]
 
 
@@ -309,11 +302,12 @@ def build_lend():
             index=1,
             name="shield-badge",
             shapes=[
-                group([shield_path(scale=0.58), fill(INDIGO)], name="shield"),
+                # Keyhole first: first item paints last, i.e. on top of the shield.
                 group(keyhole(WHITE, scale=0.72), name="keyhole", pos=(0, -2)),
+                group([shield_path(scale=0.58), fill(INDIGO)], name="shield"),
             ],
             ks=transform(
-                pos=static([200, 180]),
+                pos=static([214, 172]),
                 scale=animated(
                     [
                         (34, [0, 0, 100], EASE_OUT),
@@ -333,7 +327,7 @@ def build_lend():
             name="lock-pulse",
             shapes=[group([ellipse((230, 230)), stroke(WHITE, 5)], name="ring")],
             ks=transform(
-                pos=static([200, 180]),
+                pos=static([214, 172]),
                 scale=animated([(40, [62, 62, 100], EASE_OUT), (58, [122, 122, 100], LINEAR)]),
                 opacity=animated([(40, 0, EASE_OUT), (46, 42, EASE_IN_OUT), (58, 0, LINEAR)]),
             ),
@@ -350,14 +344,13 @@ def build_lend():
             ks=transform(
                 pos=animated(
                     [
-                        (0, [-34, 238, 0], EASE_OUT),
-                        (12, [4, 234, 0], EASE_IN_OUT),
-                        (34, [36, 238, 0], EASE_IN_OUT),
-                        (46, [26, 240, 0], LINEAR),
+                        (0, [112, 208, 0], EASE_OUT),
+                        (12, [116, 206, 0], EASE_IN_OUT),
+                        (34, [130, 208, 0], EASE_IN_OUT),
+                        (46, [126, 208, 0], LINEAR),
                     ]
                 ),
-                rotate=animated([(0, 12, EASE_OUT), (34, 4, LINEAR)]),
-                scale=static([116, 116, 100]),
+                rotate=animated([(0, -6, EASE_OUT), (34, -2, LINEAR)]),
                 opacity=animated([(0, 0, LINEAR), (8, 100, LINEAR)]),
             ),
         )
@@ -370,14 +363,13 @@ def build_lend():
             ks=transform(
                 pos=animated(
                     [
-                        (0, [434, 238, 0], EASE_OUT),
-                        (12, [396, 234, 0], EASE_IN_OUT),
-                        (34, [364, 238, 0], EASE_IN_OUT),
-                        (46, [374, 240, 0], LINEAR),
+                        (0, [330, 208, 0], EASE_OUT),
+                        (12, [322, 206, 0], EASE_IN_OUT),
+                        (34, [286, 208, 0], EASE_IN_OUT),
+                        (46, [290, 208, 0], LINEAR),
                     ]
                 ),
-                rotate=animated([(0, -12, EASE_OUT), (34, -4, LINEAR)]),
-                scale=static([116, 116, 100]),
+                rotate=animated([(0, 6, EASE_OUT), (34, 2, LINEAR)]),
                 opacity=animated([(0, 0, LINEAR), (8, 100, LINEAR)]),
             ),
         )
@@ -388,20 +380,21 @@ def build_lend():
         shape_layer(
             index=5,
             name="phone",
+            # Top-most first: outline, speaker, screen tint, then the body.
             shapes=[
-                group([rounded_rect((112, 196), 24), fill(WHITE)], name="body"),
                 group([rounded_rect((112, 196), 24), stroke(INDIGO, 8)], name="edge"),
-                group([rounded_rect((86, 150), 14, (0, -4)), fill(INDIGO, opacity=10)], name="screen"),
                 group([rounded_rect((34, 6), 3, (0, -78)), fill(INDIGO_LIGHT)], name="speaker"),
+                group([rounded_rect((86, 150), 14, (0, -4)), fill(INDIGO, opacity=10)], name="screen"),
+                group([rounded_rect((112, 196), 24), fill(WHITE)], name="body"),
             ],
             ks=transform(
                 pos=animated(
                     [
-                        (0, [148, 186, 0], EASE_IN_OUT),
-                        (10, [156, 184, 0], EASE_IN_OUT),
-                        (22, [188, 180, 0], EASE_IN_OUT),
-                        (34, [236, 178, 0], EASE_IN_OUT),
-                        (44, [242, 178, 0], LINEAR),
+                        (0, [150, 196, 0], EASE_IN_OUT),
+                        (10, [158, 194, 0], EASE_IN_OUT),
+                        (22, [186, 190, 0], EASE_IN_OUT),
+                        (34, [212, 188, 0], EASE_IN_OUT),
+                        (44, [214, 188, 0], LINEAR),
                     ]
                 ),
                 rotate=animated(
@@ -518,6 +511,7 @@ def build_apps():
 # ---------------------------------------------------------------------------
 def key(colour=INDIGO):
     """A key whose origin is the centre of its bow, shaft pointing at +x."""
+    # The ring sits above the shaft so the join reads as one object.
     return [
         group([ellipse((58, 58)), stroke(colour, 10)], name="bow-ring", pos=(0, 0)),
         group([ellipse((22, 22)), fill(colour)], name="bow-hole", pos=(0, 0)),
@@ -590,8 +584,9 @@ def build_privacy():
             index=3,
             name="shield",
             shapes=[
-                group([shield_path(scale=1.0), fill(INDIGO)], name="body"),
+                # Keyhole above the shield body (see group() ordering note).
                 group(keyhole(WHITE, scale=1.0), name="keyhole", pos=(0, 2)),
+                group([shield_path(scale=1.0), fill(INDIGO)], name="body"),
             ],
             ks=transform(
                 pos=static([200, 196]),

@@ -31,7 +31,7 @@ fun SplashRoute(
     viewModel: AppViewModel = hiltViewModel()
 ) {
     val duration = remember(holdMs) {
-        if (holdMs > SPLASH_DURATION_MS) holdMs.toLong() else SPLASH_DURATION_MS
+        if (holdMs.toLong() > SPLASH_DURATION_MS) holdMs.toLong() else SPLASH_DURATION_MS
     }
 
     LaunchedEffect(duration) {
