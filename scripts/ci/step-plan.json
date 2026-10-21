@@ -590,6 +590,11 @@
           "test": "pass13b",
           "clear": false,
           "grant": false
+        },
+        {
+          "test": "pass13c",
+          "clear": false,
+          "grant": false
         }
       ],
       "steps": [

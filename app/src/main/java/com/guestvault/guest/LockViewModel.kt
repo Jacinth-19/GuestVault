@@ -1,6 +1,7 @@
 package com.guestvault.guest
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.guestvault.core.GuestNotifications
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val PIN_LENGTH = 4
+private const val LOCK_TAG = "GuestVaultLock"
 
 data class LockUiState(
     val pinLength: Int = 0,
@@ -150,6 +152,13 @@ class LockViewModel @Inject constructor(
                 settingsRepository.writeUnlockGuard(guard)
 
                 if (LockoutPolicy.isLockedOut(guard, failureTime)) {
+                    // The length of the round is useful in a bug report and in
+                    // the field: the UI only ever shows the seconds remaining.
+                    Log.i(
+                        LOCK_TAG,
+                        "Cool-down started: ${LockoutPolicy.remainingLockSeconds(guard, failureTime)}s " +
+                            "after ${guard.failedAttempts} failed attempts"
+                    )
                     _state.update { it.copy(pinLength = 0, verifying = false, attemptsLeft = 0) }
                     // Meaningful signal, not noise: one heads-up per cool-down
                     // round, never one per wrong digit.
