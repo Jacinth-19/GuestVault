@@ -243,12 +243,8 @@ abstract class StepHarness {
                 "pinCreate", "pinConfirm" -> {
                     // The probe can be a frame ahead of the screen; only type
                     // when the keypad is really there, otherwise look again.
-                    if (has(By.desc("PIN key 1"))) {
-                        enterPin(pinDigits)
-                        pause(1_400)
-                    } else {
-                        pause(600)
-                    }
+                    tryEnterPin(pinDigits)
+                    pause(1_200)
                 }
                 "guestHome" -> {
                     dismissPinnedDialog()
@@ -256,12 +252,8 @@ abstract class StepHarness {
                     pause(1_200)
                 }
                 "lock" -> {
-                    if (has(By.desc("PIN key 1"))) {
-                        enterPin(pinDigits)
-                        pause(1_400)
-                    } else {
-                        pause(600)
-                    }
+                    tryEnterPin(pinDigits)
+                    pause(1_200)
                 }
                 else -> {
                     // A nested screen (picker, settings, history) is not "home".
@@ -309,6 +301,22 @@ abstract class StepHarness {
         expectTrue(waitForDesc("PIN key 1", 20_000), "PIN pad did not appear")
         enterPin(digits)
         pause(800)
+    }
+
+    /**
+     * Types a PIN only while the keypad is on screen. Used by the setup state
+     * machine, where a stale probe must not fail the pass.
+     */
+    protected fun tryEnterPin(digits: List<String>): Boolean {
+        for (digit in digits) {
+            val selector = By.desc("PIN key $digit")
+            val found = runCatching { device.wait(Until.hasObject(selector), 5_000) }.getOrDefault(false)
+            if (!found) return false
+            runCatching { device.findObject(selector)!!.click() }
+            pause(180)
+        }
+        pause(600)
+        return true
     }
 
     protected fun enterPin(digits: List<String>) {

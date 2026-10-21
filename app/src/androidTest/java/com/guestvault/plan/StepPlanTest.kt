@@ -615,8 +615,8 @@ class StepPlanTest : StepHarness() {
             tapText("Return to Owner")
             expectTrue(waitForDesc("PIN key 1", 10_000), "lock screen missing")
             enterPin(wrongPin)
-            val error = device.findObjects(By.textContains("Incorrect PIN")).firstOrNull()?.text
-            expectTrue(error != null, "no inline error after a wrong PIN")
+            val error = waitForContains("Incorrect PIN", 10_000)
+            expectTrue(error, "no inline error after a wrong PIN (screen: ${visibleText().take(120)})")
             expectTrue(device.hasObject(By.desc("PIN key 1")), "keypad disappeared")
         }
 
