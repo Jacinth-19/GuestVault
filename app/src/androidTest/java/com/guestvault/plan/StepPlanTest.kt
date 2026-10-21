@@ -441,9 +441,13 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("6.5", "It opens normally, full screen") {
-            val tile = device.findObjects(By.descStartsWith("Open ")).first()
-            val label = tile.contentDescription?.removePrefix("Open ")
-            tile.click()
+            val label = device.findObjects(By.descStartsWith("Open ")).firstOrNull()
+                ?.contentDescription?.removePrefix("Open ")
+            val clicked = runCatching {
+                device.findObjects(By.descStartsWith("Open ")).first().click()
+                true
+            }.getOrDefault(false)
+            expectTrue(clicked, "could not tap a guest app tile")
             pause(2_000)
             val foreground = foregroundPackage()
             expectTrue(
@@ -1255,10 +1259,33 @@ class StepPlanTest : StepHarness() {
             if (device.hasObject(By.text(label))) tapText(label)
         }
         tapText("Start Guest Mode")
-        val perm = if (permission == "none") "skipped" else handleNotificationPrompt(permission)
-        val pin = handlePinDialog(acceptPin)
+        pause(1_500)
+
+        // The system permission prompt and the pin-to-screen prompt can arrive in
+        // either order, or one of them not at all.
+        var perm = "no prompt"
+        var pin = "no dialog"
+        repeat(6) {
+            when {
+                device.hasObject(By.text("Welcome to Guest Mode")) -> return "permission: $perm; pinning: $pin"
+                device.hasObject(By.text("Allow")) || device.hasObject(By.text("Don't allow")) -> {
+                    perm = if (permission == "none") {
+                        handleNotificationPrompt("deny")
+                    } else {
+                        handleNotificationPrompt(permission)
+                    }
+                }
+                pinDialogVisible() -> pin = handlePinDialog(acceptPin)
+                else -> pause(900)
+            }
+        }
         return "permission: $perm; pinning: $pin"
     }
+
+    private fun pinDialogVisible(): Boolean =
+        device.findObjects(By.textContains("Pin")).any {
+            it.text?.contains("to this screen", ignoreCase = true) == true
+        }
 
     private fun handleNotificationPrompt(mode: String): String {
         val seen = waitForAny("Allow", "Don't allow", timeout = 7_000) != null
@@ -1285,7 +1312,7 @@ class StepPlanTest : StepHarness() {
         val deadline = System.currentTimeMillis() + 7_000
         while (System.currentTimeMillis() < deadline) {
             title = device.findObjects(By.textContains("Pin")).mapNotNull { it.text }
-                .firstOrNull { it.contains("screen", true) }
+                .firstOrNull { it.contains("to this screen", true) }
             if (title != null) break
             if (device.hasObject(By.text("Welcome to Guest Mode"))) break
             Thread.sleep(150)

@@ -5,216 +5,682 @@
       "pass": 1,
       "title": "First run (5 min)",
       "run": [
-        { "test": "pass01a", "clear": true },
-        { "host": "clear" },
-        { "test": "pass01b", "clear": false }
+        {
+          "test": "pass01a",
+          "clear": true
+        },
+        {
+          "host": "clear"
+        },
+        {
+          "test": "pass01b",
+          "clear": false
+        }
       ],
       "steps": [
-        { "id": "1.1", "action": "Launch from the icon", "expect": "Indigo splash, shield mark, \"GuestVault\", tagline. Nothing white/twitchy before it" },
-        { "id": "1.2", "action": "Wait 2 s", "expect": "Auto-advances to onboarding — no tap needed" },
-        { "id": "1.3", "action": "Page 1: read it, then swipe left", "expect": "Page 2 \"Only the apps you allow\", dot indicator animates wider" },
-        { "id": "1.4", "action": "Swipe back to page 1", "expect": "Dots track correctly both directions" },
-        { "id": "1.5", "action": "Tap Skip (any page)", "expect": "Jumps straight to PIN setup" },
-        { "id": "1.6", "action": "Reinstall and use Next twice instead", "expect": "Page 3 button reads Get Started; Skip is gone on the last page" }
-      ]
+        {
+          "id": "1.1",
+          "action": "Launch from the icon",
+          "expect": "Indigo splash, shield mark, \"GuestVault\", tagline. Nothing white/twitchy before it"
+        },
+        {
+          "id": "1.2",
+          "action": "Wait 2 s",
+          "expect": "Auto-advances to onboarding — no tap needed"
+        },
+        {
+          "id": "1.3",
+          "action": "Page 1: read it, then swipe left",
+          "expect": "Page 2 \"Only the apps you allow\", dot indicator animates wider"
+        },
+        {
+          "id": "1.4",
+          "action": "Swipe back to page 1",
+          "expect": "Dots track correctly both directions"
+        },
+        {
+          "id": "1.5",
+          "action": "Tap Skip (any page)",
+          "expect": "Jumps straight to PIN setup"
+        },
+        {
+          "id": "1.6",
+          "action": "Reinstall and use Next twice instead",
+          "expect": "Page 3 button reads Get Started; Skip is gone on the last page"
+        }
+      ],
+      "group": 1
     },
     {
       "pass": 2,
       "title": "Owner PIN (3 min)",
-      "run": [{ "test": "pass02", "clear": true }],
+      "run": [
+        {
+          "test": "pass02",
+          "clear": true
+        }
+      ],
       "steps": [
-        { "id": "2.1", "action": "Type 4 digits", "expect": "Dots fill, keyboard auto-advances on the 4th digit" },
-        { "id": "2.2", "action": "Backspace twice", "expect": "Dots empty correctly" },
-        { "id": "2.3", "action": "Confirm with a different PIN", "expect": "Inline error, stays on confirm, no crash" },
-        { "id": "2.4", "action": "Confirm correctly", "expect": "Lands on dashboard" },
-        { "id": "2.5", "action": "🔨 Press system Back on the PIN screens", "expect": "Cannot escape to the dashboard without a PIN" }
-      ]
+        {
+          "id": "2.1",
+          "action": "Type 4 digits",
+          "expect": "Dots fill, keyboard auto-advances on the 4th digit"
+        },
+        {
+          "id": "2.2",
+          "action": "Backspace twice",
+          "expect": "Dots empty correctly"
+        },
+        {
+          "id": "2.3",
+          "action": "Confirm with a different PIN",
+          "expect": "Inline error, stays on confirm, no crash"
+        },
+        {
+          "id": "2.4",
+          "action": "Confirm correctly",
+          "expect": "Lands on dashboard"
+        },
+        {
+          "id": "2.5",
+          "action": "🔨 Press system Back on the PIN screens",
+          "expect": "Cannot escape to the dashboard without a PIN"
+        }
+      ],
+      "group": 1
     },
     {
       "pass": 3,
       "title": "Dashboard (5 min)",
-      "run": [{ "test": "pass03", "clear": true }],
+      "run": [
+        {
+          "test": "pass03",
+          "clear": true
+        }
+      ],
       "steps": [
-        { "id": "3.1", "action": "Read the hero card", "expect": "\"READY TO LEND\", big white Start Guest Session, \"Exit with your PIN\"" },
-        { "id": "3.2", "action": "Check the three stat cards", "expect": "Allowed apps = 0, Lock method = PIN + bio, Auto-wipe = On (defaults)" },
-        { "id": "3.3", "action": "Allowed apps card, empty", "expect": "\"Choose apps\" action" },
-        { "id": "3.4", "action": "Tap the gear (top right)", "expect": "Settings opens" },
-        { "id": "3.5", "action": "Scroll to the bottom", "expect": "Version line — note what it says (this is the 1.0.0 bug)" },
-        { "id": "3.6", "action": "Tap \"Learn more\"", "expect": "About page with the honest-limitations copy" }
-      ]
+        {
+          "id": "3.1",
+          "action": "Read the hero card",
+          "expect": "\"READY TO LEND\", big white Start Guest Session, \"Exit with your PIN\""
+        },
+        {
+          "id": "3.2",
+          "action": "Check the three stat cards",
+          "expect": "Allowed apps = 0, Lock method = PIN + bio, Auto-wipe = On (defaults)"
+        },
+        {
+          "id": "3.3",
+          "action": "Allowed apps card, empty",
+          "expect": "\"Choose apps\" action"
+        },
+        {
+          "id": "3.4",
+          "action": "Tap the gear (top right)",
+          "expect": "Settings opens"
+        },
+        {
+          "id": "3.5",
+          "action": "Scroll to the bottom",
+          "expect": "Version line — note what it says (this is the 1.0.0 bug)"
+        },
+        {
+          "id": "3.6",
+          "action": "Tap \"Learn more\"",
+          "expect": "About page with the honest-limitations copy"
+        }
+      ],
+      "group": 1
     },
     {
       "pass": 4,
       "title": "Choosing apps (5 min)",
-      "run": [{ "test": "pass04", "clear": true }],
+      "run": [
+        {
+          "test": "pass04",
+          "clear": true
+        }
+      ],
       "steps": [
-        { "id": "4.1", "action": "Dashboard → Allowed apps → Choose apps", "expect": "Search bar, \"Use recommended\", \"Clear\", app list" },
-        { "id": "4.2", "action": "Type \"cam\" in search", "expect": "List filters live" },
-        { "id": "4.3", "action": "Type \"zzzz\"", "expect": "Empty state \"No apps match\"" },
-        { "id": "4.4", "action": "Tap Use recommended", "expect": "A safe starter set gets ticked; counter updates" },
-        { "id": "4.5", "action": "Tap Clear", "expect": "All unticked, counter → 0" },
-        { "id": "4.6", "action": "🔨 Try to tick Settings, Play Store, Messages, Contacts, Gallery/Files", "expect": "They're marked sensitive — ticking one should warn you. Confirm the warning names the risk" },
-        { "id": "4.7", "action": "Pick exactly 3 apps → Continue", "expect": "Confirm screen, summary says \"3 apps\"" }
-      ]
+        {
+          "id": "4.1",
+          "action": "Dashboard → Allowed apps → Choose apps",
+          "expect": "Search bar, \"Use recommended\", \"Clear\", app list"
+        },
+        {
+          "id": "4.2",
+          "action": "Type \"cam\" in search",
+          "expect": "List filters live"
+        },
+        {
+          "id": "4.3",
+          "action": "Type \"zzzz\"",
+          "expect": "Empty state \"No apps match\""
+        },
+        {
+          "id": "4.4",
+          "action": "Tap Use recommended",
+          "expect": "A safe starter set gets ticked; counter updates"
+        },
+        {
+          "id": "4.5",
+          "action": "Tap Clear",
+          "expect": "All unticked, counter → 0"
+        },
+        {
+          "id": "4.6",
+          "action": "🔨 Try to tick Settings, Play Store, Messages, Contacts, Gallery/Files",
+          "expect": "They're marked sensitive — ticking one should warn you. Confirm the warning names the risk"
+        },
+        {
+          "id": "4.7",
+          "action": "Pick exactly 3 apps → Continue",
+          "expect": "Confirm screen, summary says \"3 apps\""
+        }
+      ],
+      "group": 2
     },
     {
       "pass": 5,
       "title": "Session setup (4 min)",
       "run": [
-        { "test": "pass05a", "clear": true, "grant": false },
-        { "host": "clear", "grant": false },
-        { "test": "pass05b", "clear": false, "grant": false }
+        {
+          "test": "pass05a",
+          "clear": true,
+          "grant": false
+        },
+        {
+          "host": "clear",
+          "grant": false
+        },
+        {
+          "test": "pass05b",
+          "clear": false,
+          "grant": false
+        }
       ],
       "steps": [
-        { "id": "5.1", "action": "Chips: No limit / 5 / 15 / 30 / 60 min", "expect": "Only one selected at a time" },
-        { "id": "5.2", "action": "🔨 Toggle \"Clear guest data when finished\" off, then on again", "expect": "State persists through the toggle" },
-        { "id": "5.3", "action": "🔨 Toggle \"Pin the screen\"", "expect": "Explains the one-time Android confirmation" },
-        { "id": "5.4", "action": "Read \"Honest limits\" card", "expect": "Says plainly that Android can't truly wipe other apps' data" },
-        { "id": "5.5", "action": "Tap Start Guest Mode", "expect": "On Android 13+: one notification-permission prompt, then the session starts either way" },
-        { "id": "5.6", "action": "🔨 Deny the notification permission on purpose", "expect": "Session must still start (not blocked)" }
-      ]
+        {
+          "id": "5.1",
+          "action": "Chips: No limit / 5 / 15 / 30 / 60 min",
+          "expect": "Only one selected at a time"
+        },
+        {
+          "id": "5.2",
+          "action": "🔨 Toggle \"Clear guest data when finished\" off, then on again",
+          "expect": "State persists through the toggle"
+        },
+        {
+          "id": "5.3",
+          "action": "🔨 Toggle \"Pin the screen\"",
+          "expect": "Explains the one-time Android confirmation"
+        },
+        {
+          "id": "5.4",
+          "action": "Read \"Honest limits\" card",
+          "expect": "Says plainly that Android can't truly wipe other apps' data"
+        },
+        {
+          "id": "5.5",
+          "action": "Tap Start Guest Mode",
+          "expect": "On Android 13+: one notification-permission prompt, then the session starts either way"
+        },
+        {
+          "id": "5.6",
+          "action": "🔨 Deny the notification permission on purpose",
+          "expect": "Session must still start (not blocked)"
+        }
+      ],
+      "group": 2
     },
     {
       "pass": 6,
       "title": "Guest home (6 min) — the heart of it",
-      "run": [{ "test": "pass06", "clear": true, "grant": true }],
+      "run": [
+        {
+          "test": "pass06",
+          "clear": true,
+          "grant": true
+        }
+      ],
       "steps": [
-        { "id": "6.1", "action": "Look at the header", "expect": "\"Guest Mode\" + \"Only approved apps\", lock icon" },
-        { "id": "6.2", "action": "Check the status pill", "expect": "Pinned if you accepted the system dialog, Soft lock if not" },
-        { "id": "6.3", "action": "🔨 Decline the \"Pin to screen?\" dialog", "expect": "A warning banner appears: \"Home and Recents are not blocked\"" },
-        { "id": "6.4", "action": "Verify the grid", "expect": "Only your 3 chosen apps, with real icons and names" },
-        { "id": "6.5", "action": "Tap a guest app", "expect": "It opens normally, full screen" },
-        { "id": "6.6", "action": "Press Home, then Recents", "expect": "With pinning on: both are blocked. Without: you can leave — and the banner already told you so" },
-        { "id": "6.7", "action": "🔨 Try a screenshot (power+vol-down)", "expect": "Blocked/black — FLAG_SECURE is on" },
-        { "id": "6.8", "action": "Check Recents' thumbnail", "expect": "Guest home is excluded from Recents" },
-        { "id": "6.9", "action": "Pull the notification shade", "expect": "Ongoing \"Guest Mode is on · ends in 24:31\" (if permission granted)" },
-        { "id": "6.10", "action": "With a timer set, watch the countdown", "expect": "Updates every second, matches the notification" }
-      ]
+        {
+          "id": "6.1",
+          "action": "Look at the header",
+          "expect": "\"Guest Mode\" + \"Only approved apps\", lock icon"
+        },
+        {
+          "id": "6.2",
+          "action": "Check the status pill",
+          "expect": "Pinned if you accepted the system dialog, Soft lock if not"
+        },
+        {
+          "id": "6.3",
+          "action": "🔨 Decline the \"Pin to screen?\" dialog",
+          "expect": "A warning banner appears: \"Home and Recents are not blocked\""
+        },
+        {
+          "id": "6.4",
+          "action": "Verify the grid",
+          "expect": "Only your 3 chosen apps, with real icons and names"
+        },
+        {
+          "id": "6.5",
+          "action": "Tap a guest app",
+          "expect": "It opens normally, full screen"
+        },
+        {
+          "id": "6.6",
+          "action": "Press Home, then Recents",
+          "expect": "With pinning on: both are blocked. Without: you can leave — and the banner already told you so"
+        },
+        {
+          "id": "6.7",
+          "action": "🔨 Try a screenshot (power+vol-down)",
+          "expect": "Blocked/black — FLAG_SECURE is on"
+        },
+        {
+          "id": "6.8",
+          "action": "Check Recents' thumbnail",
+          "expect": "Guest home is excluded from Recents"
+        },
+        {
+          "id": "6.9",
+          "action": "Pull the notification shade",
+          "expect": "Ongoing \"Guest Mode is on · ends in 24:31\" (if permission granted)"
+        },
+        {
+          "id": "6.10",
+          "action": "With a timer set, watch the countdown",
+          "expect": "Updates every second, matches the notification"
+        }
+      ],
+      "group": 3
     },
     {
       "pass": 7,
       "title": "The lock (6 min)",
       "run": [
-        { "test": "pass07a", "clear": true, "grant": true },
-        { "host": "force-stop" },
-        { "test": "pass07b", "clear": false, "grant": false }
+        {
+          "test": "pass07a",
+          "clear": true,
+          "grant": true
+        },
+        {
+          "host": "force-stop"
+        },
+        {
+          "test": "pass07b",
+          "clear": false,
+          "grant": false
+        }
       ],
       "steps": [
-        { "id": "7.1", "action": "Tap Return to Owner", "expect": "Lock screen: \"Owner only\", PIN dots, keypad" },
-        { "id": "7.2", "action": "Tap Cancel", "expect": "Returns to guest home — a guest cannot escape by cancelling" },
-        { "id": "7.3", "action": "Enter a wrong PIN", "expect": "Red error, dots clear" },
-        { "id": "7.4", "action": "🔨 Enter 5 wrong PINs", "expect": "Cool-down starts at 30 s; keypad disabled; a countdown or message shows" },
-        { "id": "7.5", "action": "🔨 Force-stop and relaunch during the cool-down", "expect": "Still locked — the cool-down survives the app being killed" },
-        { "id": "7.6", "action": "Wait it out, then 5 more wrong", "expect": "Cool-down doubles to 60 s (cap 15 min)" },
-        { "id": "7.7", "action": "Tap the fingerprint icon", "expect": "BiometricPrompt; a wrong finger doesn't unlock; Use PIN falls back to the keypad", "mode": "manual", "why": "needs an enrolled fingerprint and a physical finger; the emulator has no biometric hardware enrolled" },
-        { "id": "7.8", "action": "Enter the correct PIN", "expect": "Session ends, back to the dashboard" }
-      ]
+        {
+          "id": "7.1",
+          "action": "Tap Return to Owner",
+          "expect": "Lock screen: \"Owner only\", PIN dots, keypad"
+        },
+        {
+          "id": "7.2",
+          "action": "Tap Cancel",
+          "expect": "Returns to guest home — a guest cannot escape by cancelling"
+        },
+        {
+          "id": "7.3",
+          "action": "Enter a wrong PIN",
+          "expect": "Red error, dots clear"
+        },
+        {
+          "id": "7.4",
+          "action": "🔨 Enter 5 wrong PINs",
+          "expect": "Cool-down starts at 30 s; keypad disabled; a countdown or message shows"
+        },
+        {
+          "id": "7.5",
+          "action": "🔨 Force-stop and relaunch during the cool-down",
+          "expect": "Still locked — the cool-down survives the app being killed"
+        },
+        {
+          "id": "7.6",
+          "action": "Wait it out, then 5 more wrong",
+          "expect": "Cool-down doubles to 60 s (cap 15 min)"
+        },
+        {
+          "id": "7.7",
+          "action": "Tap the fingerprint icon",
+          "expect": "BiometricPrompt; a wrong finger doesn't unlock; Use PIN falls back to the keypad",
+          "mode": "manual",
+          "why": "needs an enrolled fingerprint and a physical finger; the emulator has no biometric hardware enrolled"
+        },
+        {
+          "id": "7.8",
+          "action": "Enter the correct PIN",
+          "expect": "Session ends, back to the dashboard"
+        }
+      ],
+      "group": 3
     },
     {
       "pass": 8,
       "title": "Session record (3 min)",
-      "run": [{ "test": "pass08", "clear": true, "grant": true }],
+      "run": [
+        {
+          "test": "pass08",
+          "clear": true,
+          "grant": true
+        }
+      ],
       "steps": [
-        { "id": "8.1", "action": "Dashboard → \"Recent sessions\"", "expect": "Your session appears with time range, duration, \"N apps allowed\"" },
-        { "id": "8.2", "action": "Tap View all", "expect": "History list, newest first" },
-        { "id": "8.3", "action": "Check the row badge", "expect": "Guest data wiped (since auto-wipe was on) and the end reason" },
-        { "id": "8.4", "action": "🔨 Clear history → confirm dialog", "expect": "Ask before deleting; list empties to \"No sessions yet\"" }
-      ]
+        {
+          "id": "8.1",
+          "action": "Dashboard → \"Recent sessions\"",
+          "expect": "Your session appears with time range, duration, \"N apps allowed\""
+        },
+        {
+          "id": "8.2",
+          "action": "Tap View all",
+          "expect": "History list, newest first"
+        },
+        {
+          "id": "8.3",
+          "action": "Check the row badge",
+          "expect": "Guest data wiped (since auto-wipe was on) and the end reason"
+        },
+        {
+          "id": "8.4",
+          "action": "🔨 Clear history → confirm dialog",
+          "expect": "Ask before deleting; list empties to \"No sessions yet\""
+        }
+      ],
+      "group": 4
     },
     {
       "pass": 9,
       "title": "Settings, every switch (8 min)",
       "run": [
-        { "test": "pass09a", "clear": true, "grant": true },
-        { "host": "force-stop" },
-        { "test": "pass09b", "clear": false, "grant": false }
+        {
+          "test": "pass09a",
+          "clear": true,
+          "grant": true
+        },
+        {
+          "host": "force-stop"
+        },
+        {
+          "test": "pass09b",
+          "clear": false,
+          "grant": false
+        }
       ],
       "steps": [
-        { "id": "9.1", "action": "Change owner PIN", "expect": "Old PIN path works; new PIN takes effect immediately — verify by starting a session and unlocking with the new one" },
-        { "id": "9.2", "action": "Biometric unlock toggle", "expect": "Shows unavailable if no fingerprint/face is enrolled" },
-        { "id": "9.3", "action": "Screen pinning toggle", "expect": "Off ⇒ next session shows \"Soft lock\" and the warning" },
-        { "id": "9.4", "action": "Auto-wipe toggle", "expect": "Off ⇒ a session ends without the \"Guest data wiped\" badge" },
-        { "id": "9.5", "action": "Default session timer → pick 5 min", "expect": "Confirm screen pre-selects 5 min next time" },
-        { "id": "9.6", "action": "Theme: System / Light / Dark", "expect": "Applies instantly, survives a restart, and the guest home follows too" },
-        { "id": "9.7", "action": "Permissions & privacy", "expect": "4 rows with live status + a \"Never requested\" list that includes Internet" },
-        { "id": "9.8", "action": "How GuestVault works", "expect": "Limitations page, no marketing spin" },
-        { "id": "9.9", "action": "Privacy policy", "expect": "Opens the GitHub Pages policy" },
-        { "id": "9.10", "action": "Version row", "expect": "Shows 1.1.1 — compare with the dashboard footer (9.5 in Pass 3)" }
-      ]
+        {
+          "id": "9.1",
+          "action": "Change owner PIN",
+          "expect": "Old PIN path works; new PIN takes effect immediately — verify by starting a session and unlocking with the new one"
+        },
+        {
+          "id": "9.2",
+          "action": "Biometric unlock toggle",
+          "expect": "Shows unavailable if no fingerprint/face is enrolled"
+        },
+        {
+          "id": "9.3",
+          "action": "Screen pinning toggle",
+          "expect": "Off ⇒ next session shows \"Soft lock\" and the warning"
+        },
+        {
+          "id": "9.4",
+          "action": "Auto-wipe toggle",
+          "expect": "Off ⇒ a session ends without the \"Guest data wiped\" badge"
+        },
+        {
+          "id": "9.5",
+          "action": "Default session timer → pick 5 min",
+          "expect": "Confirm screen pre-selects 5 min next time"
+        },
+        {
+          "id": "9.6",
+          "action": "Theme: System / Light / Dark",
+          "expect": "Applies instantly, survives a restart, and the guest home follows too"
+        },
+        {
+          "id": "9.7",
+          "action": "Permissions & privacy",
+          "expect": "4 rows with live status + a \"Never requested\" list that includes Internet"
+        },
+        {
+          "id": "9.8",
+          "action": "How GuestVault works",
+          "expect": "Limitations page, no marketing spin"
+        },
+        {
+          "id": "9.9",
+          "action": "Privacy policy",
+          "expect": "Opens the GitHub Pages policy"
+        },
+        {
+          "id": "9.10",
+          "action": "Version row",
+          "expect": "Shows 1.1.1 — compare with the dashboard footer (9.5 in Pass 3)"
+        }
+      ],
+      "group": 4
     },
     {
       "pass": 10,
       "title": "Permissions screen under stress (3 min)",
       "run": [
-        { "test": "pass10a", "clear": true, "grant": true },
-        { "host": "revoke-notifications" },
-        { "test": "pass10b", "clear": false, "grant": false }
+        {
+          "test": "pass10a",
+          "clear": true,
+          "grant": true
+        },
+        {
+          "host": "revoke-notifications"
+        },
+        {
+          "test": "pass10b",
+          "clear": false,
+          "grant": false
+        }
       ],
       "steps": [
-        { "id": "10.1", "action": "Revoke Notifications in Android settings, reopen the app", "expect": "Row shows \"Not granted\" with a button to fix it" },
-        { "id": "10.2", "action": "🔨 Start a session with notifications revoked", "expect": "Session still starts; the ongoing notification is simply absent" }
-      ]
+        {
+          "id": "10.1",
+          "action": "Revoke Notifications in Android settings, reopen the app",
+          "expect": "Row shows \"Not granted\" with a button to fix it"
+        },
+        {
+          "id": "10.2",
+          "action": "🔨 Start a session with notifications revoked",
+          "expect": "Session still starts; the ongoing notification is simply absent"
+        }
+      ],
+      "group": 5
     },
     {
       "pass": 11,
       "title": "Quick Settings tile (3 min)",
-      "run": [{ "test": "pass11", "clear": true, "grant": true }],
+      "run": [
+        {
+          "test": "pass11",
+          "clear": true,
+          "grant": true
+        }
+      ],
       "steps": [
-        { "id": "11.1", "action": "Pull the shade → edit tiles → add Guest Mode", "expect": "Tile appears" },
-        { "id": "11.2", "action": "Read the subtitle (no session)", "expect": "\"Tap to start a guest session\"" },
-        { "id": "11.3", "action": "Tap it", "expect": "Opens the app on the confirm screen — it does not silently start a session" },
-        { "id": "11.4", "action": "Start a session, then tap the tile", "expect": "Jumps straight back into the running guest home; tile is active" }
-      ]
+        {
+          "id": "11.1",
+          "action": "Pull the shade → edit tiles → add Guest Mode",
+          "expect": "Tile appears"
+        },
+        {
+          "id": "11.2",
+          "action": "Read the subtitle (no session)",
+          "expect": "\"Tap to start a guest session\""
+        },
+        {
+          "id": "11.3",
+          "action": "Tap it",
+          "expect": "Opens the app on the confirm screen — it does not silently start a session"
+        },
+        {
+          "id": "11.4",
+          "action": "Start a session, then tap the tile",
+          "expect": "Jumps straight back into the running guest home; tile is active"
+        }
+      ],
+      "group": 5
     },
     {
       "pass": 12,
       "title": "Timer expiry (5 min, hands-off)",
       "run": [
-        { "test": "pass12a", "clear": true, "grant": true },
-        { "host": "force-stop" },
-        { "test": "pass12b", "clear": false, "grant": false }
+        {
+          "test": "pass12a",
+          "clear": true,
+          "grant": true
+        },
+        {
+          "host": "force-stop"
+        },
+        {
+          "test": "pass12b",
+          "clear": false,
+          "grant": false
+        }
       ],
       "steps": [
-        { "id": "12.1", "action": "Start a 5-minute session, put the phone down", "expect": "Ends by itself at 0:00" },
-        { "id": "12.2", "action": "Check history", "expect": "End reason Timer, wipe badge if auto-wipe was on" },
-        { "id": "12.3", "action": "🔨 Leave the guest in another app during the whole 5 min", "expect": "Still expires — the foreground service keeps the timer alive" }
-      ]
+        {
+          "id": "12.1",
+          "action": "Start a 5-minute session, put the phone down",
+          "expect": "Ends by itself at 0:00"
+        },
+        {
+          "id": "12.2",
+          "action": "Check history",
+          "expect": "End reason Timer, wipe badge if auto-wipe was on"
+        },
+        {
+          "id": "12.3",
+          "action": "🔨 Leave the guest in another app during the whole 5 min",
+          "expect": "Still expires — the foreground service keeps the timer alive"
+        }
+      ],
+      "group": 6
     },
     {
       "pass": 13,
       "title": "Reboot recovery (3 min)",
       "run": [
-        { "test": "pass13a", "clear": true, "grant": true },
-        { "host": "reboot" },
-        { "test": "pass13b", "clear": false, "grant": false }
+        {
+          "test": "pass13a",
+          "clear": true,
+          "grant": true
+        },
+        {
+          "host": "reboot"
+        },
+        {
+          "test": "pass13b",
+          "clear": false,
+          "grant": false
+        }
       ],
       "steps": [
-        { "id": "13.1", "action": "Start a session, then reboot the phone", "expect": "—" },
-        { "id": "13.2", "action": "Unlock the phone, open GuestVault", "expect": "No guest session: it was closed on boot" },
-        { "id": "13.3", "action": "Check history", "expect": "Recovered after restart, and wiped if auto-wipe was on" },
-        { "id": "13.4", "action": "🔨 Repeat on Samsung with \"Pin windows\" + battery saver on", "expect": "Same result", "mode": "manual", "why": "needs a Samsung One UI device with battery saver — no such hardware in CI" }
-      ]
+        {
+          "id": "13.1",
+          "action": "Start a session, then reboot the phone",
+          "expect": "—"
+        },
+        {
+          "id": "13.2",
+          "action": "Unlock the phone, open GuestVault",
+          "expect": "No guest session: it was closed on boot"
+        },
+        {
+          "id": "13.3",
+          "action": "Check history",
+          "expect": "Recovered after restart, and wiped if auto-wipe was on"
+        },
+        {
+          "id": "13.4",
+          "action": "🔨 Repeat on Samsung with \"Pin windows\" + battery saver on",
+          "expect": "Same result",
+          "mode": "manual",
+          "why": "needs a Samsung One UI device with battery saver — no such hardware in CI"
+        }
+      ],
+      "group": 5
     },
     {
       "pass": 14,
       "title": "Edge cases that break most apps (5 min)",
       "run": [
-        { "host": "font-scale", "value": "2.0" },
-        { "test": "pass14a", "clear": true, "grant": true },
-        { "host": "font-scale", "value": "1.0" },
-        { "test": "pass14b", "clear": true, "grant": true },
-        { "host": "force-stop" },
-        { "test": "pass14c", "clear": false, "grant": false },
-        { "host": "uninstall-check" }
+        {
+          "host": "font-scale",
+          "value": "2.0"
+        },
+        {
+          "test": "pass14a",
+          "clear": true,
+          "grant": true
+        },
+        {
+          "host": "font-scale",
+          "value": "1.0"
+        },
+        {
+          "test": "pass14b",
+          "clear": true,
+          "grant": true
+        },
+        {
+          "host": "force-stop"
+        },
+        {
+          "test": "pass14c",
+          "clear": false,
+          "grant": false
+        },
+        {
+          "host": "uninstall-check"
+        }
       ],
       "steps": [
-        { "id": "14.1", "action": "System font size 200%", "expect": "Nothing clipped or overlapping on any screen" },
-        { "id": "14.2", "action": "Rotate the phone during a session", "expect": "Guest home survives; no crash, no escape" },
-        { "id": "14.3", "action": "Start a session with 0 apps allowed", "expect": "Blocked with \"Pick at least one app\"" },
-        { "id": "14.4", "action": "Airplane mode", "expect": "Irrelevant — the app has no INTERNET permission at all" },
-        { "id": "14.5", "action": "Kill the app from Recents mid-session, reopen", "expect": "Guest mode is still active, not silently dropped" },
-        { "id": "14.6", "action": "Uninstall", "expect": "Everything goes; nothing was backed up (allowBackup=false)" }
-      ]
+        {
+          "id": "14.1",
+          "action": "System font size 200%",
+          "expect": "Nothing clipped or overlapping on any screen"
+        },
+        {
+          "id": "14.2",
+          "action": "Rotate the phone during a session",
+          "expect": "Guest home survives; no crash, no escape"
+        },
+        {
+          "id": "14.3",
+          "action": "Start a session with 0 apps allowed",
+          "expect": "Blocked with \"Pick at least one app\""
+        },
+        {
+          "id": "14.4",
+          "action": "Airplane mode",
+          "expect": "Irrelevant — the app has no INTERNET permission at all"
+        },
+        {
+          "id": "14.5",
+          "action": "Kill the app from Recents mid-session, reopen",
+          "expect": "Guest mode is still active, not silently dropped"
+        },
+        {
+          "id": "14.6",
+          "action": "Uninstall",
+          "expect": "Everything goes; nothing was backed up (allowBackup=false)"
+        }
+      ],
+      "group": 5
     }
   ]
 }

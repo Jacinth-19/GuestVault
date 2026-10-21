@@ -18,6 +18,7 @@ TEST_APK="app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 PACKAGE="com.guestvault"
 RUNNER="${PACKAGE}.test/androidx.test.runner.AndroidJUnitRunner"
 MANIFEST="${MANIFEST:-scripts/ci/step-plan.json}"
+PLAN_GROUP="${PLAN_GROUP:-}"
 RAW="build/step-results.jsonl"
 PER_PASS_TIMEOUT="${PER_PASS_TIMEOUT:-900}"
 
@@ -25,7 +26,7 @@ mkdir -p build build/logcat
 : > "$RAW"
 rm -f plan-failed.txt
 PHASES="build/phase-log.md"
-printf '| Phase | Exit | Device | First error line |\n| --- | --- | --- | --- |\n' > "$PHASES"
+printf '| Phase | Exit | Device | Foreground window | Crash / error |\n| --- | --- | --- | --- | --- |\n' > "$PHASES"
 
 run_phase() {
   local name="$1" out status device summary
@@ -39,7 +40,10 @@ run_phase() {
   echo "$out" > "build/logcat/${name}.txt"
   summary="$(echo "$out" | grep -E "INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]|Error|Exception|crashed|offline|not found" \
     | tail -n 2 | tr '\n' ' ' | cut -c1-260)"
-  printf '| %s | %s | %s | %s |\n' "$name" "$status" "$device" "${summary:-no error line}" >> "$PHASES"
+  local focus crash
+  focus="$(adb shell dumpsys window 2>/dev/null | grep -m1 -E "mCurrentFocus|mFocusedApp" | tr -d '\r' | cut -c1-110)"
+  crash="$(adb shell logcat -d -b crash -t 80 2>/dev/null | grep -E "FATAL EXCEPTION|com.guestvault" | tail -n 2 | tr '\n' ' ' | cut -c1-240)"
+  printf '| %s | %s | %s | %s | %s |\n' "$name" "$status" "$device" "${focus:-?}" "${summary:-${crash:-no error line}}" >> "$PHASES"
   echo "$out" | tail -n 10
   # Pull before the next host action can wipe the app's data directory.
   pull_results
@@ -183,7 +187,7 @@ while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE <&3; do
       echo "::warning::unknown host action $NAME"
       ;;
   esac
-done 3< <(python3 scripts/ci/plan_ops.py "$MANIFEST")
+done 3< <(python3 scripts/ci/plan_ops.py "$MANIFEST" ${PLAN_GROUP:+--group "$PLAN_GROUP"})
 
 echo "== verdicts =="
 cat "$RAW" || true
@@ -191,17 +195,16 @@ cat "$RAW" || true
 echo "== phases =="
 cat "$PHASES" || true
 
-echo "== report =="
+# A group cannot grade the whole plan (the other groups' steps are legitimately
+# missing here), so this is a per-group preview only. The report job merges every
+# group's verdicts and is the gate.
+echo "== group preview =="
 python3 scripts/ci/step_report.py \
   --manifest "$MANIFEST" \
   --results "$RAW" \
   --phase-log "$PHASES" \
-  --out step-report.md
-STATUS=$?
+  --out step-report-group.md \
+  || true
 
-cat step-report.md 2>/dev/null || true
-
-if [ "$STATUS" -ne 0 ]; then
-  echo "plan-failed" > plan-failed.txt
-fi
-exit "$STATUS"
+cat step-report-group.md 2>/dev/null || true
+exit 0

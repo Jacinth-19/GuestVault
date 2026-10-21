@@ -16,8 +16,16 @@ from pathlib import Path
 
 
 def main(argv: list[str]) -> int:
-    manifest = json.loads(Path(argv[1]).read_text(encoding="utf-8"))
+    args = [a for a in argv[1:] if not a.startswith("--group")]
+    group = ""
+    for index, value in enumerate(argv[1:]):
+        if value == "--group" and index + 2 < len(argv):
+            group = argv[index + 2]
+
+    manifest = json.loads(Path(args[0]).read_text(encoding="utf-8"))
     for block in manifest.get("passes", []):
+        if group and str(block.get("group", "")) != group:
+            continue
         for entry in block.get("run", []):
             if "test" in entry:
                 print(

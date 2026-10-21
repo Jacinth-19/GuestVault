@@ -100,13 +100,21 @@ abstract class StepHarness {
 
     protected fun launchApp() {
         device.pressHome()
-        pause(500)
-        runCatching {
+        pause(400)
+        val started = runCatching {
             val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             context.startActivity(intent)
+            true
+        }.getOrDefault(false)
+        pause(1_200)
+        // A cold start after `pm clear` can be slow, and `startActivity` from the
+        // instrumentation is not always honoured. Fall back to the shell and
+        // wait for something we recognise instead of guessing with a sleep.
+        if (!started || screen() == "unknown") {
+            shell("am start -n ${context.packageName}/.MainActivity")
+            pause(1_500)
         }
-        pause(800)
     }
 
     /** Force-stops and relaunches — a real cold start of the owner app. */
@@ -121,37 +129,80 @@ abstract class StepHarness {
         pause(1200)
     }
 
-    /** Walks whatever screen is showing to the owner dashboard. */
+    /** What the app is showing right now, or "unknown". */
+    protected fun screen(): String = when {
+        device.hasObject(By.text("Start Guest Session")) -> "dashboard"
+        device.hasObject(By.text("Welcome to Guest Mode")) -> "guestHome"
+        device.hasObject(By.text("Create your owner PIN")) -> "pinCreate"
+        device.hasObject(By.text("Confirm your PIN")) -> "pinConfirm"
+        device.hasObject(By.desc("PIN key 1")) -> "lock"
+        device.hasObject(By.text("Skip")) || device.hasObject(By.text("Lend your phone safely")) -> "onboarding"
+        else -> "unknown"
+    }
+
+    /** One onboarding move: Get Started on the last page, Skip anywhere else. */
+    protected fun advanceOnboarding() {
+        if (tapTextIfPresent("Get Started")) {
+            pause(1_200)
+            return
+        }
+        if (tapTextIfPresent("Skip")) {
+            pause(1_200)
+            return
+        }
+        if (tapTextIfPresent("Next")) pause(1_200)
+    }
+
+    protected fun tapTextIfPresent(text: String): Boolean {
+        val node = device.findObject(By.text(text)) ?: return false
+        return runCatching {
+            node.click()
+            pause(500)
+            true
+        }.getOrDefault(false)
+    }
+
+    protected fun tapDescIfPresent(desc: String): Boolean {
+        val node = device.findObject(By.desc(desc)) ?: return false
+        return runCatching {
+            node.click()
+            pause(500)
+            true
+        }.getOrDefault(false)
+    }
+
+    /**
+     * Walks whatever screen is showing to the owner dashboard.
+     *
+     * Screen-driven rather than scripted: each iteration looks at what is
+     * actually on screen and does the one thing that moves the state forward.
+     * That survives a page that animates slowly, a cold start that takes ten
+     * seconds, or a session left running by the previous pass.
+     */
     protected fun ensureOwnerHome() {
-        launchApp()
-        when (waitForAny("Skip", "Create your owner PIN", "Start Guest Session", "Welcome to Guest Mode", "Owner lock", timeout = 45_000)) {
-            "Skip" -> {
-                repeat(3) {
-                    if (device.hasObject(By.text("Next"))) tapText("Next")
-                    pause(500)
+        repeat(16) {
+            when (screen()) {
+                "dashboard" -> return
+                "onboarding" -> advanceOnboarding()
+                "pinCreate", "pinConfirm" -> {
+                    enterPin(pinDigits)
+                    pause(1_400)
                 }
-                if (device.hasObject(By.text("Get Started"))) tapText("Get Started")
+                "guestHome" -> {
+                    tapTextIfPresent("Return to Owner")
+                    pause(1_200)
+                }
+                "lock" -> {
+                    enterPin(pinDigits)
+                    pause(1_400)
+                }
+                else -> {
+                    launchApp()
+                    pause(1_500)
+                }
             }
         }
-
-        when {
-            device.hasObject(By.text("Create your owner PIN")) -> createPin(pinDigits)
-            device.hasObject(By.desc("PIN key 1")) -> unlockWithPin()
-        }
-
-        // A guest session can outlive the owner activity; leave it first.
-        if (device.hasObject(By.text("Return to Owner"))) {
-            tapText("Return to Owner")
-            if (device.hasObject(By.desc("PIN key 1"))) unlockWithPin()
-        }
-
-        expectTrue(
-            waitForAny("Start Guest Session", "Create your owner PIN", "Owner lock", timeout = 20_000) != null,
-            "owner app never reached a known screen"
-        )
-        if (device.hasObject(By.text("Create your owner PIN"))) createPin(pinDigits)
-        if (device.hasObject(By.desc("PIN key 1"))) unlockWithPin()
-        expectTrue(waitFor("Start Guest Session", 20_000), "dashboard did not appear")
+        expectTrue(screen() == "dashboard", "owner app never reached the dashboard (screen: ${screen()})")
     }
 
     /** Completes onboarding if it is showing. Returns true when it did. */
