@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.guestvault.MainActivity
+import com.guestvault.core.GuestNotifications
 import com.guestvault.domain.model.EndReason
 import com.guestvault.domain.model.GuestSession
 import com.guestvault.domain.model.SessionRecord
@@ -65,7 +66,8 @@ class SessionController @Inject constructor(
      * guest artifacts. Safe to call multiple times.
      */
     suspend fun end(reason: EndReason): WipeResult? = mutex.withLock {
-        val current = settingsRepository.settings.first().activeSession ?: return@withLock null
+        val settings = settingsRepository.settings.first()
+        val current = settings.activeSession ?: return@withLock null
 
         val shouldWipe = current.autoWipe || reason == EndReason.DATA_WIPED
         val wipeResult = if (shouldWipe) {
@@ -76,17 +78,29 @@ class SessionController @Inject constructor(
             null
         }
 
-        settingsRepository.addSessionRecord(
-            SessionRecord(
-                startedAt = current.startedAt,
-                endedAt = System.currentTimeMillis(),
-                appCount = current.packages.size,
-                autoWiped = wipeResult != null,
-                endReason = reason
-            )
+        val record = SessionRecord(
+            startedAt = current.startedAt,
+            endedAt = System.currentTimeMillis(),
+            appCount = current.packages.size,
+            autoWiped = wipeResult != null,
+            endReason = reason
         )
+        settingsRepository.addSessionRecord(record)
         settingsRepository.setActiveSession(null)
         GuestSessionService.stop(context)
+
+        // The session is over, so nothing about it should still be in the shade:
+        // the ongoing notice disappears with the service, the timer reminders and
+        // the lockout warning are stale. The summary replaces them.
+        GuestNotifications.clearTimerReminders(context)
+        GuestNotifications.clearSecurity(context)
+        GuestNotifications.notifySessionSummary(
+            context = context,
+            record = record,
+            wipeResult = wipeResult,
+            enabled = settings.notifySessionSummary
+        )
+
         wipeResult
     }
 

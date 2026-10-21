@@ -8,6 +8,6 @@ import dagger.hilt.android.HiltAndroidApp
 class GuestVaultApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        GuestNotifications.ensureChannel(this)
+        GuestNotifications.ensureChannels(this)
     }
 }

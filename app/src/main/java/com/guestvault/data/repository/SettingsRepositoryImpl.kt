@@ -75,6 +75,14 @@ class SettingsRepositoryImpl @Inject constructor(
         context.settingsDataStore.edit { it[Keys.DEFAULT_SESSION_MINUTES] = minutes }
     }
 
+    override suspend fun setNotifyTimerAlerts(enabled: Boolean) {
+        context.settingsDataStore.edit { it[Keys.NOTIFY_TIMER_ALERTS] = enabled }
+    }
+
+    override suspend fun setNotifySessionSummary(enabled: Boolean) {
+        context.settingsDataStore.edit { it[Keys.NOTIFY_SESSION_SUMMARY] = enabled }
+    }
+
     override suspend fun setThemeMode(mode: ThemeMode) {
         context.settingsDataStore.edit { it[Keys.THEME_MODE] = mode.name }
     }
@@ -145,6 +153,8 @@ class SettingsRepositoryImpl @Inject constructor(
             biometricEnabled = this[Keys.BIOMETRIC_ENABLED] ?: true,
             lockTaskEnabled = this[Keys.LOCK_TASK_ENABLED] ?: true,
             defaultSessionMinutes = this[Keys.DEFAULT_SESSION_MINUTES] ?: 0,
+            notifyTimerAlerts = this[Keys.NOTIFY_TIMER_ALERTS] ?: true,
+            notifySessionSummary = this[Keys.NOTIFY_SESSION_SUMMARY] ?: false,
             themeMode = ThemeMode.entries.firstOrNull { it.name == this[Keys.THEME_MODE] }
                 ?: ThemeMode.SYSTEM,
             activeSession = session,
@@ -187,6 +197,8 @@ class SettingsRepositoryImpl @Inject constructor(
         val BIOMETRIC_ENABLED = booleanPreferencesKey("biometric_enabled")
         val LOCK_TASK_ENABLED = booleanPreferencesKey("lock_task_enabled")
         val DEFAULT_SESSION_MINUTES = intPreferencesKey("default_session_minutes")
+        val NOTIFY_TIMER_ALERTS = booleanPreferencesKey("notify_timer_alerts")
+        val NOTIFY_SESSION_SUMMARY = booleanPreferencesKey("notify_session_summary")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val HISTORY = stringPreferencesKey("session_history")
 

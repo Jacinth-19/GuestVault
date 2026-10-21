@@ -5,11 +5,6 @@
     <string name="app_tagline">Borrow my phone. Keep your privacy.</string>
     <string name="qs_tile_label">Guest Mode</string>
 
-    <!-- Legacy single-channel names, still used by the pre-1.2 notification
-         helper on this branch. Removed with the four-channel rewrite. -->
-    <string name="guest_session_channel_name">Guest session</string>
-    <string name="guest_session_channel_description">Keeps the guest session running while your phone is shared.</string>
-
     <!-- Notification channels. Descriptions are user-facing: they appear in
          Android settings, so they explain the purpose rather than the API. -->
     <string name="channel_session_name">Guest session</string>

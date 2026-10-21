@@ -33,6 +33,9 @@ class MainActivity : FragmentActivity() {
     /** Incremented whenever the Quick Settings tile asks to start a session. */
     private var quickStartRequest by mutableIntStateOf(0)
 
+    /** Incremented when a session-summary notification asks for the history screen. */
+    private var historyRequest by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -66,7 +69,10 @@ class MainActivity : FragmentActivity() {
                         // Neutral holding frame; the activity is being replaced.
                         Box(modifier = Modifier.fillMaxSize().background(HeroGradient))
                     } else {
-                        GuestVaultNavHost(quickStartRequest = quickStartRequest)
+                        GuestVaultNavHost(
+                            quickStartRequest = quickStartRequest,
+                            historyRequest = historyRequest
+                        )
                     }
                 }
             }
@@ -84,9 +90,16 @@ class MainActivity : FragmentActivity() {
      * deep UI, so the owner still confirms the session on the normal screen.
      */
     private fun handleIntent(intent: Intent?) {
-        if (intent?.getBooleanExtra(EXTRA_QUICK_START_SESSION, false) == true) {
+        if (intent == null) return
+
+        if (intent.getBooleanExtra(EXTRA_QUICK_START_SESSION, false)) {
             intent.removeExtra(EXTRA_QUICK_START_SESSION)
             quickStartRequest++
+        }
+
+        if (intent.getBooleanExtra(EXTRA_OPEN_HISTORY, false)) {
+            intent.removeExtra(EXTRA_OPEN_HISTORY)
+            historyRequest++
         }
     }
 
@@ -100,5 +113,6 @@ class MainActivity : FragmentActivity() {
 
     companion object {
         const val EXTRA_QUICK_START_SESSION = "com.guestvault.extra.QUICK_START_SESSION"
+        const val EXTRA_OPEN_HISTORY = "com.guestvault.extra.OPEN_HISTORY"
     }
 }

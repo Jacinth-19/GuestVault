@@ -1,7 +1,9 @@
 package com.guestvault.guest
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.guestvault.core.GuestNotifications
 import com.guestvault.domain.model.EndReason
 import com.guestvault.domain.model.UnlockGuard
 import com.guestvault.domain.repository.SettingsRepository
@@ -9,6 +11,7 @@ import com.guestvault.domain.usecase.EndGuestSessionUseCase
 import com.guestvault.domain.usecase.ObserveSettingsUseCase
 import com.guestvault.domain.usecase.VerifyPinUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -45,6 +48,7 @@ data class LockUiState(
  */
 @HiltViewModel
 class LockViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val verifyPin: VerifyPinUseCase,
     private val endGuestSession: EndGuestSessionUseCase,
     private val settingsRepository: SettingsRepository,
@@ -112,6 +116,7 @@ class LockViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.writeUnlockGuard(LockoutPolicy.reset())
             guard = LockoutPolicy.reset()
+            GuestNotifications.clearSecurity(context)
             finishSession()
         }
     }
@@ -133,6 +138,7 @@ class LockViewModel @Inject constructor(
             if (ok) {
                 guard = LockoutPolicy.reset()
                 settingsRepository.writeUnlockGuard(guard)
+                GuestNotifications.clearSecurity(context)
                 _state.update {
                     it.copy(pinLength = PIN_LENGTH, verifying = false, attemptsLeft = LockoutPolicy.MAX_ATTEMPTS)
                 }
@@ -145,6 +151,13 @@ class LockViewModel @Inject constructor(
 
                 if (LockoutPolicy.isLockedOut(guard, failureTime)) {
                     _state.update { it.copy(pinLength = 0, verifying = false, attemptsLeft = 0) }
+                    // Meaningful signal, not noise: one heads-up per cool-down
+                    // round, never one per wrong digit.
+                    GuestNotifications.notifyLockout(
+                        context = context,
+                        failedAttempts = guard.failedAttempts,
+                        lockSeconds = LockoutPolicy.remainingLockSeconds(guard, failureTime)
+                    )
                     startLockoutCountdown()
                 } else {
                     val left = LockoutPolicy.attemptsLeft(guard, failureTime)
@@ -186,6 +199,10 @@ class LockViewModel @Inject constructor(
                 delay(1_000)
             }
             _state.update { it.copy(lockedOutSeconds = 0) }
+            GuestNotifications.notifyLockoutCleared(
+                context = context,
+                attemptsLeft = LockoutPolicy.attemptsLeft(guard, System.currentTimeMillis())
+            )
         }
     }
 

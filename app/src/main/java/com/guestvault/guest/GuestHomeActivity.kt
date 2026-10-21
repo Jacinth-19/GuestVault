@@ -28,9 +28,14 @@ class GuestHomeActivity : FragmentActivity() {
 
     private var returningToOwner = false
 
+    /** Set when a security or timer notification asked straight for the lock screen. */
+    private var startLocked = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        startLocked = intent?.getBooleanExtra(EXTRA_OPEN_LOCK, false) == true
+        intent?.removeExtra(EXTRA_OPEN_LOCK)
 
         // Keep the guest UI and the owner PIN pad out of screenshots, screen
         // recordings and the Recents thumbnail. Debug builds skip it so the CI
@@ -49,6 +54,7 @@ class GuestHomeActivity : FragmentActivity() {
             GuestVaultTheme(themeMode = state.settings.themeMode) {
                 GuestHomeRoute(
                     state = state,
+                    startLocked = startLocked,
                     activity = this@GuestHomeActivity,
                     viewModel = viewModel,
                     onLaunchApp = viewModel::launchApp,
@@ -94,7 +100,10 @@ class GuestHomeActivity : FragmentActivity() {
         finishAndRemoveTask()
     }
 
-    private companion object {
-        const val TAG = "GuestHomeActivity"
+    companion object {
+        private const val TAG = "GuestHomeActivity"
+
+        /** Extra for notifications: open straight on the owner PIN pad. */
+        const val EXTRA_OPEN_LOCK = "com.guestvault.extra.OPEN_LOCK"
     }
 }

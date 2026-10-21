@@ -10,6 +10,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import com.guestvault.core.Formatters
 import com.guestvault.core.GuestNotifications
+import com.guestvault.core.notifications.TimerReminders
 import com.guestvault.data.session.SessionController
 import com.guestvault.domain.model.EndReason
 import com.guestvault.domain.repository.SettingsRepository
@@ -23,6 +24,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -73,12 +75,12 @@ class GuestSessionService : Service() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 startForeground(
-                    GuestNotifications.NOTIFICATION_ID,
+                    GuestNotifications.ID_SESSION,
                     notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
                 )
             } else {
-                startForeground(GuestNotifications.NOTIFICATION_ID, notification)
+                startForeground(GuestNotifications.ID_SESSION, notification)
             }
         } catch (t: Throwable) {
             // Can happen if the OS refuses a background FGS start. The session
@@ -95,11 +97,13 @@ class GuestSessionService : Service() {
                 .distinctUntilChanged()
                 .collectLatest { session ->
                     if (session == null) {
+                        GuestNotifications.clearTimerReminders(this@GuestSessionService)
                         stopSelf()
                         return@collectLatest
                     }
 
                     var lastLabel: String? = null
+                    val notified = mutableSetOf<Int>()
                     while (isActive) {
                         val remaining = session.remainingMillis()
                         val label = remaining?.let(Formatters::countdown)
@@ -107,9 +111,34 @@ class GuestSessionService : Service() {
                         if (label != lastLabel) {
                             GuestNotifications.updateSessionNotification(
                                 this@GuestSessionService,
-                                label
+                                label,
+                                GuestNotifications.progressPercent(session, remaining)
                             )
                             lastLabel = label
+                        }
+
+                        if (remaining != null) {
+                            // One reminder per threshold, checked every tick so a
+                            // dozing device still gets the most relevant one.
+                            val due = TimerReminders.due(
+                                totalMinutes = session.durationMinutes,
+                                remainingMillis = remaining,
+                                alreadyNotified = notified
+                            )
+                            if (due != null) {
+                                notified += TimerReminders.superseded(due)
+                                val enabled = runCatching {
+                                    settingsRepository.settings
+                                        .first()
+                                        .notifyTimerAlerts
+                                }.getOrDefault(true)
+                                if (enabled) {
+                                    GuestNotifications.notifyTimerReminder(
+                                        this@GuestSessionService,
+                                        due
+                                    )
+                                }
+                            }
                         }
 
                         if (remaining != null && remaining <= 0L) {

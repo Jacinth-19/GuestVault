@@ -73,12 +73,13 @@ import kotlinx.coroutines.delay
 fun GuestHomeRoute(
     state: GuestUiState,
     activity: GuestHomeActivity,
+    startLocked: Boolean = false,
     viewModel: GuestViewModel,
     onLaunchApp: (String) -> Unit,
     onEndSession: (EndReason) -> Unit,
     onReturnToOwner: () -> Unit
 ) {
-    var showLock by rememberSaveable { mutableStateOf(false) }
+    var showLock by rememberSaveable { mutableStateOf(startLocked) }
     var lockHint by remember { mutableStateOf<String?>(null) }
     var pinned by remember { mutableStateOf(activity.isInLockTaskMode()) }
     var message by remember { mutableStateOf<String?>(null) }
