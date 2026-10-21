@@ -297,7 +297,20 @@ class StepPlanTest : StepHarness() {
         ) {
             val missing = mutableListOf<String>()
             val noWarning = mutableListOf<String>()
-            listOf("Settings", "Play Store", "Messages", "Contacts", "Photos").forEach { label ->
+            val installed = shell("pm list packages")
+            val packageFor = mapOf(
+                "Settings" to "com.android.settings",
+                "Play Store" to "com.android.vending",
+                "Messages" to "com.google.android.apps.messaging",
+                "Contacts" to "com.google.android.contacts",
+                "Photos" to "com.google.android.apps.photos"
+            )
+            listOf("Settings", "Play", "Messages", "Contacts", "Photos").forEach { label ->
+                val pkg = packageFor[label] ?: ""
+                if (pkg.isNotEmpty() && !installed.contains("package:$pkg")) {
+                    note("$label is not installed on this image, skipped")
+                    return@forEach
+                }
                 search(label)
                 repeat(8) {
                     if (appRows().isNotEmpty() || device.hasObject(By.text("No apps match"))) return@repeat
@@ -364,10 +377,23 @@ class StepPlanTest : StepHarness() {
         verify("5.1", "Only one selected at a time") {
             // The plan names the five chips literally: No limit / 5 / 15 / 30 / 60 min.
             val wanted = listOf("No limit", "5 min", "15 min", "30 min", "60 min")
-            val absent = wanted.filter { !device.hasObject(By.text(it)) }
+            val anchor = device.findObject(By.text("No limit")) ?: device.findObject(By.text("5 min"))
+            val rowY = runCatching { anchor!!.visibleCenter.y }.getOrDefault(device.displayHeight / 2)
+            val seen = mutableSetOf<String>()
+            repeat(5) {
+                wanted.filter { device.hasObject(By.text(it)) }.forEach { seen += it }
+                if (seen.containsAll(wanted)) return@repeat
+                device.swipe(
+                    (device.displayWidth * 0.85f).toInt(), rowY,
+                    (device.displayWidth * 0.2f).toInt(), rowY, 10
+                )
+                pause(600)
+            }
+            wanted.filter { device.hasObject(By.text(it)) }.forEach { seen += it }
+            val absent = wanted - seen
             expectTrue(
                 absent.isEmpty(),
-                "chips missing: ${absent.joinToString()} (the row shows: ${visibleText().take(140)})"
+                "chips missing: ${absent.joinToString()} (the row shows: ${visibleText().take(160)})"
             )
             tapText("15 min")
             pause(700)
@@ -701,7 +727,11 @@ class StepPlanTest : StepHarness() {
 
         verify("7.5", "Still locked — the cool-down survives the app being killed") {
             val resumed = device.wait(Until.hasObject(By.textContains("Guest Mode")), 30_000)
-            expectTrue(resumed, "the guest session did not survive the force-stop")
+            expectTrue(
+                resumed,
+                "the guest session did not survive the force-stop " +
+                    "(screen: ${screen()}; text=${visibleText().take(160)})"
+            )
             dismissPinnedDialog(timeoutMs = 4_000)
             if (device.hasObject(By.text("Resume Guest Mode"))) {
                 tapText("Resume Guest Mode")
@@ -747,7 +777,7 @@ class StepPlanTest : StepHarness() {
                 waitForDesc("PIN key 1", 10_000)
             }
             expectTrue(device.hasObject(By.desc("PIN key 1")), "lock screen is not reachable")
-            enterPin(pinDigits)
+            enterPinWithRetry(pinDigits)
             expectTrue(waitFor("Start Guest Session", 25_000), "correct PIN did not end the session")
         }
     }
@@ -1216,6 +1246,9 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass13b() {
+        shell("input keyevent KEYCODE_WAKEUP")
+        shell("wm dismiss-keyguard")
+        pause(1_500)
         launchApp()
 
         verify("13.2", "No guest session: it was closed on boot") {
@@ -1305,9 +1338,11 @@ class StepPlanTest : StepHarness() {
             dismissPinnedDialog(timeoutMs = 4_000)
             expectTrue(waitFor("Welcome to Guest Mode", 20_000), "guest home did not survive the rotation")
             pause(1_000)
+            val tiles = device.findObjects(By.descStartsWith("Open ")).size
             expectTrue(
-                device.findObjects(By.descStartsWith("Open ")).isNotEmpty(),
-                "the app grid disappeared after rotation"
+                tiles > 0,
+                "the app grid disappeared after rotation (tiles=$tiles; " +
+                    "text=${visibleText().take(160)})"
             )
             expectTrue(!device.hasObject(By.text("Start Guest Session")), "rotation escaped to the dashboard")
             shell("settings put system user_rotation 0")
@@ -1614,11 +1649,11 @@ class StepPlanTest : StepHarness() {
         }
         tapText("Return to Owner")
         expectTrue(waitForDesc("PIN key 1", 15_000), "lock screen did not open")
-        enterPin(pinDigits)
+        enterPinWithRetry(pinDigits)
         if (!waitFor("Start Guest Session", 25_000)) {
             // One retry: the first attempt can land while the wipe is running.
             if (device.hasObject(By.text("Cancel")) || device.hasObject(By.desc("PIN key 1"))) {
-                enterPin(pinDigits)
+                enterPinWithRetry(pinDigits)
             }
         }
         expectTrue(

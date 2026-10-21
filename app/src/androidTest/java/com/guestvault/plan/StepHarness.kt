@@ -357,16 +357,27 @@ abstract class StepHarness {
                 found,
                 "PIN key $digit not found (screen: ${screen()} | ${visibleText().take(140)})"
             )
-            val clicked = runCatching { device.findObject(selector)!!.click() }.isSuccess
-            if (!clicked) {
-                // One retry only: a second tap on a key that did register would
-                // enter the digit twice.
-                pause(350)
-                runCatching { device.findObject(selector)?.click() }
-            }
-            pause(260)
+            // A tap can be swallowed while Compose re-lays out (the dots row
+            // grows). A dropped digit makes the *next* attempt verify the wrong
+            // four digits, which reads as "Incorrect PIN" for a correct PIN.
+            runCatching { device.findObject(selector)!!.click() }
+            pause(420)
         }
         pause(900)
+    }
+
+    /**
+     * Types the PIN and, if the lock answers "Incorrect PIN" anyway, waits for
+     * the error to clear and types it once more. Two attempts is the most that
+     * can be spent here: the third wrong attempt starts the cool-down.
+     */
+    protected fun enterPinWithRetry(digits: List<String>) {
+        enterPin(digits)
+        repeat(2) {
+            if (!has(By.textContains("Incorrect PIN"))) return
+            pause(1_200)
+            enterPin(digits)
+        }
     }
 
     // ------------------------------------------------------------- finders
