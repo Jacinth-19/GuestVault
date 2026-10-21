@@ -1,0 +1,18 @@
+{
+  "note": "One row per numbered step of the manual test plan. The 'expect' text is the acceptance criterion and is copied verbatim; 'mode': 'manual' marks steps that need physical hardware or wall-clock timing and cannot be graded on an emulator.",
+  "passes": [
+    {
+      "pass": 0,
+      "title": "Harness check (not part of the plan)",
+      "test": "smoke",
+      "steps": [
+        {
+          "id": "S-1",
+          "action": "Cold-start the app on a fresh install.",
+          "expect": "It reaches a known first screen within 45 s.",
+          "mode": "device"
+        }
+      ]
+    }
+  ]
+}
