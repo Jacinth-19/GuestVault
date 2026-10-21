@@ -109,6 +109,18 @@ jobs:
             git push origin HEAD:${{ github.ref_name }} || true
           fi
 
+      # Diagnostics for the trickiest screenshot in the set: the burst, the
+      # thresholds it was judged against, and why each frame was rejected.
+      - name: Upload splash capture diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: splash-capture
+          path: |
+            shots/splash-capture.json
+            shots/splash-frame-*.png
+          if-no-files-found: ignore
+
       - name: Assemble docs/media
         if: always()
         run: |

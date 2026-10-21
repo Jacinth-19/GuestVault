@@ -54,6 +54,28 @@ python3 scripts/ci/check_workflow_hygiene.py                 # no CI-skip marker
 > The repository's Gradle wrapper is bootstrapped by CI if `gradle-wrapper.jar`
 > is missing; on a fresh clone run `gradle wrapper --gradle-version 8.11.1` once.
 
+### The splash screenshot
+
+`docs/media/00-splash.png` is the hardest screenshot in the set, because the
+screen is only up for 1.4 s and `adb screencap` on a software-rendered emulator
+is slower than that. Two mechanisms make it deterministic:
+
+1. **A held splash.** The walkthrough launches with
+   `--ei com.guestvault.extra.SPLASH_HOLD_MS 4500`, which
+   `MainActivity` honours **only in debug builds**. Nothing about the screen
+   changes; the capture just gets a longer exposure.
+2. **A gate, not a guess.** `scripts/ci/pick_splash.py` scores every frame and
+   publishes only one that is indigo *and* contains a wordmark row — at least
+   **6 separate ink runs** spanning ≥ 35 % of the width. This matters because
+   Android 12+ draws its own system splash in the same colour with a large white
+   shield: it passes "indigo", it passes "has white pixels", and it is *not* the
+   branded splash. Its widest row has 3 ink runs, so it is rejected.
+
+If the gate rejects the whole burst, the run keeps the screenshot already in
+`docs/media/` and uploads `splash-capture` as an artifact: every candidate frame
+plus `shots/splash-capture.json`, which records the thresholds and the reason
+each frame failed.
+
 `preview_lottie.py` rasterises the Lottie files to `/tmp/lottie-preview/*.png`
 (six frames each) with Pillow, so an animation can be reviewed without an
 emulator. It is a preview, not a renderer: easing is linearised and trim paths

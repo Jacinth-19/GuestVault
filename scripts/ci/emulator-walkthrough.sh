@@ -105,34 +105,43 @@ if [ "$SKIP_MEDIA_CAPTURE" = "1" ]; then
   adb shell rm -f /sdcard/Download/walkthrough.mp4 || true
 else
 echo "== cold-start splash screenshot =="
-rm -f shots/splash-frame-*.png shots/00-splash.png
+rm -f shots/splash-frame-*.png shots/00-splash.png shots/splash-capture.json
 adb shell am force-stop com.guestvault || true
 sleep 1
 adb shell am force-stop com.guestvault || true
-adb shell am start -n com.guestvault/.MainActivity >/dev/null || true
 
-# A cold start on a software-rendered emulator spends 1-3s before the first
-# Compose frame (the system splash covers it), and the Compose splash then holds
-# for 1.4s. Fourteen frames with a short gap cover ~4-6s of wall clock, which is
-# enough to include the hand-off without depending on a specific start latency.
-# pick_splash.py decides; this loop only has to *see* the screen.
-for frame in a b c d e f g h i j k l m n; do
+# Hold the branded splash long enough to photograph it. The extra is read only
+# by debug builds, and it changes *only* the timer — the screen is the real one.
+# Without it, 1.4 s is shorter than an `adb screencap` round trip, so the burst
+# photographed the Android 12+ system splash instead.
+adb shell am start -n com.guestvault/.MainActivity \
+  --ei com.guestvault.extra.SPLASH_HOLD_MS 4500 >/dev/null || true
+
+# A cold start on a software-rendered emulator still spends 1-3 s before the
+# first Compose frame, so the first frames are the system splash (same colour,
+# no wordmark). pick_splash.py is the gate: it rejects those by looking for a
+# wordmark row and only publishes a frame that has one.
+for frame in a b c d e f g h i j k l m n o p; do
   adb exec-out screencap -p > "shots/splash-frame-$frame.png" || true
-  sleep 0.12
+  sleep 0.10
 done
 
 # Keep only a frame that genuinely shows the splash. If none does, leave the
 # committed screenshot alone and say so: a wrong picture is worse than an old one.
 python3 -c "import PIL" 2>/dev/null || python3 -m pip install --quiet pillow || true
-if python3 scripts/ci/pick_splash.py; then
+if KEEP_SPLASH_FRAMES="${KEEP_SPLASH_FRAMES:-0}" python3 scripts/ci/pick_splash.py; then
   echo "== splash captured =="
 else
-  echo "::warning::No frame looked like the splash; keeping the previous docs/media/00-splash.png"
+  echo "::warning::No frame showed the branded splash; keeping the previous docs/media/00-splash.png"
   rm -f shots/00-splash.png
 fi
 ls -la shots/00-splash.png 2>/dev/null || echo "splash capture skipped"
-# Never let intermediate candidate frames reach the repository.
-rm -f shots/splash-frame-*.png
+# Never let intermediate candidate frames reach the repository. The workflow
+# copies them (plus shots/splash-capture.json) to a debug artifact first when
+# KEEP_SPLASH_FRAMES=1.
+if [ "${KEEP_SPLASH_FRAMES:-0}" != "1" ]; then
+  rm -f shots/splash-frame-*.png
+fi
 
 adb shell rm -rf /sdcard/Pictures/GuestVault || true
 adb shell rm -f /sdcard/Download/walkthrough.mp4 || true
