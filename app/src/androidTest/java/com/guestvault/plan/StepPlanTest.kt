@@ -304,6 +304,11 @@ class StepPlanTest : StepHarness() {
                     pause(400)
                 }
                 if (appRows().isEmpty()) {
+                    // The row may be below the chips and the search field.
+                    scrollToText(label)
+                    pause(500)
+                }
+                if (appRows().isEmpty()) {
                     missing += "$label (no row; screen: ${visibleText().take(70)})"
                     return@forEach
                 }
@@ -1592,7 +1597,8 @@ class StepPlanTest : StepHarness() {
     private fun endSessionWithPin() {
         dismissPinnedDialog(timeoutMs = 3_000)
         if (!device.hasObject(By.text("Return to Owner"))) {
-            scrollToText("Return to Owner") || scrollUp(2)
+            scrollToText("Return to Owner")
+            if (!device.hasObject(By.text("Return to Owner"))) scrollUp(2)
         }
         tapText("Return to Owner")
         expectTrue(waitForDesc("PIN key 1", 15_000), "lock screen did not open")
