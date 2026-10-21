@@ -111,8 +111,7 @@ class GuestSessionService : Service() {
                         if (label != lastLabel) {
                             GuestNotifications.updateSessionNotification(
                                 this@GuestSessionService,
-                                label,
-                                GuestNotifications.progressPercent(session, remaining)
+                                label
                             )
                             lastLabel = label
                         }

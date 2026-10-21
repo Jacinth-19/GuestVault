@@ -288,7 +288,7 @@ fun SettingsScreen(
                     SettingSwitchRow(
                         icon = Icons.Rounded.NotificationsActive,
                         title = "Timer reminders",
-                        subtitle = "Warn me 5 minutes and 1 minute before a timed session ends",
+                        subtitle = "Warn me before a timed session ends",
                         checked = settings.notifyTimerAlerts,
                         onCheckedChange = onTimerAlertsChange,
                         switchDescription = "Timer reminder toggle"

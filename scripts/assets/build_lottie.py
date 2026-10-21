@@ -11,16 +11,26 @@ means:
 * the animation is diffable and parameterised,
 * ``--check`` proves the committed JSON matches the source of truth,
 * ``scripts/ci/check_lottie.py`` can assert the structural invariants Lottie
-  actually needs (keyframe order, colour ranges, allowed shape types).
+  actually needs (keyframe order, colour ranges, allowed shape types),
+* ``scripts/assets/preview_lottie.py`` can rasterise a contact sheet, so the
+  scenes are reviewed with eyes instead of imagination.
+
+The three scenes
+----------------
+``lend_hand.json``   A phone passes from one hand to another; a shield with a
+                     keyhole locks over it as it lands.
+``app_grid.json``    Nine app tiles appear; the unapproved six dim and grow a
+                     padlock, the approved row stays lit and gets a ring.
+``shield_key.json``  A shield closes with a keyhole; a key spins in and docks.
+
+Everything is authored from primitives (rounded rects, ellipses, one polygon
+shield) so nothing depends on an external asset or a licence we do not control.
+See ``docs/ASSET_LICENCES.md``.
 
 Usage
 -----
     python3 scripts/assets/build_lottie.py            # write the JSON files
     python3 scripts/assets/build_lottie.py --check    # fail if out of date
-
-The animations are authored from primitives (rounded rects, ellipses, one
-polygon shield) so nothing depends on an external asset or a licence we do not
-control. See ``docs/ASSET_LICENCES.md``.
 """
 
 from __future__ import annotations
@@ -35,12 +45,12 @@ RAW_DIR = ROOT / "app" / "src" / "main" / "res" / "raw"
 WIDTH = 400
 HEIGHT = 400
 FPS = 30
-FRAMES = 60  # two seconds, seamless loop
+FRAMES = 60  # two seconds
 
 # Palette, normalised for Lottie (0..1). Mirrors ui/theme/Color.kt.
-INDIGO = [0.192, 0.180, 0.506, 1.0]   # #312E81
+INDIGO = [0.192, 0.180, 0.506, 1.0]        # #312E81
 INDIGO_LIGHT = [0.647, 0.706, 0.988, 1.0]  # #A5B4FC
-TEAL = [0.051, 0.580, 0.533, 1.0]     # #0D9488
+TEAL = [0.051, 0.580, 0.533, 1.0]          # #0D9488
 WHITE = [1.0, 1.0, 1.0, 1.0]
 
 # Easing pairs: (in, out). 0.33/1 and 0.68/0 are Material's standard curve.
@@ -70,13 +80,20 @@ def animated(keyframes):
     return {"a": 1, "k": out}
 
 
+def _prop(value, default):
+    """Accepts a raw value, a static block or an animated block."""
+    if isinstance(value, dict):
+        return value
+    return static(default if value is None else value)
+
+
 def transform(pos=(0, 0), scale=(100, 100), rotate=0, opacity=100, anchor=(0, 0)):
     return {
-        "o": opacity if isinstance(opacity, dict) else static(opacity),
-        "r": rotate if isinstance(rotate, dict) else static(rotate),
-        "p": pos if isinstance(pos, dict) else static(list(pos)),
+        "o": _prop(opacity, 100),
+        "r": _prop(rotate, 0),
+        "p": _prop(list(pos) if isinstance(pos, tuple) else pos, [0, 0]),
         "a": static(list(anchor)),
-        "s": scale if isinstance(scale, dict) else static(list(scale)),
+        "s": _prop(list(scale) if isinstance(scale, tuple) else scale, [100, 100]),
     }
 
 
@@ -84,11 +101,11 @@ def group(items, name="group", pos=(0, 0), scale=(100, 100), rotate=0, opacity=1
     items = list(items) + [
         {
             "ty": "tr",
-            "p": static(list(pos)),
+            "p": _prop(list(pos) if isinstance(pos, tuple) else pos, [0, 0]),
             "a": static([0, 0]),
-            "s": static(list(scale)),
-            "r": static(rotate),
-            "o": static(opacity),
+            "s": _prop(list(scale) if isinstance(scale, tuple) else scale, [100, 100]),
+            "r": _prop(rotate, 0),
+            "o": _prop(opacity, 100),
             "sk": static(0),
             "sa": static(0),
             "nm": "transform",
@@ -98,18 +115,25 @@ def group(items, name="group", pos=(0, 0), scale=(100, 100), rotate=0, opacity=1
 
 
 def rounded_rect(size, radius, pos=(0, 0), name="rect"):
+    """Lottie ``rc``: size, corner radius and position. Rotation belongs on the
+    enclosing group's transform, which is the only place Lottie supports it."""
     return {
         "ty": "rc",
         "nm": name,
         "d": 1,
-        "s": static(list(size)),
-        "p": static(list(pos)),
-        "r": static(radius),
+        "s": _prop(list(size) if isinstance(size, tuple) else size, [0, 0]),
+        "p": _prop(list(pos) if isinstance(pos, tuple) else pos, [0, 0]),
+        "r": _prop(radius, 0),
     }
 
 
 def ellipse(size, pos=(0, 0), name="ellipse"):
-    return {"ty": "el", "nm": name, "s": static(list(size)), "p": static(list(pos))}
+    return {
+        "ty": "el",
+        "nm": name,
+        "s": _prop(list(size) if isinstance(size, tuple) else size, [0, 0]),
+        "p": _prop(list(pos) if isinstance(pos, tuple) else pos, [0, 0]),
+    }
 
 
 def shield_path(scale=1.0, name="shield"):
@@ -136,7 +160,7 @@ def fill(color, opacity=100, name="fill"):
         "ty": "fl",
         "nm": name,
         "c": static(color),
-        "o": static(opacity),
+        "o": _prop(opacity, 100),
         "r": 1,
         "bm": 0,
     }
@@ -147,13 +171,38 @@ def stroke(color, width, opacity=100, name="stroke"):
         "ty": "st",
         "nm": name,
         "c": static(color),
-        "o": static(opacity),
-        "w": static(width),
+        "o": _prop(opacity, 100),
+        "w": _prop(width, 1),
         "lc": 2,
         "lj": 2,
         "ml": 4,
         "bm": 0,
     }
+
+
+def keyhole(color=WHITE, scale=1.0):
+    """The shield's keyhole: a round bow above a tapered stem."""
+    return [
+        group([ellipse((26 * scale, 26 * scale)), fill(color)], name="keyhole-bow"),
+        group(
+            [rounded_rect((12 * scale, 26 * scale), 5 * scale, (0, 13 * scale)), fill(color)],
+            name="keyhole-stem",
+        ),
+    ]
+
+
+def padlock(color=INDIGO, scale=1.0):
+    """A small padlock: a shackle ring whose bottom half is hidden by the body."""
+    return [
+        group(
+            [ellipse((26 * scale, 26 * scale), (0, -7 * scale)), stroke(color, 5.5 * scale)],
+            name="shackle",
+        ),
+        group(
+            [rounded_rect((34 * scale, 26 * scale), 7 * scale, (0, 6 * scale)), fill(color)],
+            name="body",
+        ),
+    ]
 
 
 def shape_layer(index, name, shapes, ks, in_frame=0, out_frame=FRAMES):
@@ -188,204 +237,269 @@ def composition(name, layers):
     }
 
 
+def halo(center=(200, 196), size=(286, 286), color=INDIGO_LIGHT, opacity=14, index=99):
+    """Static soft disc that makes the scene sit on white or on dark surfaces."""
+    return shape_layer(
+        index=index,
+        name="halo",
+        shapes=[group([ellipse(size), fill(color, opacity=opacity)], name="halo-fill")],
+        ks=transform(pos=static(list(center))),
+    )
+
+
 # ---------------------------------------------------------------------------
-# 1. "Lend your phone safely" — a phone is handed over, then a shield badge
-#    springs onto it.
+# 1. lend_hand.json — a phone passes from one hand to another, then a shield
+#    with a keyhole locks over it.
 # ---------------------------------------------------------------------------
+HAND_SKIN = [0.878, 0.906, 1.0, 1.0]  # #E0E7FF, primaryContainer
+
+
+def hand(direction=1):
+    """One hand reaching in from the edge of the frame, fingers pointing inward.
+
+    ``direction`` = +1 draws a left hand (fingers towards +x), -1 mirrors it.
+    The hand is anchored at the wrist, which sits slightly off-canvas, so only
+    the palm and fingers are visible: cropped hands read as a real hand-off at
+    illustration sizes, where a fully drawn hand looks like a mitten.
+
+    Anatomy, all rounded rects: a forearm capsule, a palm, four fanned fingers
+    and a thumb. One silhouette fill with one outline, so it stays legible on
+    both the light onboarding background and a dark one.
+    """
+    outline = stroke(INDIGO_LIGHT, 3)
+    skin = fill(HAND_SKIN)
+
+    fingers = []
+    for index, (offset, length, tilt) in enumerate(
+        ((-23, 30, -7), (-8, 36, -2), (8, 36, 2), (23, 30, 7))
+    ):
+        fingers.append(
+            group(
+                [group([rounded_rect((length, 15), 7.5), skin, outline], name=f"finger-{index}-body")],
+                name=f"finger-{index}",
+                pos=(direction * (30 + length / 2), offset),
+                rotate=tilt,
+            )
+        )
+
+    return fingers + [
+        # Forearm: a capsule whose far end is off-canvas.
+        group(
+            [rounded_rect((96, 42), 21), skin, outline],
+            name="forearm",
+            pos=(-direction * 46, 6),
+        ),
+        group([rounded_rect((58, 70), 20), skin, outline], name="palm", pos=(0, 0)),
+        # Thumb, tucked under the palm and pointing in the same direction.
+        group(
+            [group([rounded_rect((34, 16), 8), skin, outline], name="thumb-body")],
+            name="thumb",
+            pos=(direction * 12, -32),
+            rotate=direction * -22,
+        ),
+    ]
+
+
 def build_lend():
     layers = []
 
-    # Shield badge (top layer) — springs in after the phone settles.
-    shield_badge = shape_layer(
-        index=1,
-        name="shield-badge",
-        shapes=[
-            group(
-                [
-                    shield_path(scale=0.52),
-                    fill(INDIGO),
-                ],
-                name="shield",
+    # Shield badge, topmost: springs onto the phone once it lands on the right.
+    layers.append(
+        shape_layer(
+            index=1,
+            name="shield-badge",
+            shapes=[
+                group([shield_path(scale=0.58), fill(INDIGO)], name="shield"),
+                group(keyhole(WHITE, scale=0.72), name="keyhole", pos=(0, -2)),
+            ],
+            ks=transform(
+                pos=static([200, 180]),
+                scale=animated(
+                    [
+                        (34, [0, 0, 100], EASE_OUT),
+                        (45, [108, 108, 100], EASE_IN_OUT),
+                        (52, [100, 100, 100], LINEAR),
+                    ]
+                ),
+                opacity=animated([(34, 0, LINEAR), (39, 100, LINEAR)]),
             ),
-            group(
-                [ellipse((19, 19), (0, -10)), fill(WHITE)],
-                name="keyhole-top",
-            ),
-            group(
-                [rounded_rect((9, 22), 4.5, (0, 12)), fill(WHITE)],
-                name="keyhole-stem",
-            ),
-        ],
-        ks=transform(
-            pos=static([256, 306]),
-            scale=animated(
-                [
-                    (18, [0, 0, 100], EASE_OUT),
-                    (36, [116, 116, 100], EASE_IN_OUT),
-                    (46, [100, 100, 100], LINEAR),
-                ]
-            ),
-            opacity=animated([(18, 0, LINEAR), (26, 100, LINEAR)]),
-        ),
+        )
     )
-    layers.append(shield_badge)
 
-    # Phone — slides in from the left with a slight tilt.
-    phone = shape_layer(
-        index=2,
-        name="phone",
-        shapes=[
-            group(
-                [
-                    rounded_rect((122, 214), 26),
-                    fill(WHITE),
-                    stroke(INDIGO, 8),
-                ],
-                name="body",
+    # Flash ring when the shield locks in.
+    layers.append(
+        shape_layer(
+            index=2,
+            name="lock-pulse",
+            shapes=[group([ellipse((230, 230)), stroke(WHITE, 5)], name="ring")],
+            ks=transform(
+                pos=static([200, 180]),
+                scale=animated([(40, [62, 62, 100], EASE_OUT), (58, [122, 122, 100], LINEAR)]),
+                opacity=animated([(40, 0, EASE_OUT), (46, 42, EASE_IN_OUT), (58, 0, LINEAR)]),
             ),
-            group(
-                [rounded_rect((58, 8), 4, (0, -86)), fill(INDIGO_LIGHT)],
-                name="speaker",
-            ),
-            group(
-                [rounded_rect((88, 58), 12, (0, 24)), fill(INDIGO, opacity=12)],
-                name="screen",
-            ),
-        ],
-        ks=transform(
-            pos=animated(
-                [
-                    (0, [126, 178, 0], EASE_OUT),
-                    (24, [200, 178, 0], LINEAR),
-                ]
-            ),
-            rotate=animated([(0, -15, EASE_OUT), (24, 0, LINEAR)]),
-            opacity=animated([(0, 0, LINEAR), (8, 100, LINEAR)]),
-        ),
+        )
     )
-    layers.append(phone)
 
-    # Three soft pulses behind everything, so the loop is seamless.
-    pulse_scale = []
-    pulse_opacity = []
-    for cycle in range(3):
-        base = cycle * 20
-        pulse_scale += [
-            (base, [100, 100, 100], EASE_OUT),
-            (base + 12, [116, 116, 100], LINEAR),
-        ]
-        pulse_opacity += [(base, 34, EASE_OUT), (base + 12, 0, LINEAR)]
-    pulse_scale.append((FRAMES, [100, 100, 100], LINEAR))
-    pulse_opacity.append((FRAMES, 34, LINEAR))
-
-    pulse = shape_layer(
-        index=3,
-        name="pulse",
-        shapes=[
-            group(
-                [ellipse((286, 286)), stroke(INDIGO_LIGHT, 5)],
-                name="ring",
-            )
-        ],
-        ks=transform(
-            pos=static([200, 196]),
-            scale=animated(pulse_scale),
-            opacity=animated(pulse_opacity),
-        ),
+    # Both hands sit *in front* of the phone, gripping its lower edge, which is
+    # what makes the scene read as a hand-off rather than a floating rectangle.
+    layers.append(
+        shape_layer(
+            index=3,
+            name="hand-left",
+            shapes=hand(direction=1),
+            ks=transform(
+                pos=animated(
+                    [
+                        (0, [-34, 238, 0], EASE_OUT),
+                        (12, [4, 234, 0], EASE_IN_OUT),
+                        (34, [36, 238, 0], EASE_IN_OUT),
+                        (46, [26, 240, 0], LINEAR),
+                    ]
+                ),
+                rotate=animated([(0, 12, EASE_OUT), (34, 4, LINEAR)]),
+                scale=static([116, 116, 100]),
+                opacity=animated([(0, 0, LINEAR), (8, 100, LINEAR)]),
+            ),
+        )
     )
-    layers.append(pulse)
-
-    # Static wash so the animation sits on any background.
-    glow = shape_layer(
-        index=4,
-        name="glow",
-        shapes=[group([ellipse((300, 300)), fill(INDIGO_LIGHT, opacity=10)], name="glow")],
-        ks=transform(pos=static([200, 196])),
+    layers.append(
+        shape_layer(
+            index=4,
+            name="hand-right",
+            shapes=hand(direction=-1),
+            ks=transform(
+                pos=animated(
+                    [
+                        (0, [434, 238, 0], EASE_OUT),
+                        (12, [396, 234, 0], EASE_IN_OUT),
+                        (34, [364, 238, 0], EASE_IN_OUT),
+                        (46, [374, 240, 0], LINEAR),
+                    ]
+                ),
+                rotate=animated([(0, -12, EASE_OUT), (34, -4, LINEAR)]),
+                scale=static([116, 116, 100]),
+                opacity=animated([(0, 0, LINEAR), (8, 100, LINEAR)]),
+            ),
+        )
     )
-    layers.append(glow)
 
-    return composition("onboarding-lend", layers)
+    # The phone itself: enters with the left hand, travels to the right hand.
+    layers.append(
+        shape_layer(
+            index=5,
+            name="phone",
+            shapes=[
+                group([rounded_rect((112, 196), 24), fill(WHITE)], name="body"),
+                group([rounded_rect((112, 196), 24), stroke(INDIGO, 8)], name="edge"),
+                group([rounded_rect((86, 150), 14, (0, -4)), fill(INDIGO, opacity=10)], name="screen"),
+                group([rounded_rect((34, 6), 3, (0, -78)), fill(INDIGO_LIGHT)], name="speaker"),
+            ],
+            ks=transform(
+                pos=animated(
+                    [
+                        (0, [148, 186, 0], EASE_IN_OUT),
+                        (10, [156, 184, 0], EASE_IN_OUT),
+                        (22, [188, 180, 0], EASE_IN_OUT),
+                        (34, [236, 178, 0], EASE_IN_OUT),
+                        (44, [242, 178, 0], LINEAR),
+                    ]
+                ),
+                rotate=animated(
+                    [
+                        (0, -10, EASE_IN_OUT),
+                        (22, 4, EASE_IN_OUT),
+                        (34, 8, EASE_IN_OUT),
+                        (44, 0, LINEAR),
+                    ]
+                ),
+                opacity=animated([(0, 0, LINEAR), (6, 100, LINEAR)]),
+            ),
+        )
+    )
+
+    layers.append(halo())
+    return composition("onboarding-lend-hand", layers)
 
 
 # ---------------------------------------------------------------------------
-# 2. "Only the apps you allow" — a grid appears, the unapproved tiles dim and
-#    the approved row is ringed.
+# 2. app_grid.json — nine tiles; the six unapproved ones dim and lock, the
+#    approved row stays lit and is ringed.
 # ---------------------------------------------------------------------------
 def build_apps():
     layers = []
 
-    # Approval ring, drawn last in time but highest in z.
-    ring = shape_layer(
-        index=1,
-        name="approval-ring",
-        shapes=[
-            group(
-                [rounded_rect((300, 112), 30), stroke(TEAL, 6)],
-                name="ring",
-            )
-        ],
-        ks=transform(
-            pos=static([200, 200]),
-            scale=animated(
-                [
-                    (40, [92, 92, 100], EASE_OUT),
-                    (52, [100, 100, 100], LINEAR),
-                ]
+    # Approval ring around the middle row.
+    layers.append(
+        shape_layer(
+            index=1,
+            name="approval-ring",
+            shapes=[group([rounded_rect((300, 112), 30), stroke(TEAL, 6)], name="ring")],
+            ks=transform(
+                pos=static([200, 200]),
+                scale=animated([(40, [92, 92, 100], EASE_OUT), (52, [100, 100, 100], LINEAR)]),
+                opacity=animated([(40, 0, EASE_OUT), (52, 100, LINEAR)]),
             ),
-            opacity=animated([(40, 0, EASE_OUT), (52, 100, LINEAR)]),
-        ),
+        )
     )
-    layers.append(ring)
 
-    colours = [
-        [INDIGO, INDIGO, INDIGO],
-        [TEAL, TEAL, TEAL],
-        [INDIGO, INDIGO, INDIGO],
-    ]
     approved_row = 1
     index = 2
-    # Top-to-bottom, left-to-right so the stagger reads naturally.
+
+    # Padlocks sit above their tiles, so they get their own layers and stagger.
     for row in range(3):
+        if row == approved_row:
+            continue
         for col in range(3):
+            delay = (row * 3 + col) * 2
+            layers.append(
+                shape_layer(
+                    index=index,
+                    name=f"lock-{row}-{col}",
+                    shapes=[group(padlock(INDIGO, scale=0.62), name="padlock")],
+                    ks=transform(
+                        pos=static([108 + col * 92, 108 + row * 92]),
+                        scale=animated(
+                            [
+                                (32 + delay, [40, 40, 100], EASE_OUT),
+                                (44 + delay, [100, 100, 100], LINEAR),
+                            ]
+                        ),
+                        opacity=animated(
+                            [
+                                (30 + delay, 0, EASE_OUT),
+                                (38 + delay, 70, LINEAR),
+                            ]
+                        ),
+                    ),
+                )
+            )
+            index += 1
+
+    # Tiles, bottom-to-top in z so the first row reads as "in front".
+    for row in range(2, -1, -1):
+        for col in range(2, -1, -1):
             x = 108 + col * 92
             y = 108 + row * 92
             appear = (row * 3 + col) * 2
             approved = row == approved_row
+            colour = TEAL if approved else INDIGO
+
+            scale_keys = [
+                (appear, [58, 58, 100], EASE_OUT),
+                (appear + 12, [100, 100, 100], EASE_IN_OUT),
+            ]
+            opacity_keys = [(appear, 0, EASE_OUT), (appear + 10, 100, EASE_IN_OUT)]
 
             if approved:
-                scale_keys = [
-                    (appear, [58, 58, 100], EASE_OUT),
-                    (appear + 12, [100, 100, 100], LINEAR),
-                    (44, [100, 100, 100], EASE_IN_OUT),
-                    (50, [108, 108, 100], EASE_IN_OUT),
-                    (58, [100, 100, 100], LINEAR),
-                ]
-                opacity_keys = [(appear, 0, EASE_OUT), (appear + 10, 100, LINEAR)]
+                scale_keys += [(44, [100, 100, 100], EASE_IN_OUT), (50, [108, 108, 100], EASE_IN_OUT), (58, [100, 100, 100], LINEAR)]
             else:
-                scale_keys = [
-                    (appear, [58, 58, 100], EASE_OUT),
-                    (appear + 12, [100, 100, 100], LINEAR),
-                ]
-                opacity_keys = [
-                    (appear, 0, EASE_OUT),
-                    (appear + 10, 100, EASE_IN_OUT),
-                    (38, 100, EASE_IN_OUT),
-                    (48, 12, LINEAR),
-                ]
+                opacity_keys += [(30, 100, EASE_IN_OUT), (42, 16, LINEAR)]
 
             layers.append(
                 shape_layer(
                     index=index,
                     name=f"tile-{row}-{col}",
-                    shapes=[
-                        group(
-                            [
-                                rounded_rect((78, 78), 22),
-                                fill(colours[row][col]),
-                            ],
-                            name="tile",
-                        )
-                    ],
+                    shapes=[group([rounded_rect((78, 78), 22), fill(colour)], name="tile")],
                     ks=transform(
                         pos=static([x, y]),
                         scale=animated(scale_keys),
@@ -395,109 +509,113 @@ def build_apps():
             )
             index += 1
 
-    return composition("onboarding-apps", layers)
+    layers.append(halo(size=(300, 300), opacity=12))
+    return composition("onboarding-app-grid", layers)
 
 
 # ---------------------------------------------------------------------------
-# 3. "Your data stays private" — a shield closes and three data points are
-#    absorbed into it.
+# 3. shield_key.json — a shield closes with a keyhole; a key spins in and docks.
 # ---------------------------------------------------------------------------
+def key(colour=INDIGO):
+    """A key whose origin is the centre of its bow, shaft pointing at +x."""
+    return [
+        group([ellipse((58, 58)), stroke(colour, 10)], name="bow-ring", pos=(0, 0)),
+        group([ellipse((22, 22)), fill(colour)], name="bow-hole", pos=(0, 0)),
+        group([rounded_rect((82, 13), 6, (58, 0)), fill(colour)], name="shaft"),
+        group([rounded_rect((14, 26), 4, (92, -12)), fill(colour)], name="tooth-outer"),
+        group([rounded_rect((12, 20), 4, (72, -9)), fill(colour)], name="tooth-inner"),
+    ]
+
+
 def build_privacy():
     layers = []
 
-    # Shield with a keyhole.
-    shield = shape_layer(
-        index=1,
-        name="shield",
-        shapes=[
-            group([shield_path(scale=1.0), fill(INDIGO)], name="body"),
-            group([ellipse((30, 30), (0, -14)), fill(WHITE)], name="keyhole-top"),
-            group([rounded_rect((13, 30), 6.5, (0, 14)), fill(WHITE)], name="keyhole-stem"),
-        ],
-        ks=transform(
-            pos=static([200, 196]),
-            scale=animated(
-                [
-                    (0, [0, 0, 100], EASE_OUT),
-                    (20, [112, 112, 100], EASE_IN_OUT),
-                    (30, [100, 100, 100], LINEAR),
-                ]
-            ),
-            opacity=animated([(0, 0, LINEAR), (10, 100, LINEAR)]),
-        ),
-    )
-    layers.append(shield)
-
-    # Three "data points" absorbed by the shield.
-    dots = [((66, 74), 0), ((48, 196), 6), ((72, 318), 12)]
-    index = 2
-    for (start_x, start_y), delay in dots:
-        end_x = 200 + (start_x - 200) * 0.42
-        end_y = 196 + (start_y - 196) * 0.42
-        layers.append(
-            shape_layer(
-                index=index,
-                name=f"dot-{index}",
-                shapes=[group([ellipse((20, 20)), fill(TEAL)], name="dot")],
-                ks=transform(
-                    pos=animated(
-                        [
-                            (18 + delay, [start_x, start_y, 0], EASE_IN_OUT),
-                            (44 + delay, [end_x, end_y, 0], LINEAR),
-                        ]
-                    ),
-                    scale=animated(
-                        [
-                            (18 + delay, [40, 40, 100], EASE_OUT),
-                            (30 + delay, [100, 100, 100], EASE_IN_OUT),
-                            (44 + delay, [55, 55, 100], LINEAR),
-                        ]
-                    ),
-                    opacity=animated(
-                        [
-                            (18 + delay, 0, EASE_OUT),
-                            (26 + delay, 100, EASE_IN_OUT),
-                            (44 + delay, 0, LINEAR),
-                        ]
-                    ),
-                ),
-            )
-        )
-        index += 1
-
-    # Teal halo pulse.
-    pulse_scale = []
-    pulse_opacity = []
-    for cycle in range(3):
-        base = cycle * 20
-        pulse_scale += [
-            (base, [100, 100, 100], EASE_OUT),
-            (base + 14, [122, 122, 100], LINEAR),
-        ]
-        pulse_opacity += [(base, 30, EASE_OUT), (base + 14, 0, LINEAR)]
-    pulse_scale.append((FRAMES, [100, 100, 100], LINEAR))
-    pulse_opacity.append((FRAMES, 30, LINEAR))
-
+    # Dock flash: a ring that expands from the keyhole as the key seats.
     layers.append(
         shape_layer(
-            index=index,
-            name="halo",
-            shapes=[group([ellipse((300, 300)), stroke(TEAL, 5)], name="ring")],
+            index=1,
+            name="dock-flash",
+            shapes=[group([ellipse((180, 180)), stroke(TEAL, 6)], name="ring")],
             ks=transform(
                 pos=static([200, 196]),
-                scale=animated(pulse_scale),
-                opacity=animated(pulse_opacity),
+                scale=animated([(42, [30, 30, 100], EASE_OUT), (58, [104, 104, 100], LINEAR)]),
+                opacity=animated([(42, 0, EASE_OUT), (47, 55, EASE_IN_OUT), (58, 0, LINEAR)]),
             ),
         )
     )
 
-    return composition("onboarding-privacy", layers)
+    # The key: spins while it approaches, then shrinks into the keyhole.
+    layers.append(
+        shape_layer(
+            index=2,
+            name="key",
+            shapes=[group(key(INDIGO), name="key")],
+            ks=transform(
+                pos=animated(
+                    [
+                        (12, [344, 104, 0], EASE_IN_OUT),
+                        (30, [268, 164, 0], EASE_IN_OUT),
+                        (42, [200, 196, 0], LINEAR),
+                    ]
+                ),
+                rotate=animated(
+                    [
+                        (12, 0, EASE_IN_OUT),
+                        (30, -420, EASE_IN_OUT),
+                        (42, -540, LINEAR),
+                    ]
+                ),
+                scale=animated(
+                    [
+                        (12, [62, 62, 100], EASE_IN_OUT),
+                        (30, [58, 58, 100], EASE_IN_OUT),
+                        (42, [22, 22, 100], LINEAR),
+                    ]
+                ),
+                opacity=animated(
+                    [
+                        (12, 0, LINEAR),
+                        (18, 100, EASE_IN_OUT),
+                        (42, 100, EASE_IN_OUT),
+                        (46, 0, LINEAR),
+                    ]
+                ),
+            ),
+        )
+    )
+
+    # The shield, closing: a slight overshoot then settle.
+    layers.append(
+        shape_layer(
+            index=3,
+            name="shield",
+            shapes=[
+                group([shield_path(scale=1.0), fill(INDIGO)], name="body"),
+                group(keyhole(WHITE, scale=1.0), name="keyhole", pos=(0, 2)),
+            ],
+            ks=transform(
+                pos=static([200, 196]),
+                scale=animated(
+                    [
+                        (0, [72, 72, 100], EASE_OUT),
+                        (16, [104, 104, 100], EASE_IN_OUT),
+                        (26, [100, 100, 100], LINEAR),
+                    ]
+                ),
+                rotate=animated([(0, -6, EASE_OUT), (26, 0, LINEAR)]),
+                opacity=animated([(0, 0, LINEAR), (10, 100, LINEAR)]),
+            ),
+        )
+    )
+
+    layers.append(halo())
+    return composition("onboarding-shield-key", layers)
 
 
 ANIMATIONS = {
-    "onboarding_lend.json": build_lend,
-    "onboarding_apps.json": build_apps,
-    "onboarding_privacy.json": build_privacy,
+    "lend_hand.json": build_lend,
+    "app_grid.json": build_apps,
+    "shield_key.json": build_privacy,
 }
 
 

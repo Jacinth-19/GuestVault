@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Android 12+ always shows a system splash before the app's first frame.
+      These attributes make it the same flat brand indigo, with the white shield
+      mark centred, so the hand-off to SplashScreen.kt is invisible.
+
+      windowSplashScreenIconBackgroundColor is intentionally the same indigo:
+      the icon is white-on-transparent, so any other circle would show up as a
+      lighter disc behind the shield.
+    -->
+    <style name="Theme.GuestVault" parent="Theme.GuestVault.Base">
+        <item name="android:windowSplashScreenBackground">@color/brand_indigo</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/brand_indigo</item>
+    </style>
+</resources>

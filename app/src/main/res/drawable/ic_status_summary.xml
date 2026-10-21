@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Session summary: three bars. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M4,13 L8,13 L8,22 L4,22 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M10,8 L14,8 L14,22 L10,22 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M16,3 L20,3 L20,22 L16,22 Z" />
+</vector>

@@ -15,7 +15,7 @@ import androidx.core.content.ContextCompat
 import com.guestvault.MainActivity
 import com.guestvault.R
 import com.guestvault.core.notifications.GuestChannel
-import com.guestvault.domain.model.GuestSession
+import com.guestvault.domain.model.EndReason
 import com.guestvault.domain.model.SessionRecord
 import com.guestvault.domain.model.WipeResult
 import com.guestvault.guest.GuestHomeActivity
@@ -54,8 +54,7 @@ object GuestNotifications {
 
     fun buildSessionNotification(
         context: Context,
-        remainingLabel: String?,
-        progressPercent: Int? = null
+        remainingLabel: String?
     ): Notification {
         val text = if (remainingLabel != null) {
             context.getString(R.string.notif_session_text_timed, remainingLabel)
@@ -75,24 +74,21 @@ object GuestNotifications {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setShowWhen(false)
-            .apply {
-                if (progressPercent != null) {
-                    setProgress(100, progressPercent.coerceIn(0, 100), false)
-                }
-            }
+            // Deliberately no progress bar: in the collapsed shade layout it
+            // replaces the text line, and "Ends in 14:31" is the only reason a
+            // guest or owner looks at this notification.
             .build()
     }
 
     fun updateSessionNotification(
         context: Context,
-        remainingLabel: String?,
-        progressPercent: Int? = null
+        remainingLabel: String?
     ) {
         post(
             context,
             GuestChannel.SESSION,
             ID_SESSION,
-            buildSessionNotification(context, remainingLabel, progressPercent)
+            buildSessionNotification(context, remainingLabel)
         )
     }
 
@@ -116,7 +112,7 @@ object GuestNotifications {
         )
 
         val notification = NotificationCompat.Builder(context, GuestChannel.ALERTS.id)
-            .setSmallIcon(R.drawable.ic_status_shield)
+            .setSmallIcon(R.drawable.ic_status_timer)
             .setContentTitle(title)
             .setContentText(context.getString(R.string.notif_alert_text))
             .setContentIntent(openLockScreen(context))
@@ -154,15 +150,17 @@ object GuestNotifications {
         } else {
             context.getString(R.string.notif_summary_not_wiped)
         }
+        // "18 min · 4 apps · 12 MB cleared · returned by owner"
         val text = context.getString(
             R.string.notif_summary_text,
             Formatters.duration(record.durationMillis),
             record.appCount,
-            wiped
+            wiped,
+            context.getString(record.endReason.summaryRes())
         )
 
         val notification = NotificationCompat.Builder(context, GuestChannel.SUMMARY.id)
-            .setSmallIcon(R.drawable.ic_status_shield)
+            .setSmallIcon(R.drawable.ic_status_summary)
             .setContentTitle(context.getString(R.string.notif_summary_title))
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -181,7 +179,7 @@ object GuestNotifications {
     /** Heads-up after repeated wrong PINs. Never contains a hint about the PIN. */
     fun notifyLockout(context: Context, failedAttempts: Int, lockSeconds: Int) {
         val notification = NotificationCompat.Builder(context, GuestChannel.SECURITY.id)
-            .setSmallIcon(R.drawable.ic_status_shield)
+            .setSmallIcon(R.drawable.ic_status_alert)
             .setContentTitle(context.getString(R.string.notif_security_title))
             .setContentText(
                 context.getString(R.string.notif_security_text, failedAttempts, lockSeconds)
@@ -204,7 +202,7 @@ object GuestNotifications {
     /** Replaces the lockout warning once the cool-down expires. */
     fun notifyLockoutCleared(context: Context, attemptsLeft: Int) {
         val notification = NotificationCompat.Builder(context, GuestChannel.SECURITY.id)
-            .setSmallIcon(R.drawable.ic_status_shield)
+            .setSmallIcon(R.drawable.ic_status_alert)
             .setContentTitle(context.getString(R.string.notif_security_cleared_title))
             .setContentText(
                 context.getString(R.string.notif_security_cleared_text, attemptsLeft)
@@ -288,13 +286,12 @@ object GuestNotifications {
     private fun immutableFlags(): Int =
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
-    /** Convenience for the service: total session progress, for the progress bar. */
-    fun progressPercent(session: GuestSession, remaining: Long?): Int? {
-        if (remaining == null) return null
-        val total = session.durationMinutes * 60_000L
-        if (total <= 0L) return null
-        val elapsed = total - remaining
-        return ((elapsed * 100) / total).toInt().coerceIn(0, 100)
+    /** How the session ended, in the owner's language (never a guest's). */
+    private fun EndReason.summaryRes(): Int = when (this) {
+        EndReason.OWNER_UNLOCK -> R.string.notif_summary_reason_owner
+        EndReason.TIMER_EXPIRED -> R.string.notif_summary_reason_timer
+        EndReason.DATA_WIPED -> R.string.notif_summary_reason_wiped
+        EndReason.RECOVERED -> R.string.notif_summary_reason_recovered
     }
 
     private const val TAG = "GuestNotifications"
