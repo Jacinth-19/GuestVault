@@ -288,7 +288,9 @@ abstract class StepHarness {
         }
         expectTrue(
             screen() == "dashboard",
-            "owner app never reached the dashboard (screen: ${screen()}) | " +
+            "owner app never reached the dashboard (screen: ${screen()}; " +
+                "text=${visibleText().take(110)}; " +
+                "coolDown=${has(By.textContains("Too many attempts"))}) | " +
                 "files=${runCatching { shell("run-as ${context.packageName} ls -R files").take(160) }.getOrDefault("?")} | " +
                 "log=${recentLog(5)}"
         )
@@ -397,21 +399,27 @@ abstract class StepHarness {
             tapText(label, timeout = 3_000)
             return true
         }
-        val row = runCatching { device.findObjects(By.scrollable(true)).firstOrNull() }.getOrNull()
-        val y = device.displayHeight / 2
+        // Scroll the page down to the chip row, then use one of its chips as an
+        // anchor so the horizontal fling lands on the LazyRow, not on the page.
+        scrollToText("No limit", maxSwipes = 6)
+        val anchor = runCatching {
+            device.findObject(By.text("No limit")) ?: device.findObject(By.text("5 min"))
+        }.getOrNull()
+        if (anchor == null) return false
+        val y = runCatching { anchor.visibleCenter.y }.getOrDefault(device.displayHeight / 2)
         repeat(4) {
             device.swipe(
                 (device.displayWidth * 0.85f).toInt(), y,
-                (device.displayWidth * 0.25f).toInt(), y,
-                12
+                (device.displayWidth * 0.2f).toInt(), y,
+                10
             )
-            pause(500)
+            pause(600)
             if (has(By.text(label))) {
                 tapText(label, timeout = 3_000)
                 return true
             }
         }
-        return runCatching { row != null && has(By.text(label)) }.getOrDefault(false)
+        return false
     }
 
     protected fun waitFor(text: String, timeout: Long = 15_000): Boolean =

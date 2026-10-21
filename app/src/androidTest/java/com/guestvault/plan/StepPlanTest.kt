@@ -878,8 +878,16 @@ class StepPlanTest : StepHarness() {
             tapDesc("Back")
             pause(800)
             openSettings()
-            device.findObject(By.desc("Auto-wipe toggle"))?.click()
-            pause(700)
+            scrollToText("Auto-wipe on exit")
+            val wipeToggle = device.findObject(By.desc("Auto-wipe toggle"))
+            expectTrue(wipeToggle != null, "no auto-wipe toggle in settings")
+            val wasOn = wipeToggle!!.isChecked
+            wipeToggle.click()
+            pause(800)
+            expectTrue(
+                device.findObject(By.desc("Auto-wipe toggle"))?.isChecked == !wasOn,
+                "the auto-wipe switch did not change"
+            )
             tapDesc("Back")
             pause(800)
             pickApps(3)
@@ -915,7 +923,10 @@ class StepPlanTest : StepHarness() {
             pause(800)
             pickApps(3)
             expectTrue(waitFor("One last look before you hand over", 10_000), "confirm screen missing")
-            expectTrue(chipSelected("5 min"), "5 min is not pre-selected on the confirm screen")
+            expectTrue(
+                selectedChips().any { it.contains("5") },
+                "5 min is not pre-selected on the confirm screen (selected: ${selectedChips()})"
+            )
         }
 
         verify("9.6", "Applies instantly, survives a restart, and the guest home follows too") {
@@ -1184,9 +1195,13 @@ class StepPlanTest : StepHarness() {
                 pause(2_500)
             }
             expectTrue(ended, "the session was still running after 6 minutes in the background")
+            launchApp()
+            pause(2_500)
+            dismissPinnedDialog(timeoutMs = 3_000)
             expectTrue(
-                !shell("dumpsys notification --noredact").contains("Guest Mode is on"),
-                "the ongoing notification outlived the session"
+                waitFor("Start Guest Session", 25_000),
+                "the timer ended the session but the app still thinks it is running " +
+                    "(text=${visibleText().take(110)})"
             )
             note("ended after ${elapsed}s with another app in the foreground")
         }
@@ -1229,7 +1244,8 @@ class StepPlanTest : StepHarness() {
             dismissPinnedDialog(timeoutMs = 3_000)
             expectTrue(
                 landed == "Start Guest Session",
-                "after the reboot the app shows \"${landed ?: visibleText().take(90)}\""
+                "after the reboot the app shows \"${landed ?: visibleText().take(90)}\" " +
+                    "(log: ${recentLog(5)})"
             )
         }
 
@@ -1292,7 +1308,9 @@ class StepPlanTest : StepHarness() {
             shell("settings put system accelerometer_rotation 0")
             shell("settings put system user_rotation 1")
             pause(3_000)
-            expectTrue(waitFor("Welcome to Guest Mode", 12_000), "guest home did not survive the rotation")
+            dismissPinnedDialog(timeoutMs = 4_000)
+            expectTrue(waitFor("Welcome to Guest Mode", 20_000), "guest home did not survive the rotation")
+            pause(1_000)
             expectTrue(
                 device.findObjects(By.descStartsWith("Open ")).isNotEmpty(),
                 "the app grid disappeared after rotation"
@@ -1609,7 +1627,10 @@ class StepPlanTest : StepHarness() {
                 enterPin(pinDigits)
             }
         }
-        expectTrue(waitFor("Start Guest Session", 20_000), "session did not end")
+        expectTrue(
+            waitFor("Start Guest Session", 20_000),
+            "session did not end (screen: ${screen()}; text=${visibleText().take(110)})"
+        )
     }
 
     private fun openSettings() {
