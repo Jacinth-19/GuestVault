@@ -1,7 +1,9 @@
 package com.guestvault.plan
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Rect
+import java.io.File
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Until
@@ -1215,11 +1217,15 @@ class StepPlanTest : StepHarness() {
         val edit = field!!
         edit.click()
         pause(400)
-        val typed = edit.setText(text)
-        if (!typed) {
-            shell("input text $text")
-        }
+        edit.setText(text)
         pause(900)
+        // If the accessibility set-text did not take, type it through the shell.
+        if (appRows().isEmpty() && !device.hasObject(By.text("No apps match"))) {
+            edit.click()
+            pause(300)
+            shell("input text $text")
+            pause(900)
+        }
     }
 
     private fun clearSearch() {
@@ -1381,7 +1387,15 @@ class StepPlanTest : StepHarness() {
         return bad
     }
 
-    private fun screenshot(): Bitmap? = runCatching { device.takeScreenshot() }.getOrNull()
+    private fun screenshot(): Bitmap? {
+        val file = File(context.cacheDir, "plan-shot.png")
+        return try {
+            device.takeScreenshot(file)
+            BitmapFactory.decodeFile(file.absolutePath)
+        } catch (t: Throwable) {
+            null
+        }
+    }
 
     private fun luma(bmp: Bitmap): Double {
         var total = 0.0
