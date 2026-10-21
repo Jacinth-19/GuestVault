@@ -30,9 +30,11 @@ printf '| Phase | Exit | Device | First error line |\n| --- | --- | --- | --- |\
 run_phase() {
   local name="$1" out status device summary
   device="$(adb get-state 2>&1 | tr -d '\r')"
+  # `< /dev/null` matters: `adb shell` otherwise drains the stdin of the
+  # enclosing `while read` loop and every phase after the first is skipped.
   out="$(timeout "$PER_PASS_TIMEOUT" adb shell am instrument -w -r \
     -e class "${PACKAGE}.plan.StepPlanTest#${name}" \
-    "$RUNNER" 2>&1)"
+    "$RUNNER" < /dev/null 2>&1)"
   status=$?
   echo "$out" > "build/logcat/${name}.txt"
   summary="$(echo "$out" | grep -E "INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]|Error|Exception|crashed|offline|not found" \
@@ -102,7 +104,9 @@ echo "== install =="
 adb install -r -t "$APK" || exit 1
 adb install -r -t "$TEST_APK" || exit 1
 
-while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE; do
+# FD 3, not stdin: adb commands inside the loop would otherwise consume the
+# phase list and silently end the plan after the first phase.
+while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE <&3; do
   [ -z "${TYPE:-}" ] && continue
 
   if [ "$TYPE" = "test" ]; then
@@ -130,7 +134,7 @@ while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE; do
     clear)
       adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
       adb shell pm clear "$PACKAGE" >/dev/null 2>&1 || true
-      grant_notifications "${VALUE:-1}"
+      grant_notifications "${GRANT:-1}"
       ;;
     force-stop)
       adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
@@ -179,7 +183,7 @@ while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE; do
       echo "::warning::unknown host action $NAME"
       ;;
   esac
-done < <(python3 scripts/ci/plan_ops.py "$MANIFEST")
+done 3< <(python3 scripts/ci/plan_ops.py "$MANIFEST")
 
 echo "== verdicts =="
 cat "$RAW" || true

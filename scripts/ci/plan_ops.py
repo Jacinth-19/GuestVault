@@ -34,7 +34,13 @@ def main(argv: list[str]) -> int:
             elif "host" in entry:
                 print(
                     "\t".join(
-                        ["host", entry["host"], "", "", str(entry.get("value", ""))]
+                        [
+                            "host",
+                            entry["host"],
+                            "",
+                            "1" if entry.get("grant", True) else "0",
+                            str(entry.get("value", "")),
+                        ]
                     )
                 )
     return 0
