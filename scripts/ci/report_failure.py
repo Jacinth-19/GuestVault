@@ -28,6 +28,36 @@ LOG_FILES = [
 ]
 
 
+# Kotlin/Gradle emit the actionable line as `e: file:///path/File.kt:42:5 text`.
+# The tail of a build log is 90% stack frames, and the truncation below keeps the
+# tail — so the one line that explains the failure is exactly what gets cut.
+ERROR_PATTERNS = (
+    "e: file://",
+    "e: ",
+    "error:",
+    "FAILURE: Build failed",
+    "Execution failed for task",
+    "Unresolved reference",
+    "Type mismatch",
+)
+
+
+def extract_errors(text: str, limit: int = 40) -> list[str]:
+    hits: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or len(stripped) > 400:
+            continue
+        if any(pattern in stripped for pattern in ERROR_PATTERNS):
+            # Skip pure stack frames that happen to mention "error".
+            if stripped.startswith("at ") or stripped.startswith("Caused by: org.gradle"):
+                continue
+            hits.append(stripped)
+        if len(hits) >= limit:
+            break
+    return hits
+
+
 def main() -> int:
     sections: list[str] = []
 
@@ -37,6 +67,11 @@ def main() -> int:
             continue
 
         text = path.read_text(errors="ignore")
+        errors = extract_errors(text)
+        if errors:
+            sections.append(
+                f"### `{name}` — first errors\n\n```text\n" + "\n".join(errors) + "\n```"
+            )
         if len(text) > MAX_PER_FILE:
             text = "…(truncated)…\n" + text[-MAX_PER_FILE:]
 
