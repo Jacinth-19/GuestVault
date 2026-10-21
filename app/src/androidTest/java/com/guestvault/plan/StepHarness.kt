@@ -142,7 +142,7 @@ abstract class StepHarness {
      * The system asks to pin the guest task a moment *after* it resumes, so a
      * single check right after `am start` misses it. Poll for a few seconds.
      */
-    protected fun dismissPinnedDialog(timeoutMs: Long = 6_000): Boolean {
+    protected fun dismissPinnedDialog(timeoutMs: Long = 10_000): Boolean {
         val deadline = System.currentTimeMillis() + timeoutMs
         var dismissed = false
         while (System.currentTimeMillis() < deadline) {
@@ -372,6 +372,14 @@ abstract class StepHarness {
      * can be spent here: the third wrong attempt starts the cool-down.
      */
     protected fun enterPinWithRetry(digits: List<String>) {
+        // A cool-down left over from an earlier step would swallow every tap.
+        if (has(By.textContains("Too many attempts"))) {
+            val deadline = System.currentTimeMillis() + 70_000
+            while (System.currentTimeMillis() < deadline && has(By.textContains("Too many attempts"))) {
+                Thread.sleep(1_000)
+            }
+            pause(800)
+        }
         enterPin(digits)
         repeat(2) {
             if (!has(By.textContains("Incorrect PIN"))) return

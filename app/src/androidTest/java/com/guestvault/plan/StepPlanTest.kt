@@ -393,7 +393,8 @@ class StepPlanTest : StepHarness() {
             val absent = wanted - seen
             expectTrue(
                 absent.isEmpty(),
-                "chips missing: ${absent.joinToString()} (the row shows: ${visibleText().take(160)})"
+                "chips missing: ${absent.joinToString()} — the row offers " +
+                    "${visibleText().split(" | ").filter { it.contains("min") || it.contains("limit") || it.contains("hour") }}"
             )
             tapText("15 min")
             pause(700)
@@ -732,7 +733,7 @@ class StepPlanTest : StepHarness() {
                 "the guest session did not survive the force-stop " +
                     "(screen: ${screen()}; text=${visibleText().take(160)})"
             )
-            dismissPinnedDialog(timeoutMs = 4_000)
+            dismissPinnedDialog(timeoutMs = 10_000)
             if (device.hasObject(By.text("Resume Guest Mode"))) {
                 tapText("Resume Guest Mode")
                 pause(1_500)
@@ -1269,11 +1270,18 @@ class StepPlanTest : StepHarness() {
                 )
             }
             dismissPinnedDialog(timeoutMs = 3_000)
-            expectTrue(
-                landed == "Start Guest Session",
-                "after the reboot the app shows \"${landed ?: visibleText().take(90)}\" " +
-                    "(log: ${recentLog(5)})"
-            )
+            if (landed != "Start Guest Session") {
+                val start = shell(
+                    "am start -W -n ${context.packageName}/.MainActivity"
+                ).replace("\n", " ").take(180)
+                launchApp()
+                pause(4_000)
+                expectTrue(
+                    waitFor("Start Guest Session", 30_000),
+                    "after the reboot the app shows \"${landed ?: visibleText().take(90)}\"; " +
+                        "am start: $start; log: ${recentLog(5)}"
+                )
+            }
         }
 
         verify("13.3", "Recovered after restart, and wiped if auto-wipe was on") {

@@ -2,6 +2,8 @@ package com.guestvault.guest
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -214,7 +216,13 @@ fun GuestHomeScreen(
                 .background(Color.White.copy(alpha = 0.05f))
         )
 
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = if (compact) {
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            } else {
+                Modifier.fillMaxSize()
+            }
+        ) {
             // ---------------------------------------------------------- header
             Column(
                 modifier = Modifier
@@ -368,7 +376,7 @@ fun GuestHomeScreen(
                     Spacer(Modifier.height(10.dp))
 
                     if (state.apps.isEmpty()) {
-                        Box(modifier = Modifier.weight(1f)) {
+                        Box(modifier = if (compact) Modifier.height(160.dp) else Modifier.weight(1f)) {
                             EmptyState(
                                 icon = Icons.Rounded.Shield,
                                 title = "No apps allowed",
@@ -378,7 +386,10 @@ fun GuestHomeScreen(
                     } else {
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(4),
-                            modifier = Modifier.weight(1f),
+                            // A weighted child of a scrollable column has no
+                            // height, so landscape gets an explicit one and the
+                            // page scrolls instead.
+                            modifier = if (compact) Modifier.height(210.dp) else Modifier.weight(1f),
                             contentPadding = PaddingValues(vertical = 6.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
