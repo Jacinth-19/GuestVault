@@ -294,6 +294,27 @@ abstract class StepHarness {
     protected fun shell(command: String): String =
         runCatching { device.executeShellCommand(command) }.getOrDefault("")
 
+    /**
+     * The last few lines that explain a disappearing activity: task-manager
+     * decisions, guest-app crashes, permission denials.
+     */
+    protected fun recentLog(limit: Int = 7): String {
+        val dump = shell("logcat -d -t 300")
+        return dump.lineSequence()
+            .filter {
+                (it.contains("guestvault", ignoreCase = true) && !it.contains("guestvault-verify")) ||
+                    it.contains("FATAL EXCEPTION") ||
+                    it.contains("ActivityTaskManager") ||
+                    it.contains("Force finishing") ||
+                    it.contains("ANR in")
+            }
+            .toList()
+            .takeLast(limit)
+            .joinToString(" ~ ") { line ->
+                line.substringAfter(": ", line).trim().take(120)
+            }
+    }
+
     protected fun waitFor(text: String, timeout: Long = 15_000): Boolean =
         device.wait(Until.hasObject(By.text(text)), timeout)
 

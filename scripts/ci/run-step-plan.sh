@@ -38,6 +38,7 @@ run_phase() {
     "$RUNNER" < /dev/null 2>&1)"
   status=$?
   echo "$out" > "build/logcat/${name}.txt"
+  adb shell logcat -d -t 400 2>/dev/null | tr -d '\r' > "build/logcat/${name}.logcat.txt" || true
   summary="$(echo "$out" | grep -E "INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]|Error|Exception|crashed|offline|not found" \
     | tail -n 2 | tr '\n' ' ' | cut -c1-260)"
   local focus crash

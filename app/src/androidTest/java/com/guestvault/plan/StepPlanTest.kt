@@ -404,8 +404,8 @@ class StepPlanTest : StepHarness() {
 
         verify("5.5", "On Android 13+: one notification-permission prompt, then the session starts either way") {
             val note = startSessionHere(minutes = 15, acceptPin = false, permission = "allow")
-            expectContains(note, "permission: allowed", "no notification prompt appeared")
-            expectTrue(waitFor("Welcome to Guest Mode", 25_000), "session did not start after Allow")
+            expectContains(note, "permission: allowed", "no notification prompt appeared ($note)")
+            expectTrue(waitFor("Welcome to Guest Mode", 25_000), "session did not start after Allow ($note)")
         }
     }
 
@@ -430,7 +430,8 @@ class StepPlanTest : StepHarness() {
     fun pass06() {
         arrange { ensureOwnerHome() }
         arrange { pickApps(3) }
-        val startNote = startSessionHere(minutes = 30, acceptPin = false, permission = "allow")
+        var startNote = ""
+        arrange { startNote = startSessionHere(minutes = 30, acceptPin = false, permission = "allow") }
         val startTop = topActivityLine()
         val startLuma = screenshot()?.let { luma(it) } ?: -1.0
         val startText = visibleText()
@@ -1342,7 +1343,9 @@ class StepPlanTest : StepHarness() {
                 else -> pause(900)
             }
         }
-        return "permission: $perm; pinning: $pin"
+        val focus = shell("dumpsys activity activities").lineSequence()
+            .firstOrNull { it.contains("topResumedActivity") }?.trim()?.take(90).orEmpty()
+        return "permission: $perm; pinning: $pin; top=$focus; log=${recentLog()}"
     }
 
     private fun pinDialogVisible(): Boolean =

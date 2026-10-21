@@ -33,6 +33,7 @@ class GuestHomeActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.i(TAG, "GuestHomeActivity created")
         enableEdgeToEdge()
         startLocked = intent?.getBooleanExtra(EXTRA_OPEN_LOCK, false) == true
         intent?.removeExtra(EXTRA_OPEN_LOCK)
@@ -85,6 +86,7 @@ class GuestHomeActivity : FragmentActivity() {
     }
 
     fun returnToOwner() {
+        Log.i(TAG, "returnToOwner")
         if (returningToOwner) return
         returningToOwner = true
 

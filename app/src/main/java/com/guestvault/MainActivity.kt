@@ -136,6 +136,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun openGuestMode() {
+        android.util.Log.i("GuestVault", "openGuestMode finishing=$isFinishing destroyed=$isDestroyed")
         if (isFinishing || isDestroyed) return
         val intent = Intent(this, GuestHomeActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
