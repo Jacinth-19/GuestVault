@@ -149,6 +149,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--results")
     parser.add_argument("--out", default="step-report.md")
+    parser.add_argument("--phase-log", default="")
     parser.add_argument("--list-tests", action="store_true")
     args = parser.parse_args(argv[1:])
 
@@ -161,6 +162,11 @@ def main(argv: list[str]) -> int:
 
     results = load_results(Path(args.results))
     report, counts = build_report(manifest, results)
+
+    if args.phase_log:
+        phases = Path(args.phase_log)
+        if phases.exists():
+            report += "\n## Device phases\n\n" + phases.read_text(encoding="utf-8") + "\n"
 
     out = Path(args.out)
     out.write_text(report, encoding="utf-8")

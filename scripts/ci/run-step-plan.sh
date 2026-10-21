@@ -24,6 +24,24 @@ PER_PASS_TIMEOUT="${PER_PASS_TIMEOUT:-900}"
 mkdir -p build build/logcat
 : > "$RAW"
 rm -f plan-failed.txt
+PHASES="build/phase-log.md"
+printf '| Phase | Exit | Device | First error line |\n| --- | --- | --- | --- |\n' > "$PHASES"
+
+run_phase() {
+  local name="$1" out status device summary
+  device="$(adb get-state 2>&1 | tr -d '\r')"
+  out="$(timeout "$PER_PASS_TIMEOUT" adb shell am instrument -w -r \
+    -e class "${PACKAGE}.plan.StepPlanTest#${name}" \
+    "$RUNNER" 2>&1)"
+  status=$?
+  echo "$out" > "build/logcat/${name}.txt"
+  summary="$(echo "$out" | grep -E "INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]|Error|Exception|crashed|offline|not found" \
+    | tail -n 2 | tr '\n' ' ' | cut -c1-260)"
+  printf '| %s | %s | %s | %s |\n' "$name" "$status" "$device" "${summary:-no error line}" >> "$PHASES"
+  echo "$out" | tail -n 10
+  # Pull before the next host action can wipe the app's data directory.
+  pull_results
+}
 
 pull_results() {
   adb shell run-as "$PACKAGE" cat files/step-results.jsonl 2>/dev/null >> "$RAW" || true
@@ -96,18 +114,13 @@ while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE; do
     fi
     adb logcat -c || true
 
-    timeout "$PER_PASS_TIMEOUT" adb shell am instrument -w -r \
-      -e class "${PACKAGE}.plan.StepPlanTest#${NAME}" \
-      "$RUNNER"
-    INSTR_STATUS=$?
-    echo "instrumentation exit code for $NAME: $INSTR_STATUS"
+    run_phase "$NAME"
 
-    # Pull before the next host action can wipe the app's data directory.
-    pull_results
-
-    adb logcat -d -v brief > "build/logcat/${NAME}.txt" 2>/dev/null || true
-    if [ "$INSTR_STATUS" -ne 0 ]; then
-      echo "::warning::instrumentation for $NAME exited with $INSTR_STATUS"
+    adb logcat -d -v brief > "build/logcat/${NAME}-logcat.txt" 2>/dev/null || true
+    if ! adb get-state >/dev/null 2>&1; then
+      echo "::error::the emulator is gone after $NAME; stopping the plan"
+      printf '| _device lost_ | - | missing | stopped after %s |\n' "$NAME" >> "$PHASES"
+      break
     fi
     continue
   fi
@@ -171,10 +184,14 @@ done < <(python3 scripts/ci/plan_ops.py "$MANIFEST")
 echo "== verdicts =="
 cat "$RAW" || true
 
+echo "== phases =="
+cat "$PHASES" || true
+
 echo "== report =="
 python3 scripts/ci/step_report.py \
   --manifest "$MANIFEST" \
   --results "$RAW" \
+  --phase-log "$PHASES" \
   --out step-report.md
 STATUS=$?
 

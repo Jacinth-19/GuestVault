@@ -54,7 +54,7 @@ class StepPlanTest : StepHarness() {
                 screenshot()?.let { indigo = isIndigo(it) }
                 break
             }
-            Thread.sleep(80)
+            Thread.sleep(250)
         }
         if (!indigo) screenshot()?.let { indigo = isIndigo(it) }
 
