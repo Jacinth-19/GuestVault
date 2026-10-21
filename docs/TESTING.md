@@ -54,6 +54,28 @@ python3 scripts/ci/check_workflow_hygiene.py                 # no CI-skip marker
 > The repository's Gradle wrapper is bootstrapped by CI if `gradle-wrapper.jar`
 > is missing; on a fresh clone run `gradle wrapper --gradle-version 8.11.1` once.
 
+### The splash screenshot
+
+`docs/media/00-splash.png` is the hardest screenshot in the set, because the
+screen is only up for 1.4 s and `adb screencap` on a software-rendered emulator
+is slower than that. Two mechanisms make it deterministic:
+
+1. **A held splash.** The walkthrough launches with
+   `--ei com.guestvault.extra.SPLASH_HOLD_MS 4500`, which
+   `MainActivity` honours **only in debug builds**. Nothing about the screen
+   changes; the capture just gets a longer exposure.
+2. **A gate, not a guess.** `scripts/ci/pick_splash.py` scores every frame and
+   publishes only one that is indigo *and* contains a wordmark row — at least
+   **6 separate ink runs** spanning ≥ 35 % of the width. This matters because
+   Android 12+ draws its own system splash in the same colour with a large white
+   shield: it passes "indigo", it passes "has white pixels", and it is *not* the
+   branded splash. Its widest row has 3 ink runs, so it is rejected.
+
+If the gate rejects the whole burst, the run keeps the screenshot already in
+`docs/media/` and uploads `splash-capture` as an artifact: every candidate frame
+plus `shots/splash-capture.json`, which records the thresholds and the reason
+each frame failed.
+
 `preview_lottie.py` rasterises the Lottie files to `/tmp/lottie-preview/*.png`
 (six frames each) with Pillow, so an animation can be reviewed without an
 emulator. It is a preview, not a renderer: easing is linearised and trim paths
@@ -65,7 +87,7 @@ are unsupported — which is fine, because the generator does not emit them.
 | --- | --- | --- |
 | PIN storage | `PinHasherTest` | The raw PIN is never stored; salted PBKDF2 hashes differ per PIN and per salt. |
 | Brute force | `LockoutPolicyTest` | 3 wrong PINs start a 30 s cool-down, each further round doubles it, capped at 15 min, and only a correct PIN resets the counter. |
-| Timer reminders | `TimerRemindersTest` | 5-min and 1-min warnings fire once each, short sessions skip the 5-min one, a dozing device gets only the most relevant reminder. |
+| Session alerts | `TimerRemindersTest` | 5-min and 1-min warnings fire once each, short sessions skip the 5-min one, a dozing device gets only the most relevant reminder. |
 | Session model | `SessionModelTest` | `durationMinutes = 0` means no limit; `remainingMillis()` never goes negative; end reasons round-trip through storage. |
 | Formatting | `FormattersTest` | Countdown, duration and day labels stay stable. |
 
@@ -271,11 +293,11 @@ Four channels, each with one job. Check them in Android settings
 
 1. Fresh install, grant notifications when asked.
 2. Open Settings → Permissions & privacy → **Notification channels**.
-   **Expect:** four rows, all **On**: *Guest session*, *Timer reminders*,
+   **Expect:** four rows, all **On**: *Guest session*, *Session alerts*,
    *Session summaries*, *Security alerts*.
 3. Open Android's notification settings for GuestVault and check each channel:
    * Guest session — importance **Low**, no sound, no vibration, no badge.
-   * Timer reminders — **Default**.
+   * Session alerts — **Default**.
    * Session summaries — **Default**.
    * Security alerts — **High**, sound and vibration on, appears on the lock
      screen.
@@ -298,7 +320,7 @@ Four channels, each with one job. Check them in Android settings
 4. Tap it.
    **Expect:** the guest home opens (not the dashboard).
 
-#### 8c. Timer reminders
+#### 8c. Session alerts
 
 1. Start a 15-minute session and wait.
    **Expect:** at **5:00** remaining, "5 minutes left"; at **1:00** remaining,
@@ -309,7 +331,7 @@ Four channels, each with one job. Check them in Android settings
 3. Start a **5-minute** session.
    **Expect:** no "5 minutes left" banner at t=0. The only reminder is
    "1 minute left" at 1:00.
-4. Set **Settings → Notifications → Timer reminders** off, start a 5-minute
+4. Set **Settings → Notifications → Session alerts** off, start a 5-minute
    session, wait for the 1-minute mark.
    **Expect:** no reminder, and the session still ends on time.
 5. Put the phone to sleep through the 5-minute mark of a 15-minute session, wake
@@ -331,7 +353,7 @@ Four channels, each with one job. Check them in Android settings
 4. Turn the summary setting off and end another session.
    **Expect:** no summary. The setting survives a restart.
 5. End a session while inside a session-notification tap.
-   **Expect:** the ongoing notice and any timer reminders disappear together;
+   **Expect:** the ongoing notice and any session alerts disappear together;
    the summary is the only thing left in the shade.
 
 #### 8e. Security alerts
@@ -425,7 +447,7 @@ Work down every row.
    shows no "Wiped".
 5. **Default session timer** — pick 15 min; the confirm screen preselects 15 min.
 6. **Session history** — opens Pass 10.
-7. **Notifications → Timer reminders / Session summary** — see Pass 8.
+7. **Notifications → Session alerts / Session summary** — see Pass 8.
 8. **Notifications → Android notification settings** — opens the OS screen for
    GuestVault, not a generic settings page.
 9. **Appearance → Theme** — System / Light / Dark all apply immediately,

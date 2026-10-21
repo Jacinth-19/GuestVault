@@ -36,6 +36,18 @@ class MainActivity : FragmentActivity() {
     /** Incremented when a session-summary notification asks for the history screen. */
     private var historyRequest by mutableIntStateOf(0)
 
+    /**
+     * Screenshot hook: how long the brand splash should be held.
+     *
+     * Only honoured in a debug build, and only when the launcher passes
+     * [EXTRA_SPLASH_HOLD_MS]. CI photographs `docs/media/00-splash.png` from a
+     * cold start, and 1.4 s is shorter than an `adb screencap` round trip on a
+     * software-rendered emulator, so the burst used to photograph the Android
+     * 12+ system splash instead of this screen. Holding it does not change what
+     * is drawn — only how long the camera has.
+     */
+    private var splashHoldMs by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -71,7 +83,8 @@ class MainActivity : FragmentActivity() {
                     } else {
                         GuestVaultNavHost(
                             quickStartRequest = quickStartRequest,
-                            historyRequest = historyRequest
+                            historyRequest = historyRequest,
+                            splashHoldMs = splashHoldMs
                         )
                     }
                 }
@@ -101,6 +114,16 @@ class MainActivity : FragmentActivity() {
             intent.removeExtra(EXTRA_OPEN_HISTORY)
             historyRequest++
         }
+
+        // Never in release: a shipped APK must not be able to sit on the splash
+        // because someone crafted an intent.
+        if (BuildConfig.DEBUG) {
+            val hold = intent.getIntExtra(EXTRA_SPLASH_HOLD_MS, 0)
+            if (hold > 0) {
+                intent.removeExtra(EXTRA_SPLASH_HOLD_MS)
+                splashHoldMs = hold.coerceIn(0, SPLASH_HOLD_MAX_MS)
+            }
+        }
     }
 
     private fun openGuestMode() {
@@ -114,5 +137,9 @@ class MainActivity : FragmentActivity() {
     companion object {
         const val EXTRA_QUICK_START_SESSION = "com.guestvault.extra.QUICK_START_SESSION"
         const val EXTRA_OPEN_HISTORY = "com.guestvault.extra.OPEN_HISTORY"
+
+        /** Debug-only: hold the splash so a screenshot can be taken. */
+        const val EXTRA_SPLASH_HOLD_MS = "com.guestvault.extra.SPLASH_HOLD_MS"
+        private const val SPLASH_HOLD_MAX_MS = 8_000
     }
 }

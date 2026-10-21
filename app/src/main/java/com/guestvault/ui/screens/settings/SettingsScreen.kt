@@ -287,11 +287,11 @@ fun SettingsScreen(
                 SettingsGroup(title = "Notifications") {
                     SettingSwitchRow(
                         icon = Icons.Rounded.NotificationsActive,
-                        title = "Timer reminders",
+                        title = "Session alerts",
                         subtitle = "Warn me before a timed session ends",
                         checked = settings.notifyTimerAlerts,
                         onCheckedChange = onTimerAlertsChange,
-                        switchDescription = "Timer reminder toggle"
+                        switchDescription = "Session alerts toggle"
                     )
                     GuestVaultDivider()
                     SettingSwitchRow(

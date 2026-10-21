@@ -29,6 +29,8 @@ import com.guestvault.ui.screens.splash.SplashRoute
 fun GuestVaultNavHost(
     quickStartRequest: Int = 0,
     historyRequest: Int = 0,
+    /** Debug-only screenshot hook; see [com.guestvault.MainActivity]. */
+    splashHoldMs: Int = 0,
     navController: NavHostController = rememberNavController()
 ) {
     NavHost(
@@ -37,6 +39,7 @@ fun GuestVaultNavHost(
     ) {
         composable(Routes.SPLASH) {
             SplashRoute(
+                holdMs = splashHoldMs,
                 onReady = { startState ->
                     val destination = when {
                         !startState.onboardingCompleted -> Routes.ONBOARDING
