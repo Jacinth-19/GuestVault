@@ -341,6 +341,11 @@ abstract class StepHarness {
     }
 
     protected fun enterPin(digits: List<String>) {
+        // The lock screen renders its keypad before the stored guard has loaded;
+        // taps during that window are dropped, which looked like a wrong PIN.
+        runCatching { device.wait(Until.hasObject(By.desc("PIN key 1")), 8_000) }
+        pause(400)
+
         digits.forEach { digit ->
             val selector = By.desc("PIN key $digit")
             var found = runCatching { device.wait(Until.hasObject(selector), 8_000) }.getOrDefault(false)
@@ -354,12 +359,14 @@ abstract class StepHarness {
             )
             val clicked = runCatching { device.findObject(selector)!!.click() }.isSuccess
             if (!clicked) {
+                // One retry only: a second tap on a key that did register would
+                // enter the digit twice.
                 pause(350)
                 runCatching { device.findObject(selector)?.click() }
             }
-            pause(170)
+            pause(260)
         }
-        pause(700)
+        pause(900)
     }
 
     // ------------------------------------------------------------- finders

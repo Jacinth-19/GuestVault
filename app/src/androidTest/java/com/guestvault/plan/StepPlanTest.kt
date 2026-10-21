@@ -1174,18 +1174,12 @@ class StepPlanTest : StepHarness() {
             val started = System.currentTimeMillis()
             var ended = false
             while (System.currentTimeMillis() - started < 6 * 60 * 1000L) {
-                val dump = shell("dumpsys notification --noredact")
-                if (dump.contains("notification history") || dump.isBlank()) {
-                    Thread.sleep(2_000)
-                    continue
-                }
-                if (!dump.contains("Guest Mode is on")) {
-                    pause(3_000)
-                    val again = shell("dumpsys notification --noredact")
-                    if (!again.contains("Guest Mode is on")) {
-                        ended = true
-                        break
-                    }
+                // `dumpsys activity services` is small and exact: the session is
+                // alive exactly while GuestSessionService runs.
+                val services = shell("dumpsys activity services ${context.packageName}")
+                if (!services.contains("GuestSessionService")) {
+                    ended = true
+                    break
                 }
                 Thread.sleep(15_000)
             }
@@ -1629,7 +1623,10 @@ class StepPlanTest : StepHarness() {
         }
         expectTrue(
             waitFor("Start Guest Session", 20_000),
-            "session did not end (screen: ${screen()}; text=${visibleText().take(110)})"
+            "session did not end (screen: ${screen()}; " +
+                "incorrect=${device.hasObject(By.textContains("Incorrect PIN"))}; " +
+                "coolDown=${device.hasObject(By.textContains("Too many attempts"))}; " +
+                "text=${visibleText().take(200)})"
         )
     }
 
@@ -1659,6 +1656,14 @@ class StepPlanTest : StepHarness() {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             if (device.hasObject(By.text("Start Guest Session"))) return true
+            if (!shell("dumpsys activity services ${context.packageName}")
+                    .contains("GuestSessionService")
+            ) {
+                // The service stops the moment the session ends; give the owner
+                // UI a beat, then let the caller's own wait settle the rest.
+                pause(2_500)
+                return true
+            }
             Thread.sleep(3_000)
         }
         return device.hasObject(By.text("Start Guest Session"))
