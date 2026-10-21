@@ -21,6 +21,8 @@ LOG_FILES = [
     "build.log",
     "media-build.log",
     "play-build.log",
+    "step-plan-build.log",
+    "step-plan.log",
     "permissions.txt",
     "emulator.log",
     "instrumentation.log",

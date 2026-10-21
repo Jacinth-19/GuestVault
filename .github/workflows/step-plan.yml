@@ -102,6 +102,12 @@ jobs:
           fi
           echo "Every executable step passed."
 
+      - name: Report failure details
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/report_failure.py
+
       - name: Upload verdicts
         if: always()
         uses: actions/upload-artifact@v4

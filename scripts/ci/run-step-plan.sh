@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Runs the numbered manual test plan one pass at a time.
+# Runs the numbered manual test plan, including the steps that need the host.
 #
-# Each pass is a separate `am instrument` invocation preceded by `pm clear`, so
-# a pass starts from a fresh install exactly like the plan says ("first run").
-# That also means a crash in one pass cannot poison the next one.
+# The manifest's `run` list interleaves instrumented phases with host actions
+# (`pm clear`, force-stop, reboot, revoke a permission, uninstall). That is the
+# only way to grade steps like "force-stop during the cool-down" or "reboot the
+# phone": the instrumentation shares the app's process, so it cannot kill it
+# itself.
 #
 # Verdicts are written by the test to files/step-results.jsonl and pulled with
-# `run-as` (a debug build is debuggable). `step_report.py` then grades every
+# `run-as` (the debug build is debuggable). `step_report.py` then grades every
 # numbered step and fails the job if one that should have run did not pass.
 
 set -uo pipefail
@@ -17,10 +19,39 @@ PACKAGE="com.guestvault"
 RUNNER="${PACKAGE}.test/androidx.test.runner.AndroidJUnitRunner"
 MANIFEST="${MANIFEST:-scripts/ci/step-plan.json}"
 RAW="build/step-results.jsonl"
-PER_PASS_TIMEOUT="${PER_PASS_TIMEOUT:-420}"
+PER_PASS_TIMEOUT="${PER_PASS_TIMEOUT:-900}"
 
 mkdir -p build build/logcat
 : > "$RAW"
+rm -f plan-failed.txt
+
+pull_results() {
+  adb shell run-as "$PACKAGE" cat files/step-results.jsonl 2>/dev/null >> "$RAW" || true
+  adb shell "cat /sdcard/Android/data/${PACKAGE}/files/step-results.jsonl" 2>/dev/null >> "$RAW" || true
+}
+
+grant_notifications() {
+  if [ "${1:-1}" = "1" ]; then
+    adb shell pm grant "$PACKAGE" android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+  else
+    adb shell pm revoke "$PACKAGE" android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+  fi
+}
+
+wait_for_boot() {
+  adb wait-for-device
+  for _ in $(seq 1 150); do
+    if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+      break
+    fi
+    sleep 2
+  done
+  # The launcher needs a moment after boot_completed before it accepts input.
+  sleep 8
+  adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
+  adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+  adb shell svc power stayon true >/dev/null 2>&1 || true
+}
 
 echo "== device =="
 adb devices -l || true
@@ -53,36 +84,89 @@ echo "== install =="
 adb install -r -t "$APK" || exit 1
 adb install -r -t "$TEST_APK" || exit 1
 
-TESTS="$(python3 scripts/ci/step_report.py --manifest "$MANIFEST" --list-tests)"
-if [ -z "$TESTS" ]; then
-  echo "::warning::No device-executable passes in $MANIFEST"
-fi
+while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE; do
+  [ -z "${TYPE:-}" ] && continue
 
-for TEST in $TESTS; do
-  echo "== pass: $TEST =="
-  adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
-  adb shell pm clear "$PACKAGE" >/dev/null 2>&1 || true
-  # A cleared package loses runtime grants; re-grant the only one the app asks for.
-  adb shell pm grant "$PACKAGE" android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
-  adb logcat -c || true
+  if [ "$TYPE" = "test" ]; then
+    echo "== phase: $NAME (clear=$CLEAR grant=${GRANT:-1}) =="
+    if [ "$CLEAR" = "1" ]; then
+      adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
+      adb shell pm clear "$PACKAGE" >/dev/null 2>&1 || true
+      grant_notifications "${GRANT:-1}"
+    fi
+    adb logcat -c || true
 
-  timeout "$PER_PASS_TIMEOUT" adb shell am instrument -w -r \
-    -e class "${PACKAGE}.plan.StepPlanTest#${TEST}" \
-    "$RUNNER"
-  INSTR_STATUS=$?
-  echo "instrumentation exit code for $TEST: $INSTR_STATUS"
+    timeout "$PER_PASS_TIMEOUT" adb shell am instrument -w -r \
+      -e class "${PACKAGE}.plan.StepPlanTest#${NAME}" \
+      "$RUNNER"
+    INSTR_STATUS=$?
+    echo "instrumentation exit code for $NAME: $INSTR_STATUS"
 
-  # Pull the verdicts before the next pass clears app data.
-  adb shell run-as "$PACKAGE" cat files/step-results.jsonl 2>/dev/null >> "$RAW" || true
-  adb shell "cat /sdcard/Android/data/${PACKAGE}/files/step-results.jsonl" 2>/dev/null >> "$RAW" || true
+    # Pull before the next host action can wipe the app's data directory.
+    pull_results
 
-  # One logcat per pass: the only way to see *why* a step failed.
-  adb logcat -d -v brief > "build/logcat/${TEST}.txt" 2>/dev/null || true
-
-  if [ "$INSTR_STATUS" -ne 0 ]; then
-    echo "::warning::instrumentation for $TEST exited with $INSTR_STATUS"
+    adb logcat -d -v brief > "build/logcat/${NAME}.txt" 2>/dev/null || true
+    if [ "$INSTR_STATUS" -ne 0 ]; then
+      echo "::warning::instrumentation for $NAME exited with $INSTR_STATUS"
+    fi
+    continue
   fi
-done
+
+  echo "== host: $NAME ${VALUE:-} =="
+  case "$NAME" in
+    clear)
+      adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
+      adb shell pm clear "$PACKAGE" >/dev/null 2>&1 || true
+      grant_notifications "${VALUE:-1}"
+      ;;
+    force-stop)
+      adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
+      ;;
+    revoke-notifications)
+      adb shell pm revoke "$PACKAGE" android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+      ;;
+    reboot)
+      adb reboot || true
+      wait_for_boot
+      ;;
+    airplane-on)
+      adb shell cmd connectivity airplane-mode enable >/dev/null 2>&1 \
+        || adb shell "settings put global airplane_mode_on 1; am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true" >/dev/null 2>&1 || true
+      ;;
+    airplane-off)
+      adb shell cmd connectivity airplane-mode disable >/dev/null 2>&1 \
+        || adb shell "settings put global airplane_mode_on 0; am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false" >/dev/null 2>&1 || true
+      ;;
+    font-scale)
+      adb shell settings put system font_scale "${VALUE:-1.0}"
+      ;;
+    uninstall-check)
+      UNINSTALL_OUT="$(adb uninstall "$PACKAGE" 2>&1)"
+      STILL_INSTALLED="$(adb shell pm path "$PACKAGE" 2>/dev/null | tr -d '\r')"
+      if adb shell run-as "$PACKAGE" ls files >/dev/null 2>&1; then
+        DATA_LEFT="yes"
+      else
+        DATA_LEFT="no"
+      fi
+      if grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml; then
+        BACKUP="android:allowBackup=\"false\" in the manifest"
+      else
+        BACKUP="allowBackup is NOT disabled"
+      fi
+      NOTES="uninstall said '${UNINSTALL_OUT}'; package path '${STILL_INSTALLED:-<empty>}'; app data left: ${DATA_LEFT}; ${BACKUP}"
+      if echo "$UNINSTALL_OUT" | grep -q "Success" && [ -z "$STILL_INSTALLED" ] && [ "$DATA_LEFT" = "no" ] && grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml; then
+        python3 scripts/ci/host_result.py --out "$RAW" --id 14.6 --status PASS --note "$NOTES"
+      else
+        python3 scripts/ci/host_result.py --out "$RAW" --id 14.6 --status FAIL --note "$NOTES"
+      fi
+      # Put the app back so a rerun on a warm emulator can install cleanly.
+      adb install -r -t "$APK" >/dev/null 2>&1 || true
+      ;;
+    *)
+      echo "::warning::unknown host action $NAME"
+      ;;
+  esac
+done < <(python3 scripts/ci/plan_ops.py "$MANIFEST")
 
 echo "== verdicts =="
 cat "$RAW" || true
@@ -94,7 +178,6 @@ python3 scripts/ci/step_report.py \
   --out step-report.md
 STATUS=$?
 
-# Keep the table next to the workflow logs even when the run is red.
 cat step-report.md 2>/dev/null || true
 
 if [ "$STATUS" -ne 0 ]; then

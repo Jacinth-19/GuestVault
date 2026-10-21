@@ -56,6 +56,13 @@ abstract class StepHarness {
      * [expect] is copied verbatim from the plan: it is the acceptance
      * criterion, not a description of what the code happens to do.
      */
+    private var pendingNote: String = ""
+
+    /** Attaches evidence to the step currently being verified. */
+    protected fun note(text: String) {
+        pendingNote = text
+    }
+
     protected fun verify(
         id: String,
         expect: String,
@@ -63,12 +70,15 @@ abstract class StepHarness {
         body: () -> Unit
     ) {
         val started = System.currentTimeMillis()
+        pendingNote = ""
         try {
             body()
-            StepResults.pass(id, expect, note.ifBlank { "met" }, System.currentTimeMillis() - started)
+            val evidence = note.ifBlank { pendingNote.ifBlank { "met" } }
+            StepResults.pass(id, expect, evidence, System.currentTimeMillis() - started)
         } catch (t: Throwable) {
             val message = t.message?.takeIf { it.isNotBlank() } ?: t.javaClass.simpleName
-            StepResults.fail(id, expect, message, System.currentTimeMillis() - started)
+            val evidence = if (pendingNote.isBlank()) message else "$message ($pendingNote)"
+            StepResults.fail(id, expect, evidence, System.currentTimeMillis() - started)
         }
     }
 

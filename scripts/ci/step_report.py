@@ -70,12 +70,15 @@ def iter_steps(manifest: dict):
 
 
 def list_tests(manifest: dict) -> int:
-    for _, block, steps in iter_steps(manifest):
-        name = block.get("test")
-        if not name:
-            continue
-        if any(step.get("mode", "device") == "device" for step in steps):
-            print(name)
+    """Every instrumented phase, in manifest order.
+
+    Derived from `run`, not from `steps`: a phase may exist only to set up the
+    next one (pass10a creates the PIN that pass10b then needs).
+    """
+    for block in manifest.get("passes", []):
+        for entry in block.get("run", []):
+            if "test" in entry:
+                print(entry["test"])
     return 0
 
 
