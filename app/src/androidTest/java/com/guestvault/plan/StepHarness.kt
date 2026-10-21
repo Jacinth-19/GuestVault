@@ -282,7 +282,12 @@ abstract class StepHarness {
                 }
             }
         }
-        expectTrue(screen() == "dashboard", "owner app never reached the dashboard (screen: ${screen()})")
+        expectTrue(
+            screen() == "dashboard",
+            "owner app never reached the dashboard (screen: ${screen()}) | " +
+                "files=${runCatching { shell("run-as ${context.packageName} ls -R files").take(160) }.getOrDefault("?")} | " +
+                "log=${recentLog(5)}"
+        )
     }
 
     /** Completes onboarding if it is showing. Returns true when it did. */
