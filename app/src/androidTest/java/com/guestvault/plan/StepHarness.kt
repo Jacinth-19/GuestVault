@@ -219,16 +219,26 @@ abstract class StepHarness {
                 "dashboard" -> return
                 "onboarding" -> advanceOnboarding()
                 "pinCreate", "pinConfirm" -> {
-                    enterPin(pinDigits)
-                    pause(1_400)
+                    // The probe can be a frame ahead of the screen; only type
+                    // when the keypad is really there, otherwise look again.
+                    if (has(By.desc("PIN key 1"))) {
+                        enterPin(pinDigits)
+                        pause(1_400)
+                    } else {
+                        pause(600)
+                    }
                 }
                 "guestHome" -> {
                     tapTextIfPresent("Return to Owner")
                     pause(1_200)
                 }
                 "lock" -> {
-                    enterPin(pinDigits)
-                    pause(1_400)
+                    if (has(By.desc("PIN key 1"))) {
+                        enterPin(pinDigits)
+                        pause(1_400)
+                    } else {
+                        pause(600)
+                    }
                 }
                 else -> {
                     // A nested screen (picker, settings, history) is not "home".

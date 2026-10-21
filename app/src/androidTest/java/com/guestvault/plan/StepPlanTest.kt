@@ -38,8 +38,12 @@ class StepPlanTest : StepHarness() {
     fun pass01a() {
         device.pressHome()
         pause(600)
-        shell("am start -n ${context.packageName}/.MainActivity")
-
+        // CLEAR_TASK recreates the activity so the splash composes again; the
+        // debug-only hold keeps it on screen long enough to photograph.
+        shell(
+            "am start -n ${context.packageName}/.MainActivity --activity-clear-task " +
+                "--ei ${context.packageName}.extra.SPLASH_HOLD_MS 4000"
+        )
         var splashText = false
         var firstLuma = -1.0
         var indigo = false
@@ -114,7 +118,10 @@ class StepPlanTest : StepHarness() {
             pause(900)
             val lastPage = waitForAny("Your data stays private", "Get Started", timeout = 8_000)
             expectTrue(lastPage != null, "never reached page 3")
-            expectTrue(device.hasObject(By.text("Get Started")), "page 3 button is not \"Get Started\"")
+            expectTrue(
+                waitFor("Get Started", 6_000),
+                "page 3 button is not \"Get Started\" (screen: ${visibleText().take(120)})"
+            )
             expectTrue(!device.hasObject(By.text("Skip")), "Skip is still visible on the last page")
         }
     }
@@ -510,14 +517,17 @@ class StepPlanTest : StepHarness() {
             // this debug-only switch turns the real behaviour back on, then the
             // guest task is recreated so the flag applies.
             shell("settings put global guestvault_force_secure 1")
-            shell("am force-stop ${context.packageName}")
-            pause(1_200)
-            launchApp()
-            expectTrue(waitFor("Welcome to Guest Mode", 20_000), "guest home did not come back")
-            pause(1_500)
+            // A configuration change recreates the activity, which re-applies the
+            // window flag. `am force-stop` would kill this instrumentation too.
+            device.setOrientationLeft()
+            pause(2_000)
+            expectTrue(waitFor("Welcome to Guest Mode", 15_000), "guest home did not survive the rotation")
+            pause(1_000)
             val shot = screenshot()
             val value = shot?.let { luma(it) } ?: -1.0
             shell("settings put global guestvault_force_secure 0")
+            device.setOrientationNatural()
+            pause(1_500)
             expectTrue(
                 value in 0.0..30.0,
                 "the guest window was screenshotable (luminance ${"%.0f".format(value)}); " +
@@ -999,8 +1009,10 @@ class StepPlanTest : StepHarness() {
     fun pass12a() {
         arrange { ensureOwnerHome() }
         arrange { pickApps(3) }
-        startSessionHere(minutes = 5, acceptPin = false, permission = "allow")
-        expectTrue(waitFor("Welcome to Guest Mode", 25_000), "5-minute session did not start")
+        arrange {
+            startSessionHere(minutes = 5, acceptPin = false, permission = "allow")
+            expectTrue(waitFor("Welcome to Guest Mode", 25_000), "5-minute session did not start")
+        }
 
         verify("12.1", "Ends by itself at 0:00") {
             val started = System.currentTimeMillis()
@@ -1023,8 +1035,10 @@ class StepPlanTest : StepHarness() {
     fun pass12b() {
         arrange { ensureOwnerHome() }
         arrange { pickApps(3) }
-        startSessionHere(minutes = 5, acceptPin = false, permission = "allow")
-        expectTrue(waitFor("Welcome to Guest Mode", 25_000), "5-minute session did not start")
+        arrange {
+            startSessionHere(minutes = 5, acceptPin = false, permission = "allow")
+            expectTrue(waitFor("Welcome to Guest Mode", 25_000), "5-minute session did not start")
+        }
 
         // Leave the guest in another app for the whole session.
         shell("monkey -p com.google.android.deskclock -c android.intent.category.LAUNCHER 1")
@@ -1061,7 +1075,7 @@ class StepPlanTest : StepHarness() {
     fun pass13a() {
         arrange { ensureOwnerHome() }
         arrange { pickApps(3) }
-        startSessionHere(minutes = 30, acceptPin = false, permission = "allow")
+        arrange { startSessionHere(minutes = 30, acceptPin = false, permission = "allow") }
 
         verify("13.1", "—") {
             expectTrue(waitFor("Welcome to Guest Mode", 25_000), "the session was not running before the reboot")
@@ -1343,6 +1357,7 @@ class StepPlanTest : StepHarness() {
         var pin = "no dialog"
         repeat(12) {
             when {
+                pinDialogVisible() -> pin = handlePinDialog(acceptPin)
                 device.hasObject(By.text("Welcome to Guest Mode")) -> return "permission: $perm; pinning: $pin"
                 device.hasObject(By.text("Allow")) || device.hasObject(By.text("Don't allow")) -> {
                     perm = if (permission == "none") {
@@ -1351,7 +1366,6 @@ class StepPlanTest : StepHarness() {
                         handleNotificationPrompt(permission)
                     }
                 }
-                pinDialogVisible() -> pin = handlePinDialog(acceptPin)
                 else -> pause(900)
             }
         }
@@ -1361,9 +1375,11 @@ class StepPlanTest : StepHarness() {
     }
 
     private fun pinDialogVisible(): Boolean =
-        device.findObjects(By.textContains("Pin")).any {
+        device.findObjects(By.textContains("to this screen")).any {
             it.text?.contains("to this screen", ignoreCase = true) == true
-        }
+        } ||
+            device.findObjects(By.textContains("App is pinned")).isNotEmpty() ||
+            (device.hasObject(By.text("No thanks")) && device.hasObject(By.text("Got it")))
 
     private fun handleNotificationPrompt(mode: String): String {
         val seen = waitForAny("Allow", "Don't allow", timeout = 7_000) != null
@@ -1386,6 +1402,18 @@ class StepPlanTest : StepHarness() {
     }
 
     private fun handlePinDialog(accept: Boolean): String {
+        // Android 14 shows an "App is pinned" education dialog after
+        // startLockTask(); older builds ask "Pin ... to this screen?" first.
+        if (device.findObjects(By.textContains("App is pinned")).isNotEmpty()) {
+            if (accept) {
+                if (device.hasObject(By.text("Got it"))) tapText("Got it")
+                pause(1_200)
+                return "accepted (app pinned)"
+            }
+            if (device.hasObject(By.text("No thanks"))) tapText("No thanks")
+            pause(1_200)
+            return "declined (unpinned)"
+        }
         var title: String? = null
         val deadline = System.currentTimeMillis() + 7_000
         while (System.currentTimeMillis() < deadline) {
