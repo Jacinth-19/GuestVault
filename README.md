@@ -125,6 +125,19 @@ allow-list → session setup → guest home → wrong PIN → unlock → history
 - Auto-wipe of GuestVault's cache and guest scratch space when a session ends
 - No internet permission, no analytics, no accounts, no backups, **no Device Administrator**
 
+**Accessibility**
+- **Remove animations** (or a developer animator scale of 0) is honoured explicitly, not left to
+  chance: onboarding shows each Lottie scene's **final frame** instead of stalling on its blank
+  first frame, and the splash progress line holds a visible highlight near the start of the track
+  instead of freezing off its end
+- `ui/Motion.kt` reads `ValueAnimator.areAnimatorsEnabled()` — the same signal Compose and Lottie
+  consume — and re-reads it on every resume, so changing the setting while the app is backgrounded
+  takes effect without a restart
+- Icons and illustrations are never the only carrier of meaning: the onboarding scenes expose
+  spoken descriptions ("A phone passes from one hand to another and a shield locks over it"),
+  themed icons and swatches are paired with text, and the status glyphs in the notification
+  shade are complemented by the text a screen reader reads aloud
+
 ## 🖥️ Screens
 
 | Screen | What it does |
@@ -217,24 +230,27 @@ androidx.security (encrypted prefs) · BiometricPrompt · coroutines/Flow · min
 
 | Workflow | What it runs |
 |---|---|
-| [**Android CI**](.github/workflows/android.yml) | Assembles the debug APK, runs JVM unit tests and Android Lint, uploads the APK and reports. |
+| [**Android CI**](.github/workflows/android.yml) | Assembles the debug APK, runs JVM unit tests and Android Lint, **validates the onboarding animations** (`check_lottie.py`: structure, ≤ 100 KB per file, and drift against the generator — `res/raw` is not compiled, so a broken animation would otherwise ship as a blank page), uploads the APK and reports. |
 | [**Screenshots & Demo Video**](.github/workflows/media.yml) | Boots a Pixel 6 emulator, records the walkthrough with `screenrecord`, runs the UiAutomator end-to-end test and commits fresh screenshots + video to `docs/media`. |
 | [**Play Readiness**](.github/workflows/play.yml) | Builds the **release App Bundle**, runs release lint, asserts the manifest is Play-safe (no Device Admin, no internet, no storage/contacts/location), validates the store graphics, and runs the guest-mode walkthrough on **API 29, 34, 35 and 36**. |
 | [**Release APK**](.github/workflows/release.yml) | Builds the release + debug APKs **and the Play bundle**, and publishes them (with the demo media and store graphics) on a [GitHub Release](https://github.com/Jacinth-19/GuestVault/releases). |
 
 - **Unit tests** (`app/src/test`): PIN hashing (round-trip, salt uniqueness, tamper rejection),
   session timer math, history model, formatters, the lockout escalation policy
-  (3 attempts → 30 s, doubling to a 15-minute cap, counter surviving a cool-down), and the
+  (3 attempts → 30 s, doubling to a 15-minute cap, counter surviving a cool-down), the
   timer-reminder rules (one notification per threshold, no stale 5-minute warning after a
-  sleeping device wakes up at 40 seconds).
+  sleeping device wakes up at 40 seconds), **version rendering** (`AppVersion.display` strips
+  the `-debug` suffix, so the splash pill, dashboard footer, About page and Settings row can
+  never disagree again), and **splash progress geometry** (no phase of the sweep may push the
+  highlight off the track — the bug that once shipped an empty grey bar).
 - **Instrumented E2E** (`GuestVaultFlowTest`): onboarding → PIN creation → dashboard → settings →
   allow-list → session setup → guest home → wrong PIN → correct PIN → dashboard history → dark mode.
   The same test captures every screenshot in this README, and the flow is recorded to
   `docs/media/walkthrough.mp4`. It runs against a real emulator on every push.
 
 Everything above is written up as an **18-pass manual test plan** — every screen, every toggle,
-the notification channels, brute force, reboot recovery, accessibility and the Play Store
-submission checks: **[docs/TESTING.md](docs/TESTING.md)**.
+the notification channels, brute force, reboot recovery, reduced motion (`ui/Motion.kt`) and the
+Play Store submission checks: **[docs/TESTING.md](docs/TESTING.md)**.
 
 Run them yourself:
 
@@ -253,6 +269,13 @@ python3 scripts/assets/build_lottie.py        # write the three JSON files
 python3 scripts/assets/preview_lottie.py      # PNG contact sheet, no emulator needed
 python3 scripts/ci/check_lottie.py            # structure, ≤100 KB budget, generator drift
 ```
+
+`Android CI` runs `check_lottie.py` on every push, and `build_lottie.py --check` fails if the
+committed JSON has drifted from the script that produced it — so the animations cannot rot
+silently the way a hand-edited Lottie file does. `preview_lottie.py` rasterises six frames of
+each scene with Pillow, which is how they are reviewed without an emulator; it implements the
+same child-order rule as `lottie-android` (first item paints last, i.e. on top), because a
+preview that disagrees with the device is worse than no preview.
 
 Every asset's provenance is listed in **[docs/ASSET_LICENCES.md](docs/ASSET_LICENCES.md)** —
 the animations, icons and screenshots are all authored here, so there is nothing to
