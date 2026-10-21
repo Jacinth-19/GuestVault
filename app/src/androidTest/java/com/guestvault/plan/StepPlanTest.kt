@@ -432,7 +432,7 @@ class StepPlanTest : StepHarness() {
         arrange { pickApps(3) }
         var startNote = ""
         arrange { startNote = startSessionHere(minutes = 30, acceptPin = false, permission = "allow") }
-        val startTop = topActivityLine()
+        val startTop = runCatching { topActivityLine() }.getOrDefault("")
         val startLuma = screenshot()?.let { luma(it) } ?: -1.0
         val startText = visibleText()
 

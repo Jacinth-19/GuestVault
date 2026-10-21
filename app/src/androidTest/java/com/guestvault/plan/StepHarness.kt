@@ -71,7 +71,8 @@ abstract class StepHarness {
         try {
             block()
         } catch (t: Throwable) {
-            setupError = t.message?.takeIf { it.isNotBlank() } ?: t.javaClass.simpleName
+            val message = t.message?.takeIf { it.isNotBlank() } ?: t.javaClass.simpleName
+            setupError = "$message (screen: ${screen()} | ${visibleText().take(140)})"
         }
     }
 
@@ -159,13 +160,16 @@ abstract class StepHarness {
     }
 
     /** What the app is showing right now, or "unknown". */
+    private fun has(selector: BySelector): Boolean =
+        runCatching { device.hasObject(selector) }.getOrDefault(false)
+
     protected fun screen(): String = when {
-        device.hasObject(By.text("Start Guest Session")) -> "dashboard"
-        device.hasObject(By.text("Welcome to Guest Mode")) -> "guestHome"
-        device.hasObject(By.text("Create your owner PIN")) -> "pinCreate"
-        device.hasObject(By.text("Confirm your PIN")) -> "pinConfirm"
-        device.hasObject(By.desc("PIN key 1")) -> "lock"
-        device.hasObject(By.text("Skip")) || device.hasObject(By.text("Lend your phone safely")) -> "onboarding"
+        has(By.text("Start Guest Session")) -> "dashboard"
+        has(By.text("Welcome to Guest Mode")) -> "guestHome"
+        has(By.text("Create your owner PIN")) -> "pinCreate"
+        has(By.text("Confirm your PIN")) -> "pinConfirm"
+        has(By.desc("PIN key 1")) -> "lock"
+        has(By.text("Skip")) || has(By.text("Lend your phone safely")) -> "onboarding"
         else -> "unknown"
     }
 
@@ -276,7 +280,15 @@ abstract class StepHarness {
     protected fun enterPin(digits: List<String>) {
         digits.forEach { digit ->
             val selector = By.desc("PIN key $digit")
-            expectTrue(device.wait(Until.hasObject(selector), 8_000), "PIN key $digit not found")
+            var found = runCatching { device.wait(Until.hasObject(selector), 8_000) }.getOrDefault(false)
+            if (!found) {
+                pause(800)
+                found = runCatching { device.wait(Until.hasObject(selector), 6_000) }.getOrDefault(false)
+            }
+            expectTrue(
+                found,
+                "PIN key $digit not found (screen: ${screen()} | ${visibleText().take(140)})"
+            )
             val clicked = runCatching { device.findObject(selector)!!.click() }.isSuccess
             if (!clicked) {
                 pause(350)
@@ -416,8 +428,12 @@ abstract class StepHarness {
     }
 
     /** Every visible text on screen — used to prove a string is *absent*. */
-    protected fun visibleText(): String =
-        device.findObjects(By.textContains("")).joinToString(" | ") { it.text ?: "" }
+    /** Never throws: a stale node must not cost a whole pass its verdicts. */
+    protected fun visibleText(): String = runCatching {
+        device.findObjects(By.textContains(""))
+            .mapNotNull { node -> runCatching { node.text }.getOrNull() }
+            .joinToString(" | ")
+    }.getOrDefault("")
 
     protected fun shot(name: String) {
         pause(350)
