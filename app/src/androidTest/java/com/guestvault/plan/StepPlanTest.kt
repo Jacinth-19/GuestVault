@@ -506,11 +506,23 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("6.7", "Blocked/black — FLAG_SECURE is on") {
-            expectTrue(waitFor("Welcome to Guest Mode", 10_000), "guest home not visible")
+            // Debug builds skip FLAG_SECURE so the docs screenshots are possible;
+            // this debug-only switch turns the real behaviour back on, then the
+            // guest task is recreated so the flag applies.
+            shell("settings put global guestvault_force_secure 1")
+            shell("am force-stop ${context.packageName}")
+            pause(1_200)
+            launchApp()
+            expectTrue(waitFor("Welcome to Guest Mode", 20_000), "guest home did not come back")
+            pause(1_500)
             val shot = screenshot()
-            expectTrue(shot != null, "could not take a screenshot")
-            val value = luma(shot!!)
-            expectTrue(value < 30, "guest home screenshot was not blacked out (luminance ${"%.0f".format(value)})")
+            val value = shot?.let { luma(it) } ?: -1.0
+            shell("settings put global guestvault_force_secure 0")
+            expectTrue(
+                value in 0.0..30.0,
+                "the guest window was screenshotable (luminance ${"%.0f".format(value)}); " +
+                    "FLAG_SECURE is not protecting it"
+            )
         }
 
         verify("6.8", "Guest home is excluded from Recents") {

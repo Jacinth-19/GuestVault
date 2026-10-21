@@ -3,6 +3,7 @@ package com.guestvault.guest
 import android.app.ActivityManager
 import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
 import androidx.activity.compose.setContent
@@ -41,7 +42,7 @@ class GuestHomeActivity : FragmentActivity() {
         // Keep the guest UI and the owner PIN pad out of screenshots, screen
         // recordings and the Recents thumbnail. Debug builds skip it so the CI
         // walkthrough can still capture documentation screenshots.
-        if (BuildConfig.SECURE_WINDOWS) {
+        if (mustSecureWindows()) {
             window.setFlags(
                 WindowManager.LayoutParams.FLAG_SECURE,
                 WindowManager.LayoutParams.FLAG_SECURE
@@ -65,6 +66,19 @@ class GuestHomeActivity : FragmentActivity() {
             }
         }
     }
+
+    /**
+     * Release builds are always secure. Debug builds are not, so the CI plan can
+     * photograph the guest UI — but the plan still has to prove that
+     * FLAG_SECURE works (step 6.7), so it turns the behaviour on through a
+     * debug-only global setting and checks that the frame comes back black.
+     */
+    private fun mustSecureWindows(): Boolean =
+        BuildConfig.SECURE_WINDOWS ||
+            (
+                BuildConfig.DEBUG &&
+                    Settings.Global.getInt(contentResolver, FORCE_SECURE_SETTING, 0) == 1
+                )
 
     fun isInLockTaskMode(): Boolean {
         val activityManager = getSystemService(ActivityManager::class.java) ?: return false
@@ -104,6 +118,9 @@ class GuestHomeActivity : FragmentActivity() {
 
     companion object {
         private const val TAG = "GuestHomeActivity"
+
+        /** Debug-only test hook for step 6.7; never read in a release build. */
+        const val FORCE_SECURE_SETTING = "guestvault_force_secure"
 
         /** Extra for notifications: open straight on the owner PIN pad. */
         const val EXTRA_OPEN_LOCK = "com.guestvault.extra.OPEN_LOCK"
