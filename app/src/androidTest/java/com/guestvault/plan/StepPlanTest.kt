@@ -418,7 +418,12 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("5.4", "Says plainly that Android can't truly wipe other apps' data") {
-            scrollToText("Honest limits")
+            repeat(6) {
+                if (device.findObjects(By.textContains("Honest limits")).isNotEmpty()) return@repeat
+                val x = device.displayWidth / 2
+                device.swipe(x, (device.displayHeight * 0.75f).toInt(), x, (device.displayHeight * 0.3f).toInt(), 20)
+                pause(500)
+            }
             val card = device.findObjects(By.textContains("remain available unless you")).firstOrNull()?.text
             val mentionsWipe = card?.contains("wipe", ignoreCase = true) == true
             expectTrue(
@@ -789,7 +794,10 @@ class StepPlanTest : StepHarness() {
             startSessionHere(minutes = 15, acceptPin = true, permission = "allow")
             expectTrue(waitFor("Welcome to Guest Mode", 25_000), "session did not start")
             expectTrue(device.hasObject(By.text("Soft lock")), "session is not in Soft lock")
-            expectTrue(device.hasObject(By.text("Home and Recents are not blocked")), "no warning banner")
+            expectTrue(
+                waitForContains("Home and Recents are not blocked", 8_000),
+                "no warning banner (screen: ${visibleText().take(140)})"
+            )
             endSessionWithPin()
         }
 
@@ -1304,7 +1312,11 @@ class StepPlanTest : StepHarness() {
                 continue
             }
             runCatching { row.click() }
-            pause(350)
+            pause(450)
+            if (device.hasObject(By.text("Allow anyway"))) {
+                tapText("Allow anyway")
+                pause(400)
+            }
         }
         expectTrue(
             (selectedCount() ?: 0) >= count,
@@ -1428,11 +1440,12 @@ class StepPlanTest : StepHarness() {
                 "prompt without Allow"
             }
         } else {
-            if (device.hasObject(By.text("Don't allow"))) {
-                tapText("Don't allow")
+            val deny = listOf("Don't allow", "Deny", "Not now").firstOrNull { device.hasObject(By.text(it)) }
+            if (deny != null) {
+                tapText(deny)
                 "denied"
             } else {
-                "prompt without Deny"
+                "prompt without Deny (screen: ${visibleText().take(80)})"
             }
         }
     }

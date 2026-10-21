@@ -119,8 +119,10 @@ while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE <&3; do
     if [ "$CLEAR" = "1" ]; then
       adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
       adb shell pm clear "$PACKAGE" >/dev/null 2>&1 || true
-      grant_notifications "${GRANT:-1}"
     fi
+    # The phase's grant flag always applies: 5.6 and 10.2 exist to exercise
+    # "the permission was denied", which needs a revoke on a warm install.
+    grant_notifications "${GRANT:-1}"
     adb logcat -c || true
 
     run_phase "$NAME"

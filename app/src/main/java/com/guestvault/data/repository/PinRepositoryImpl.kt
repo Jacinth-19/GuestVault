@@ -27,9 +27,12 @@ class PinRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : PinRepository {
 
-    private val prefs: SharedPreferences by lazy { openPreferences() }
+    private val encrypted: SharedPreferences? by lazy { openEncrypted() }
+    private val fallback: SharedPreferences by lazy {
+        context.getSharedPreferences(FALLBACK_FILE, Context.MODE_PRIVATE)
+    }
 
-    private fun openPreferences(): SharedPreferences = try {
+    private fun openEncrypted(): SharedPreferences? = try {
         val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
         EncryptedSharedPreferences.create(
             ENCRYPTED_FILE,
@@ -40,23 +43,41 @@ class PinRepositoryImpl @Inject constructor(
         )
     } catch (t: Throwable) {
         Log.w(TAG, "Encrypted preferences unavailable, using hash-only fallback", t)
-        context.getSharedPreferences(FALLBACK_FILE, Context.MODE_PRIVATE)
+        null
     }
 
-    override fun isPinSet(): Boolean = prefs.getString(KEY_PIN_HASH, null) != null
+    /**
+     * Both stores are written, and either can satisfy a read.
+     *
+     * The keystore can be invalidated (factory reset of the key material, an
+     * emulator restore, a locked device after a reboot) while the app's own
+     * preferences survive. Reading only the encrypted store in that state made
+     * a set PIN look unset, and the app dropped the owner back into onboarding
+     * mid-session. The stored value is a PBKDF2 hash either way.
+     */
+    private fun storedHash(): String? =
+        runCatching { encrypted?.getString(KEY_PIN_HASH, null) }.getOrNull()
+            ?: fallback.getString(KEY_PIN_HASH, null)
+
+    override fun isPinSet(): Boolean = storedHash() != null
 
     override fun setPin(pin: String) {
-        prefs.edit().putString(KEY_PIN_HASH, PinHasher.hash(pin)).apply()
-        prefs.edit().putLong(KEY_PIN_UPDATED_AT, System.currentTimeMillis()).apply()
+        val hash = PinHasher.hash(pin)
+        val now = System.currentTimeMillis()
+        runCatching {
+            encrypted?.edit()?.putString(KEY_PIN_HASH, hash)?.putLong(KEY_PIN_UPDATED_AT, now)?.apply()
+        }
+        fallback.edit().putString(KEY_PIN_HASH, hash).putLong(KEY_PIN_UPDATED_AT, now).apply()
     }
 
     override fun verifyPin(pin: String): Boolean {
-        val stored = prefs.getString(KEY_PIN_HASH, null) ?: return false
+        val stored = storedHash() ?: return false
         return PinHasher.verify(pin, stored)
     }
 
     override fun clearPin() {
-        prefs.edit().remove(KEY_PIN_HASH).remove(KEY_PIN_UPDATED_AT).apply()
+        runCatching { encrypted?.edit()?.remove(KEY_PIN_HASH)?.remove(KEY_PIN_UPDATED_AT)?.apply() }
+        fallback.edit().remove(KEY_PIN_HASH).remove(KEY_PIN_UPDATED_AT).apply()
     }
 
     private companion object {

@@ -338,7 +338,10 @@ fun GuestHomeScreen(
                         )
                     }
 
-                    if (state.session?.lockTaskEnabled == true && !pinned) {
+                    // Any session that is not actually pinned can be left with
+                    // the system buttons, whether pinning was disabled in
+                    // settings or the owner declined the system dialog.
+                    if (!pinned) {
                         Spacer(Modifier.height(10.dp))
                         InfoBanner(
                             icon = Icons.Rounded.WarningAmber,
