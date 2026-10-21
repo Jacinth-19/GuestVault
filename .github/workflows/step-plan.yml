@@ -18,7 +18,8 @@ on:
       - '.github/workflows/step-plan.yml'
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 concurrency:
   group: step-plan-${{ github.ref }}
@@ -86,6 +87,12 @@ jobs:
             echo "=== step-plan.log (tail) ==="
             tail -n 160 step-plan.log
             exit 0
+
+      - name: Publish the verdict table
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/publish_step_report.py
 
       - name: Fail on plan failures
         if: env.PLAN_FAILED == 'true'
