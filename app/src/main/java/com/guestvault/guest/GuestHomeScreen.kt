@@ -116,8 +116,18 @@ fun GuestHomeRoute(
     }
 
     // The session can end from the lock screen, the timer service or a wipe.
+    //
+    // A *new* session, however, is written to DataStore by SessionController and
+    // this activity is opened straight afterwards. A collector that attached a
+    // moment too early sees the previous (empty) value and would bounce the
+    // owner right back out, which is what made "start a session" land on the
+    // launcher. Wait for the write to land before treating "no session" as the
+    // end of one; the effect is keyed on the session, so the wait is cancelled
+    // the instant it arrives.
     LaunchedEffect(state.loaded, state.session) {
-        if (state.loaded && state.session == null) onReturnToOwner()
+        if (!state.loaded || state.session != null) return@LaunchedEffect
+        delay(2_000)
+        onReturnToOwner()
     }
 
     // Never let Back leave the guest space. The handler stays enabled while the
