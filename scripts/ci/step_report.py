@@ -92,7 +92,7 @@ def render(manifest: dict, results: dict[str, dict]) -> tuple[str, int, int]:
     groups: list[str] = []
 
     for block in manifest["passes"]:
-        pid = str(block.get("id", "")).strip()
+        pid = str(block.get("pass", block.get("id", ""))).strip()
         title = block.get("title", "")
         rows = block.get("steps", [])
         counts = {PASS: 0, FAIL: 0, SKIP: 0}
@@ -147,6 +147,7 @@ def main() -> int:
     ap.add_argument("--manifest", required=True, type=Path)
     ap.add_argument("--results", type=Path, default=Path("build/step-results.jsonl"))
     ap.add_argument("--out", type=Path, default=Path("step-report.md"))
+    ap.add_argument("--phase-log", type=Path, default=None, help="per-phase table from the device")
     ap.add_argument("--list-tests", action="store_true", help="print test methods to run, one per line")
     args = ap.parse_args()
 
@@ -161,6 +162,13 @@ def main() -> int:
 
     results = load_results(args.results)
     markdown, failed, skipped = render(manifest, results)
+
+    # The phase table is raw evidence: which instrumentation phase ran, how it
+    # exited, and which window had focus when it finished.
+    if args.phase_log and args.phase_log.exists():
+        phases = args.phase_log.read_text(encoding="utf-8", errors="replace").strip()
+        if phases:
+            markdown += "\n## Device phases\n\n" + phases + "\n"
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(markdown, encoding="utf-8")
