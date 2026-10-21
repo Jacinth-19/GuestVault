@@ -365,7 +365,9 @@ fun ConfirmSessionScreen(
                     icon = Icons.Rounded.Lock,
                     title = "Honest limits",
                     text = "The notification shade and hardware buttons remain available unless you " +
-                        "enable screen pinning. True user isolation requires system privileges.",
+                        "enable screen pinning. Android does not let one app erase another app's " +
+                        "data either, so a wipe only clears what this session created. True user " +
+                        "isolation requires system privileges.",
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )

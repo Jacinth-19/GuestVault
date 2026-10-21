@@ -25,7 +25,8 @@ abstract class StepHarness {
     protected lateinit var screenshots: File
 
     protected val pin = "4726"
-    protected val pinDigits: List<String> = pin.map(Char::toString)
+    /** Changes after step 9.1, so later steps unlock with the new PIN. */
+    protected var pinDigits: List<String> = pin.map(Char::toString)
 
     /** Call from `@Before`. Leaves the device awake, unlocked and on the launcher. */
     open fun prepare() {
@@ -129,6 +130,26 @@ abstract class StepHarness {
 
     // ---------------------------------------------------------- app control
 
+    protected fun pinnedDialogVisible(): Boolean =
+        has(By.textContains("App is pinned")) ||
+            (has(By.text("No thanks")) && has(By.text("Got it"))) ||
+            device.findObjects(By.textContains("to this screen")).any {
+                it.text?.contains("to this screen", ignoreCase = true) == true
+            }
+
+    /** Pinning is re-requested every time the guest task is recreated. */
+    protected fun dismissPinnedDialog(): Boolean {
+        repeat(3) {
+            if (!pinnedDialogVisible()) return false
+            when {
+                has(By.text("No thanks")) -> { tapText("No thanks"); pause(900) }
+                has(By.text("Got it")) -> { tapText("Got it"); pause(900) }
+                else -> return false
+            }
+        }
+        return true
+    }
+
     protected fun launchApp() {
         device.pressHome()
         pause(400)
@@ -165,6 +186,7 @@ abstract class StepHarness {
         runCatching { device.hasObject(selector) }.getOrDefault(false)
 
     protected fun screen(): String = when {
+        pinnedDialogVisible() -> "guestHome"
         has(By.text("Start Guest Session")) -> "dashboard"
         has(By.text("Welcome to Guest Mode")) -> "guestHome"
         has(By.text("Create your owner PIN")) -> "pinCreate"
@@ -229,6 +251,7 @@ abstract class StepHarness {
                     }
                 }
                 "guestHome" -> {
+                    dismissPinnedDialog()
                     tapTextIfPresent("Return to Owner")
                     pause(1_200)
                 }

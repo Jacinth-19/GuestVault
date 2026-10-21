@@ -482,8 +482,13 @@ class StepPlanTest : StepHarness() {
                 true
             }.getOrDefault(false)
             expectTrue(clicked, "could not tap a guest app tile")
-            pause(2_000)
-            val foreground = foregroundPackage()
+            pause(3_000)
+            var foreground = foregroundPackage()
+            if (foreground == context.packageName) {
+                runCatching { device.findObjects(By.descStartsWith("Open ")).first().click() }
+                pause(3_500)
+                foreground = foregroundPackage()
+            }
             expectTrue(
                 foreground.isNotEmpty() && foreground != context.packageName && !foreground.contains("launcher"),
                 "tapping $label left the foreground at $foreground"
@@ -571,8 +576,10 @@ class StepPlanTest : StepHarness() {
     fun pass07a() {
         arrange { ensureOwnerHome() }
         arrange { pickApps(3) }
-        startSessionHere(minutes = 0, acceptPin = false, permission = "allow")
-        expectTrue(waitFor("Welcome to Guest Mode", 25_000), "guest session did not start")
+        arrange {
+            startSessionHere(minutes = 0, acceptPin = false, permission = "allow")
+            expectTrue(waitFor("Welcome to Guest Mode", 25_000), "guest session did not start")
+        }
 
         verify("7.1", "Lock screen: \"Owner only\", PIN dots, keypad") {
             tapText("Return to Owner")
@@ -668,10 +675,12 @@ class StepPlanTest : StepHarness() {
     fun pass08() {
         arrange { ensureOwnerHome() }
         arrange { pickApps(3) }
-        startSessionHere(minutes = 5, acceptPin = false, permission = "allow")
-        expectTrue(waitFor("Welcome to Guest Mode", 25_000), "session did not start")
-        pause(3_000)
-        endSessionWithPin()
+        arrange {
+            startSessionHere(minutes = 5, acceptPin = false, permission = "allow")
+            expectTrue(waitFor("Welcome to Guest Mode", 25_000), "session did not start")
+            pause(3_000)
+            endSessionWithPin()
+        }
 
         verify("8.1", "Your session appears with time range, duration, \"N apps allowed\"") {
             expectTrue(scrollToText("Recent sessions"), "no Recent sessions section")
@@ -724,6 +733,9 @@ class StepPlanTest : StepHarness() {
             expectTrue(waitFor("Confirm your PIN", 10_000), "no confirmation step for the new PIN")
             enterPin(newPin)
             pause(1_500)
+            // Everything after this point (including ensureOwnerHome) unlocks
+            // with the PIN that is now stored.
+            pinDigits = newPin
             if (!device.hasObject(By.text("Start Guest Session"))) {
                 while (!device.hasObject(By.text("Start Guest Session")) && device.hasObject(By.desc("Back"))) {
                     tapDesc("Back")
@@ -1374,12 +1386,7 @@ class StepPlanTest : StepHarness() {
         return "permission: $perm; pinning: $pin; top=$focus; log=${recentLog()}"
     }
 
-    private fun pinDialogVisible(): Boolean =
-        device.findObjects(By.textContains("to this screen")).any {
-            it.text?.contains("to this screen", ignoreCase = true) == true
-        } ||
-            device.findObjects(By.textContains("App is pinned")).isNotEmpty() ||
-            (device.hasObject(By.text("No thanks")) && device.hasObject(By.text("Got it")))
+    private fun pinDialogVisible(): Boolean = pinnedDialogVisible()
 
     private fun handleNotificationPrompt(mode: String): String {
         val seen = waitForAny("Allow", "Don't allow", timeout = 7_000) != null
