@@ -1,8 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Compose owns all styling; this theme only paints the window before the
-         first frame so the cold start looks intentional instead of white. -->
-    <style name="Theme.GuestVault" parent="android:style/Theme.Material.Light.NoActionBar">
+    <!--
+      Compose owns all styling; these themes only paint the window before the
+      first Compose frame so a cold start looks intentional instead of white.
+
+      Theme.GuestVault.Base holds the shared configuration. Theme.GuestVault is
+      re-declared in values-v31 with the Android 12+ system-splash attributes, so
+      the OS splash, the launch window and the Compose splash are the same flat
+      indigo. Without that, Android 12+ draws its own splash (usually the app
+      icon on the theme's window background) and can flash a different colour
+      before SplashScreen.kt takes over.
+    -->
+    <style name="Theme.GuestVault.Base" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
@@ -11,4 +20,6 @@
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
+
+    <style name="Theme.GuestVault" parent="Theme.GuestVault.Base" />
 </resources>

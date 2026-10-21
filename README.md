@@ -98,11 +98,11 @@ allow-list → session setup → guest home → wrong PIN → unlock → history
 **Notifications** — four channels, each with one job
 - **Guest session** (Low, silent, no badge): the ongoing "Guest Mode is on · ends in 24:31" notice.
   Opens the guest home; cannot be swiped away while a session runs.
-- **Timer reminders** (Default): "5 minutes left" and "1 minute left", each exactly once, with an
+- **Session alerts** (Default): "5 minutes left" and "1 minute left", each exactly once, with an
   **End now** action that opens the PIN pad. A short session skips the 5-minute reminder, and a
   phone that slept through it wakes up to the *most relevant* one, not a stale one.
-- **Session summaries** (Default, **off by default**): "18 min · 4 apps allowed · 12 MB cleared"
-  when a session ends, opening session history.
+- **Session summary** (Default, **off by default**): "18 min · 4 apps · 12 MB cleared ·
+  returned by owner" when a session ends, opening session history.
 - **Security alerts** (High): after **3 wrong owner PINs**, and again when the cool-down ends —
   one per cool-down round, never one per digit.
 - No app names, no people, no PII; `VISIBILITY_PRIVATE` on the lock screen; every string in
@@ -129,8 +129,8 @@ allow-list → session setup → guest home → wrong PIN → unlock → history
 
 | Screen | What it does |
 |---|---|
-| **Splash** | Flat indigo brand screen: shield, wordmark, a version pill built from `BuildConfig.VERSION_NAME`, and a 1.4 s fade into onboarding / dashboard. |
-| **Onboarding** | Three pages, each with a hand-authored Lottie animation (static fallback if decoding fails, final frame when animations are off). |
+| **Splash** | Flat `#312E81`, shield at ~30 % of the screen width (0.94 → 1 over 600 ms), 40 sp wordmark with a version pill from `BuildConfig.VERSION_NAME`, tagline, indeterminate progress line, 1.4 s. The Android 12+ system splash uses the same colour, so there is no flash. |
+| **Onboarding** | Three hand-authored Lottie scenes — `lend_hand` (a phone passes between hands, a shield locks over it), `app_grid` (unapproved tiles dim and grow padlocks), `shield_key` (a shield closes, a key spins into its keyhole). Static fallback if decoding fails; final frame when animations are off. |
 | **PIN setup** | Create and confirm the 4-digit owner PIN. Change-PIN verifies the current one first. |
 | **Dashboard** | Hero CTA, allowed apps preview, lock method, auto-wipe state, recent sessions. |
 | **Allowed apps** | Searchable list of every launchable app, with categories and sensitive-app warnings. |
@@ -245,6 +245,18 @@ Run them yourself:
 
 > The E2E test uses the owner PIN `4726`. It is idempotent: it detects a previous onboarding and
 > reuses the same PIN, so you can run it repeatedly on a warm emulator.
+
+**Onboarding animations** are generated, not bought:
+
+```bash
+python3 scripts/assets/build_lottie.py        # write the three JSON files
+python3 scripts/assets/preview_lottie.py      # PNG contact sheet, no emulator needed
+python3 scripts/ci/check_lottie.py            # structure, ≤100 KB budget, generator drift
+```
+
+Every asset's provenance is listed in **[docs/ASSET_LICENCES.md](docs/ASSET_LICENCES.md)** —
+the animations, icons and screenshots are all authored here, so there is nothing to
+attribute and no scraped file that could turn into a takedown.
 
 ## 🧑‍💻 Read this README in a Codespace
 

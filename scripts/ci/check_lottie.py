@@ -27,7 +27,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 RAW_DIR = ROOT / "app" / "src" / "main" / "res" / "raw"
-MAX_BYTES = 120 * 1024
+MAX_BYTES = 100 * 1024  # hard budget from the brief: each asset <= 100 KB
 
 SHAPE_TYPES = {"gr", "rc", "el", "sh", "fl", "st", "tr", "tm"}
 REQUIRED_COMPOSITION = ("v", "fr", "ip", "op", "w", "h", "layers")
@@ -35,9 +35,9 @@ REQUIRED_TRANSFORM = ("o", "r", "p", "a", "s")
 
 # Animations referenced from Kotlin. Keep in sync with ui/screens/onboarding.
 REFERENCED = {
-    "onboarding_lend",
-    "onboarding_apps",
-    "onboarding_privacy",
+    "lend_hand",
+    "app_grid",
+    "shield_key",
 }
 
 

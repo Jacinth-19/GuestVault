@@ -33,6 +33,8 @@ EXPECTED = [
     "14-dashboard-history.png",
     "15-dashboard-dark.png",
     "16-about-dark.png",
+    "17-permissions.png",
+    "18-session-notification.png",
 ]
 
 MAX_PER_FILE = 14_000

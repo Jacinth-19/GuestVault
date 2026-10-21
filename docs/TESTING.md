@@ -46,12 +46,18 @@ adb shell settings put global animator_duration_scale 1   # animations back on
 ./gradlew lintDebug testDebugUnitTest assembleDebug          # fast local gate
 ./gradlew :app:assembleDebugAndroidTest                      # instrumented APK
 python3 scripts/assets/build_lottie.py                       # regenerate onboarding art
+python3 scripts/assets/preview_lottie.py                     # contact sheet, no device needed
 python3 scripts/ci/check_lottie.py                           # validate it
 python3 scripts/ci/check_workflow_hygiene.py                 # no CI-skip markers in workflows
 ```
 
 > The repository's Gradle wrapper is bootstrapped by CI if `gradle-wrapper.jar`
 > is missing; on a fresh clone run `gradle wrapper --gradle-version 8.11.1` once.
+
+`preview_lottie.py` rasterises the Lottie files to `/tmp/lottie-preview/*.png`
+(six frames each) with Pillow, so an animation can be reviewed without an
+emulator. It is a preview, not a renderer: easing is linearised and trim paths
+are unsupported — which is fine, because the generator does not emit them.
 
 ### What the unit tests cover
 
@@ -104,14 +110,16 @@ Work through them in order on a fresh install first, then repeat the ones marked
 
 1. Install the APK. Launch from the launcher icon.
    **Expect:** a solid indigo (`#312E81`) screen — no white flash, no gradient.
-   A white shield with an indigo padlock scales up in the centre.
+   A white shield with an indigo padlock, about 30 % of the screen width, settles
+   from 0.94× to 1.0× over 600 ms.
 2. Watch the wordmark: "GuestVault" in white with a small translucent pill to its
    right reading the real version (e.g. `1.2.0`).
    **Expect:** the pill matches **Settings → About** and the dashboard footer. If
    they disagree, that is a release blocker — it is exactly the bug this screen
    exists to prevent.
 3. The tagline "Borrow my phone. Keep your privacy." fades in below, with a
-   hairline progress line that fills over ~1.3 s.
+   hairline **indeterminate** progress line: a short teal highlight sweeps across
+   the track on a loop. It must never sit full and static.
 4. **Expect:** after roughly 1.4 s the splash fades to onboarding. It must never
    sit forever and must never skip onboarding on a fresh install.
 5. Kill the app (`adb shell am force-stop com.guestvault`) and relaunch.
@@ -127,23 +135,26 @@ Work through them in order on a fresh install first, then repeat the ones marked
 ### Pass 2 — Onboarding
 
 1. Fresh install → splash finishes.
-   **Expect:** page 1, "Lend your phone safely", with an animated illustration
-   (a hand-off scene), not a static icon.
+   **Expect:** page 1, "Lend your phone safely": a phone travels between two
+   hands and a shield with a keyhole locks over it (`lend_hand.json`). It must
+   read as a hand-off, not as an icon in a circle.
 2. Let the animation run to the end.
    **Expect:** it settles on its final frame and stays there.
 3. Swipe left.
-   **Expect:** page 2, "Only approved apps" — a grid of app tiles where the
-   unapproved ones fade away.
+   **Expect:** page 2, "Only approved apps": nine tiles appear, the six
+   unapproved ones dim and grow a padlock, and the approved row stays lit and is
+   ringed in teal (`app_grid.json`).
 4. Swipe left again.
-   **Expect:** page 3, "Your data stays private" — a shield closing around three
-   data points. The primary button now reads **Get Started**.
+   **Expect:** page 3, "Your data stays private": the shield closes with a
+   keyhole and a key spins in and docks, with a teal flash
+   (`shield_key.json`). The primary button now reads **Get Started**.
 5. Go back with a right swipe and press **Skip** on page 1 or 2.
    **Expect:** onboarding is marked complete and you go to PIN setup.
 6. Turn animations off (Developer options → Animator duration scale: off, or
    Accessibility → Remove animations), repeat steps 1–4.
    **Expect:** each illustration shows its **final frame**, not a blank box.
 7. Temporarily break an asset (see the note in `scripts/assets/build_lottie.py`):
-   delete `onboarding_apps.json` and rebuild.
+   delete `app_grid.json` and rebuild.
    **Expect:** page 2 falls back to the static gradient icon — the app does not
    crash, and the page still explains itself.
 
@@ -276,7 +287,9 @@ Four channels, each with one job. Check them in Android settings
 
 1. Start a 15-minute session. Pull down the shade.
    **Expect:** a silent, non-dismissable notification titled "Guest Mode is on"
-   with "Ends in 14:31 · return with your PIN" and a progress bar.
+   with "Ends in 14:31 · return with your PIN" **visible in the collapsed
+   state**. There is deliberately no progress bar: in the collapsed layout it
+   would replace that line, and the countdown is the point of the notice.
 2. Swipe it sideways.
    **Expect:** it cannot be dismissed while the session runs.
 3. Lock the phone. Look at the lock screen.
@@ -308,8 +321,11 @@ Four channels, each with one job. Check them in Android settings
 
 1. Set **Settings → Notifications → Session summary** on.
 2. Start and end a session with some apps allowed and auto-wipe on.
-   **Expect:** "Guest session ended" with "`N min` · `N apps allowed` ·
-   `12 MB cleared`" (or "no data cleared" when the wipe was off).
+   **Expect:** "Guest session ended" reading
+   "`18 min` · `4 apps` · `12 MB cleared` · `returned by owner`" — the last part
+   reflects how the session ended (`timer ended`, `cleared by owner`,
+   `recovered after restart`), and the wipe segment reads "no data cleared" when
+   auto-wipe was off.
 3. Tap it.
    **Expect:** the owner dashboard, then history.
 4. Turn the summary setting off and end another session.

@@ -61,6 +61,15 @@ jobs:
           set -o pipefail
           gradle --no-daemon --stacktrace :app:assembleDebug 2>&1 | tee build.log
 
+      # The resource compiler does not validate res/raw JSON, so a malformed
+      # animation builds fine and renders as a blank page on a phone. This gate
+      # also enforces the <=100 KB budget and proves the committed files match
+      # scripts/assets/build_lottie.py.
+      - name: Validate onboarding animations
+        run: |
+          set -o pipefail
+          python3 scripts/ci/check_lottie.py 2>&1 | tee -a build.log
+
       - name: Run unit tests
         run: |
           set -o pipefail

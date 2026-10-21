@@ -1,6 +1,7 @@
 package com.guestvault.ui.screens.onboarding
 
 import android.provider.Settings
+import android.util.Log
 import androidx.annotation.RawRes
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
@@ -30,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -90,31 +92,31 @@ private data class OnboardingPage(
 
 private val pages = listOf(
     OnboardingPage(
-        animation = R.raw.onboarding_lend,
+        animation = R.raw.lend_hand,
         fallbackIcon = Icons.Rounded.Shield,
         fallbackBrush = HeroGradient,
         title = "Lend your phone safely",
         message = "Hand over your phone without handing over your life. " +
             "GuestVault creates a temporary space for whoever is borrowing it.",
-        animationDescription = "A phone is handed over and a shield locks onto it"
+        animationDescription = "A phone passes from one hand to another and a shield locks over it"
     ),
     OnboardingPage(
-        animation = R.raw.onboarding_apps,
+        animation = R.raw.app_grid,
         fallbackIcon = Icons.Rounded.Apps,
         fallbackBrush = TealGradient,
         title = "Only approved apps",
         message = "Choose exactly what a guest can open. Everything else stays hidden — " +
             "no gallery, no messages, no settings, no Play Store.",
-        animationDescription = "A grid of apps where the unapproved ones fade out"
+        animationDescription = "A grid of app tiles where the unapproved ones dim and lock"
     ),
     OnboardingPage(
-        animation = R.raw.onboarding_privacy,
+        animation = R.raw.shield_key,
         fallbackIcon = Icons.Rounded.Lock,
         fallbackBrush = HeroGradient,
         title = "Your data stays private",
         message = "Return to owner mode with your PIN or fingerprint, and optionally " +
             "clear guest data the moment the session ends.",
-        animationDescription = "A shield closes around three private data points"
+        animationDescription = "A shield closes around a keyhole while a key spins into it"
     )
 )
 
@@ -321,6 +323,15 @@ private fun PageAnimation(page: OnboardingPage) {
     )
     val composition = compositionState.value
 
+    // A parse failure leaves `value` null forever, which is exactly the state
+    // the fallback below handles. Log it once so a broken asset is visible in
+    // CI's logcat instead of only in a screenshot.
+    if (compositionState.isFailure) {
+        LaunchedEffect(page.animation) {
+            Log.w("Onboarding", "Lottie asset failed to decode; using static art")
+        }
+    }
+
     if (composition == null) {
         // Fallback: the pre-Lottie artwork, unchanged.
         Box(
@@ -344,9 +355,13 @@ private fun PageAnimation(page: OnboardingPage) {
     // Lottie honours the system animation scale itself; the explicit override
     // exists so a reduced-motion user sees the finished frame instead of an
     // empty first frame.
+    // Played exactly once, then held on the final frame: these scenes tell a
+    // short story ("the phone is handed over, the shield locks"), and looping
+    // them would snap back to an empty first frame every two seconds.
     val animatedProgress = animateLottieCompositionAsState(
         composition = composition,
-        restartOnPlay = true
+        iterations = 1,
+        restartOnPlay = false
     )
     val progress = if (animationsDisabled) 1f else animatedProgress.value
 

@@ -2,25 +2,25 @@ package com.guestvault.ui.screens.splash
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.guestvault.R
@@ -53,17 +54,20 @@ import com.guestvault.ui.theme.Indigo800
 import com.guestvault.ui.theme.LightSystemBarIcons
 
 /**
- * Brand splash.
+ * Brand splash, modelled on the flat VidMate layout.
  *
- * Deliberately flat: one solid brand colour, one logo, the wordmark with a
- * version pill, the tagline, and a hairline progress bar. The previous version
- * used a gradient plus three decorative circles, which read as a generic
- * placeholder and made the README screenshot ambiguous with the onboarding
- * pages.
+ * One solid brand colour, one mark at ~30% of the screen width, the wordmark
+ * with a version pill beside it, the tagline, and a hairline progress line.
+ * No gradients and no background decoration: the earlier version scattered
+ * circles behind the logo, which made the README screenshot ambiguous with the
+ * onboarding art.
  *
- * The version comes from [AppVersion.display] rather than a literal, so it can
- * never drift from the build again — and never leaks the `-debug` suffix into a
- * screenshot.
+ * The version comes from [AppVersion.display] (a projection of
+ * `BuildConfig.VERSION_NAME`), so the pill can never drift from the build again
+ * — and never leaks the debug `-debug` suffix into a screenshot.
+ *
+ * `launch_background.xml` and the `values-v31` theme paint the same colour
+ * before the first Compose frame, so Android 12+ has no white flash here.
  */
 @Composable
 fun SplashScreen(
@@ -77,42 +81,26 @@ fun SplashScreen(
     var entered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { entered = true }
 
+    // 0.94 -> 1 over 600 ms: a settle, not a bounce.
     val logoScale by animateFloatAsState(
-        targetValue = if (entered) 1f else 0.86f,
-        animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
+        targetValue = if (entered) 1f else 0.94f,
+        animationSpec = tween(durationMillis = 600, easing = LinearEasing),
         label = "logoScale"
     )
     val logoAlpha by animateFloatAsState(
         targetValue = if (entered) 1f else 0f,
-        animationSpec = tween(durationMillis = 420),
+        animationSpec = tween(durationMillis = 320),
         label = "logoAlpha"
     )
     val textAlpha by animateFloatAsState(
         targetValue = if (entered) 1f else 0f,
-        animationSpec = tween(durationMillis = 520, delayMillis = 180),
+        animationSpec = tween(durationMillis = 420, delayMillis = 120),
         label = "textAlpha"
     )
     val pillAlpha by animateFloatAsState(
         targetValue = if (entered) 1f else 0f,
-        animationSpec = tween(durationMillis = 420, delayMillis = 380),
+        animationSpec = tween(durationMillis = 420, delayMillis = 300),
         label = "pillAlpha"
-    )
-    val progress by animateFloatAsState(
-        targetValue = if (entered) 1f else 0f,
-        animationSpec = tween(durationMillis = 1_300, easing = LinearEasing),
-        label = "progress"
-    )
-
-    // A very slow halo behind the mark, so the screen breathes without moving.
-    val halo = rememberInfiniteTransition(label = "halo")
-    val haloAlpha by halo.animateFloat(
-        initialValue = 0.06f,
-        targetValue = 0.14f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1_800),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "haloAlpha"
     )
 
     Box(
@@ -120,48 +108,49 @@ fun SplashScreen(
             .fillMaxSize()
             .background(Indigo800)
     ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .size(300.dp)
-                .alpha(haloAlpha)
-                .clip(CircleShape)
-                .background(Color.White)
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp),
+                .padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // The mark, the wordmark, the pill and the tagline form one block.
-            // They used to be separated by a weighted spacer, which pushed the
-            // wordmark 300 dp below the logo on a tall phone.
             Spacer(Modifier.weight(1f))
 
-            ShieldMark(
-                modifier = Modifier
-                    .graphicsLayer {
-                        scaleX = logoScale
-                        scaleY = logoScale
-                        alpha = logoAlpha
-                    }
-            )
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                // "~30% of the screen width", clamped so it still reads as the
+                // hero element on a small phone and does not become a billboard
+                // on a tablet.
+                val markSize = (maxWidth * 0.30f).coerceIn(104.dp, 168.dp)
+                ShieldMark(
+                    size = markSize,
+                    modifier = Modifier
+                        .graphicsLayer {
+                            scaleX = logoScale
+                            scaleY = logoScale
+                            alpha = logoAlpha
+                        }
+                )
+            }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(26.dp))
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.alpha(textAlpha)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .alpha(textAlpha)
             ) {
                 Text(
                     text = stringResource(R.string.app_name),
                     color = Color.White,
                     fontSize = 40.sp,
+                    lineHeight = 44.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = (-1.2).sp,
+                    letterSpacing = (-1.1).sp,
                     maxLines = 1,
                     softWrap = false
                 )
@@ -170,11 +159,9 @@ fun SplashScreen(
                     modifier = Modifier
                         .alpha(pillAlpha)
                         .clip(RoundedCornerShape(percent = 50))
-                        .background(Color.White.copy(alpha = 0.20f))
-                        .padding(horizontal = 9.dp, vertical = 3.dp)
-                        .semantics {
-                            contentDescription = versionDescription
-                        }
+                        .background(Color.White.copy(alpha = 0.22f))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .semantics { contentDescription = versionDescription }
                 ) {
                     Text(
                         text = versionName,
@@ -186,66 +173,95 @@ fun SplashScreen(
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
 
             Text(
                 text = stringResource(R.string.app_tagline),
-                color = Color.White.copy(alpha = 0.76f),
+                color = Color.White.copy(alpha = 0.78f),
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.alpha(textAlpha)
             )
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(30.dp))
 
-            ProgressBar(
-                progress = progress,
-                modifier = Modifier.alpha(textAlpha)
+            IndeterminateLine(modifier = Modifier.alpha(textAlpha))
+
+            Spacer(Modifier.weight(1f))
+
+            Text(
+                text = versionDescription,
+                color = Color.White.copy(alpha = 0.45f),
+                fontSize = 11.sp,
+                modifier = Modifier
+                    .padding(bottom = 18.dp)
+                    .alpha(pillAlpha)
             )
-
-            Spacer(Modifier.weight(1.15f))
-            Spacer(Modifier.height(46.dp))
         }
     }
 }
 
 /** White shield with an indigo keyhole, matching the launcher icon. */
 @Composable
-private fun ShieldMark(modifier: Modifier = Modifier) {
+private fun ShieldMark(size: Dp, modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier.size(132.dp),
+        modifier = modifier
+            .width(size)
+            .aspectRatio(1f),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.Rounded.Shield,
             contentDescription = null,
             tint = Color.White,
-            modifier = Modifier.size(132.dp)
+            modifier = Modifier.fillMaxSize()
         )
         Icon(
             imageVector = Icons.Rounded.Lock,
             contentDescription = null,
             tint = Indigo800,
             modifier = Modifier
-                .size(44.dp)
-                .padding(top = 4.dp)
+                .fillMaxSize(0.34f)
+                .padding(top = 2.dp)
         )
     }
 }
 
+/**
+ * A thin, *indeterminate* progress line: a short highlight sweeping across a
+ * dim track. It says "working" without pretending to know how far along the
+ * start-up is — and unlike a bar that fills, it never sits full and static on a
+ * slow device.
+ */
 @Composable
-private fun ProgressBar(progress: Float, modifier: Modifier = Modifier) {
+private fun IndeterminateLine(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "progress")
+    val sweep by transition.animateFloat(
+        initialValue = -0.34f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1_150, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "sweep"
+    )
+
     Box(
         modifier = modifier
             .width(112.dp)
             .height(3.dp)
             .clip(RoundedCornerShape(percent = 50))
-            .background(Color.White.copy(alpha = 0.18f))
+            .background(Color.White.copy(alpha = 0.16f))
     ) {
         Box(
             modifier = Modifier
-                .width(112.dp * progress.coerceIn(0f, 1f))
-                .height(3.dp)
+                .fillMaxWidth(0.34f)
+                .fillMaxHeight()
+                .graphicsLayer {
+                    // -0.34 puts the highlight just off the left edge; 1.0 puts
+                    // it just off the right edge, so the loop never "pops".
+                    translationX = sweep * 112.dp.toPx()
+                }
                 .clip(RoundedCornerShape(percent = 50))
                 .background(MaterialTheme.colorScheme.secondary)
         )

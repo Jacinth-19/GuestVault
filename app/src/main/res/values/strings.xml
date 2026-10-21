@@ -5,37 +5,44 @@
     <string name="app_tagline">Borrow my phone. Keep your privacy.</string>
     <string name="qs_tile_label">Guest Mode</string>
 
-    <!-- Notification channels. Descriptions are user-facing: they appear in
-         Android settings, so they explain the purpose rather than the API. -->
+    <!-- Notification channels. Names and descriptions are user-facing: they
+         appear in Android settings, so they say what the channel does rather
+         than naming an API. -->
     <string name="channel_session_name">Guest session</string>
     <string name="channel_session_description">The ongoing notice shown while someone else is using your phone.</string>
-    <string name="channel_alerts_name">Timer reminders</string>
+    <string name="channel_alerts_name">Session alerts</string>
     <string name="channel_alerts_description">A reminder shortly before a timed guest session ends.</string>
-    <string name="channel_summary_name">Session summaries</string>
+    <string name="channel_summary_name">Session summary</string>
     <string name="channel_summary_description">A short recap when a guest session ends: how long, how many apps, what was cleared.</string>
     <string name="channel_security_name">Security alerts</string>
     <string name="channel_security_description">Warns you when someone enters the wrong owner PIN too many times.</string>
 
-    <!-- Ongoing session notification -->
+    <!-- Ongoing session notification. The countdown is deliberately the only
+         body text: in the collapsed shade layout a progress bar would take that
+         line's place, and the time left is the whole point of the notice. -->
     <string name="notif_session_title">Guest Mode is on</string>
     <string name="notif_session_text_timed">Ends in %1$s · return with your PIN</string>
     <string name="notif_session_text_open">Return with your PIN to end the session</string>
 
-    <!-- Timer reminders -->
+    <!-- Session alerts -->
     <string name="notif_alert_title_minutes">%1$d minutes left</string>
     <string name="notif_alert_title_minute">1 minute left</string>
     <string name="notif_action_end_now">End now</string>
-    <string name="notif_alert_text">The guest session ends automatically. Tap to return the phone to you.</string>
+    <string name="notif_alert_text">The session ends automatically. Tap to return the phone to you.</string>
 
     <!-- Session summary -->
     <string name="notif_summary_title">Guest session ended</string>
-    <string name="notif_summary_text">%1$s · %2$d apps allowed · %3$s</string>
+    <string name="notif_summary_text">%1$s · %2$d apps · %3$s · %4$s</string>
     <string name="notif_summary_wiped">%1$s cleared</string>
     <string name="notif_summary_not_wiped">no data cleared</string>
+    <string name="notif_summary_reason_owner">returned by owner</string>
+    <string name="notif_summary_reason_timer">timer ended</string>
+    <string name="notif_summary_reason_wiped">cleared by owner</string>
+    <string name="notif_summary_reason_recovered">recovered after restart</string>
 
-    <!-- Security -->
+    <!-- Security alerts -->
     <string name="notif_security_title">Failed unlock attempts</string>
-    <string name="notif_security_text">%1$d wrong PINs. Owner mode is locked for %2$d seconds.</string>
+    <string name="notif_security_text">%1$d failed unlock attempts — locked for %2$d s</string>
     <string name="notif_security_cleared_title">You can try again</string>
     <string name="notif_security_cleared_text">The cool-down has ended. %1$d attempts left before the next one.</string>
 </resources>
