@@ -138,16 +138,26 @@ abstract class StepHarness {
             }
 
     /** Pinning is re-requested every time the guest task is recreated. */
-    protected fun dismissPinnedDialog(): Boolean {
-        repeat(3) {
-            if (!pinnedDialogVisible()) return false
+    /**
+     * The system asks to pin the guest task a moment *after* it resumes, so a
+     * single check right after `am start` misses it. Poll for a few seconds.
+     */
+    protected fun dismissPinnedDialog(timeoutMs: Long = 6_000): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var dismissed = false
+        while (System.currentTimeMillis() < deadline) {
+            if (!pinnedDialogVisible()) {
+                if (dismissed) return true
+                pause(300)
+                continue
+            }
             when {
-                has(By.text("No thanks")) -> { tapText("No thanks"); pause(900) }
-                has(By.text("Got it")) -> { tapText("Got it"); pause(900) }
-                else -> return false
+                has(By.text("No thanks")) -> { tapText("No thanks"); dismissed = true; pause(800) }
+                has(By.text("Got it")) -> { tapText("Got it"); dismissed = true; pause(800) }
+                else -> pause(300)
             }
         }
-        return true
+        return dismissed
     }
 
     protected fun launchApp() {
