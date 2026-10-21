@@ -57,7 +57,7 @@ object Formatters {
     fun minutesLabel(minutes: Int): String = when {
         minutes <= 0 -> "No limit"
         minutes < 60 -> "$minutes min"
-        minutes == 60 -> "1 hour"
+        minutes == 60 -> "60 min"
         else -> "$minutes min"
     }
 }

@@ -46,9 +46,14 @@ class AppViewModel @Inject constructor(
     /** Decides where the splash screen should send the user. */
     suspend fun startState(): AppStartState {
         val current = settings.first()
+        val pinSet = pinRepository.isPinSet()
         return AppStartState(
-            onboardingCompleted = current?.onboardingCompleted == true,
-            pinSet = pinRepository.isPinSet()
+            // An owner PIN can only be created after onboarding. If storage
+            // reports "not onboarded" while a PIN exists, the read failed rather
+            // than the owner being new: sending them back to onboarding would
+            // wipe the first-run flow and leave the guest session running.
+            onboardingCompleted = current?.onboardingCompleted == true || pinSet,
+            pinSet = pinSet
         )
     }
 }

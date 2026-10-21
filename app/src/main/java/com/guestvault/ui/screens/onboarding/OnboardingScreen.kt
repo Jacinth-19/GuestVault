@@ -102,7 +102,7 @@ private val pages = listOf(
         animation = R.raw.app_grid,
         fallbackIcon = Icons.Rounded.Apps,
         fallbackBrush = TealGradient,
-        title = "Only approved apps",
+        title = "Only the apps you allow",
         message = "Choose exactly what a guest can open. Everything else stays hidden — " +
             "no gallery, no messages, no settings, no Play Store.",
         animationDescription = "A grid of app tiles where the unapproved ones dim and lock"

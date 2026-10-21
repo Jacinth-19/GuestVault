@@ -595,6 +595,9 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("6.10", "Updates every second, matches the notification") {
+            device.pressBack()
+            pause(900)
+            dismissPinnedDialog(timeoutMs = 2_000)
             val first = waitForCountdown()
             expectTrue(first != null, "no \"Ends in\" countdown on the guest home")
             Thread.sleep(2_400)
@@ -669,10 +672,18 @@ class StepPlanTest : StepHarness() {
                 seconds != null && seconds in 25..30,
                 "the cool-down started at ${seconds ?: "?"} s, expected 30 (message: \"$firstLockout\")"
             )
+            // Compose's `enabled = false` does not always surface as
+            // UiObject2.isEnabled, so prove it by pressing digits: nothing may
+            // happen while the cool-down is running.
+            repeat(2) { runCatching { device.findObject(By.desc("PIN key 1"))?.click() } }
+            pause(900)
             expectTrue(
-                device.findObjects(By.desc("PIN key 1")).isEmpty() ||
-                    device.findObject(By.desc("PIN key 1"))?.isEnabled == false,
-                "the keypad is still enabled during the cool-down"
+                device.findObjects(By.textContains("Too many attempts")).isNotEmpty(),
+                "the cool-down message disappeared after tapping the keypad"
+            )
+            expectTrue(
+                !device.hasObject(By.text("Checking…")),
+                "the keypad accepted input during the cool-down"
             )
             note("locked after $attempts wrong PINs (plan says 5); message: $firstLockout")
         }
@@ -684,7 +695,7 @@ class StepPlanTest : StepHarness() {
         launchApp()
 
         verify("7.5", "Still locked — the cool-down survives the app being killed") {
-            val resumed = waitFor("Welcome to Guest Mode", 25_000) || waitFor("Resume Guest Mode", 10_000)
+            val resumed = device.wait(Until.hasObject(By.textContains("Guest Mode")), 30_000)
             expectTrue(resumed, "the guest session did not survive the force-stop")
             if (device.hasObject(By.text("Resume Guest Mode"))) {
                 tapText("Resume Guest Mode")
@@ -708,9 +719,13 @@ class StepPlanTest : StepHarness() {
                 if (!device.hasObject(By.desc("PIN key 1"))) break
                 enterPin(wrongPin)
                 attempts++
-                pause(1_300)
-                lastMessage = device.findObjects(By.textContains("Too many attempts")).mapNotNull { it.text }
-                    .firstOrNull() ?: lastMessage
+                val deadline = System.currentTimeMillis() + 2_500
+                while (System.currentTimeMillis() < deadline) {
+                    val message = device.findObjects(By.textContains("Too many attempts"))
+                        .mapNotNull { it.text }.firstOrNull()
+                    if (message != null) { lastMessage = message; break }
+                    Thread.sleep(150)
+                }
             }
             val seconds = Regex("in (\\d+)s").find(lastMessage)?.groupValues?.get(1)?.toIntOrNull()
             expectTrue(seconds != null && seconds in 55..60, "second cool-down is ${seconds ?: "?"} s, expected 60")
@@ -738,6 +753,7 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("8.1", "Your session appears with time range, duration, \"N apps allowed\"") {
+            pause(1_200)
             expectTrue(scrollToText("Recent sessions"), "no Recent sessions section")
             val row = device.findObjects(By.textContains("apps ·")).mapNotNull { it.text }.firstOrNull()
             val time = device.findObjects(By.textContains("·")).mapNotNull { it.text }
@@ -1118,9 +1134,17 @@ class StepPlanTest : StepHarness() {
             var ended = false
             while (System.currentTimeMillis() - started < 6 * 60 * 1000L) {
                 val dump = shell("dumpsys notification --noredact")
+                if (dump.contains("notification history") || dump.isBlank()) {
+                    Thread.sleep(2_000)
+                    continue
+                }
                 if (!dump.contains("Guest Mode is on")) {
-                    ended = true
-                    break
+                    pause(3_000)
+                    val again = shell("dumpsys notification --noredact")
+                    if (!again.contains("Guest Mode is on")) {
+                        ended = true
+                        break
+                    }
                 }
                 Thread.sleep(15_000)
             }
@@ -1415,7 +1439,7 @@ class StepPlanTest : StepHarness() {
 
     private fun durationLabel(minutes: Int): String = when (minutes) {
         0 -> "No limit"
-        60 -> "1 hour"
+        60 -> "60 min"
         else -> "$minutes min"
     }
 
@@ -1446,7 +1470,9 @@ class StepPlanTest : StepHarness() {
             when {
                 pinDialogVisible() -> pin = handlePinDialog(acceptPin)
                 device.hasObject(By.text("Welcome to Guest Mode")) -> return "permission: $perm; pinning: $pin"
-                device.hasObject(By.text("Allow")) || device.hasObject(By.text("Don't allow")) -> {
+                device.hasObject(By.text("Allow")) ||
+                    device.hasObject(By.text("Don't allow")) ||
+                    device.hasObject(By.res("com.android.permissioncontroller:id/permission_allow_button")) -> {
                     perm = if (permission == "none") {
                         handleNotificationPrompt("deny")
                     } else {
@@ -1464,19 +1490,28 @@ class StepPlanTest : StepHarness() {
     private fun pinDialogVisible(): Boolean = pinnedDialogVisible()
 
     private fun handleNotificationPrompt(mode: String): String {
-        val seen = waitForAny("Allow", "Don't allow", timeout = 7_000) != null
+        val seen = waitForAny("Allow", "Don't allow", timeout = 7_000) != null ||
+            device.hasObject(By.res("com.android.permissioncontroller:id/permission_allow_button"))
         if (!seen) return "no prompt"
         return if (mode == "allow") {
-            if (device.hasObject(By.text("Allow"))) {
-                tapText("Allow")
+            val allow = device.findObject(By.res("com.android.permissioncontroller:id/permission_allow_button"))
+                ?: device.findObject(By.textContains("Allow"))
+            if (allow != null) {
+                runCatching { allow.click() }
+                pause(700)
                 "allowed"
             } else {
                 "prompt without Allow"
             }
         } else {
-            val deny = listOf("Don't allow", "Deny", "Not now").firstOrNull { device.hasObject(By.text(it)) }
-            if (deny != null) {
-                tapText(deny)
+            val denyButton = device.findObject(
+                By.res("com.android.permissioncontroller:id/permission_deny_button")
+            ) ?: listOf("Don't allow", "Deny", "Not now")
+                .firstOrNull { device.hasObject(By.text(it)) }
+                ?.let { device.findObject(By.text(it)) }
+            if (denyButton != null) {
+                runCatching { denyButton.click() }
+                pause(700)
                 "denied"
             } else {
                 "prompt without Deny (screen: ${visibleText().take(80)})"

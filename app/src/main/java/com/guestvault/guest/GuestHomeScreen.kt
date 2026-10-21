@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -184,6 +185,10 @@ fun GuestHomeScreen(
     }
     val remaining = session.remainingMillis(now)
 
+    // In landscape the decorative hero would otherwise eat the whole screen and
+    // push the app grid out of reach.
+    val compact = LocalConfiguration.current.screenHeightDp < 560
+
     // Redundant safety net in case the foreground service was killed.
     LaunchedEffect(remaining) {
         if (remaining != null && remaining <= 0L) onEndSession(EndReason.TIMER_EXPIRED)
@@ -197,7 +202,7 @@ fun GuestHomeScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(330.dp)
+                .height(if (compact) 190.dp else 330.dp)
                 .background(HeroGradient)
         )
         Box(
@@ -257,20 +262,22 @@ fun GuestHomeScreen(
                     }
                 }
 
-                Spacer(Modifier.height(22.dp))
-                Text(
-                    text = "Welcome to Guest Mode",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "This phone is in a temporary, limited space.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.75f)
-                )
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(if (compact) 10.dp else 22.dp))
+                if (!compact) {
+                    Text(
+                        text = "Welcome to Guest Mode",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "This phone is in a temporary, limited space.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.75f)
+                    )
+                }
+                Spacer(Modifier.height(if (compact) 6.dp else 14.dp))
 
                 if (remaining != null) {
                     Surface(
