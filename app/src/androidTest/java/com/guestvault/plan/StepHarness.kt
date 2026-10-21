@@ -77,7 +77,17 @@ abstract class StepHarness {
             StepResults.pass(id, expect, evidence, System.currentTimeMillis() - started)
         } catch (t: Throwable) {
             val message = t.message?.takeIf { it.isNotBlank() } ?: t.javaClass.simpleName
-            val evidence = if (pendingNote.isBlank()) message else "$message ($pendingNote)"
+            val onScreen = runCatching { visibleText().take(200) }.getOrDefault("")
+            val focus = runCatching {
+                device.executeShellCommand("dumpsys window | grep -m1 mCurrentFocus")
+                    .trim().replace("mCurrentFocus=", "").take(60)
+            }.getOrDefault("")
+            val evidence = buildString {
+                append(message)
+                if (pendingNote.isNotBlank()) append(" (").append(pendingNote).append(")")
+                if (onScreen.isNotBlank()) append(" | screen: ").append(onScreen)
+                if (focus.isNotBlank()) append(" | focus: ").append(focus)
+            }
             StepResults.fail(id, expect, evidence, System.currentTimeMillis() - started)
         }
     }
@@ -237,8 +247,12 @@ abstract class StepHarness {
         digits.forEach { digit ->
             val selector = By.desc("PIN key $digit")
             expectTrue(device.wait(Until.hasObject(selector), 8_000), "PIN key $digit not found")
-            device.findObject(selector)?.click()
-            pause(150)
+            val clicked = runCatching { device.findObject(selector)?.click() ?: false }.getOrDefault(false)
+            if (!clicked) {
+                pause(350)
+                runCatching { device.findObject(selector)?.click() }
+            }
+            pause(170)
         }
         pause(700)
     }
@@ -279,13 +293,21 @@ abstract class StepHarness {
 
     protected fun tapText(text: String, timeout: Long = 15_000) {
         expectTrue(waitFor(text, timeout), "Timed out waiting for \"$text\"")
-        device.findObject(By.text(text))?.click()
+        val clicked = runCatching { device.findObject(By.text(text))?.click() ?: false }.getOrDefault(false)
+        if (!clicked) {
+            pause(400)
+            runCatching { device.findObject(By.text(text))?.click() }
+        }
         pause(450)
     }
 
     protected fun tapDesc(desc: String, timeout: Long = 15_000) {
         expectTrue(waitForDesc(desc, timeout), "Timed out waiting for description \"$desc\"")
-        device.findObject(By.desc(desc))?.click()
+        val clicked = runCatching { device.findObject(By.desc(desc))?.click() ?: false }.getOrDefault(false)
+        if (!clicked) {
+            pause(400)
+            runCatching { device.findObject(By.desc(desc))?.click() }
+        }
         pause(450)
     }
 

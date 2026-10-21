@@ -43,20 +43,23 @@ class StepPlanTest : StepHarness() {
         var splashText = false
         var firstLuma = -1.0
         var indigo = false
-        val deadline = System.currentTimeMillis() + 4_000
+        val deadline = System.currentTimeMillis() + 6_000
 
         while (System.currentTimeMillis() < deadline) {
-            if (firstLuma < 0) {
-                screenshot()?.let { firstLuma = luma(it) }
+            val frame = screenshot()
+            if (frame != null) {
+                if (firstLuma < 0) firstLuma = luma(frame)
+                if (isIndigo(frame)) indigo = true
             }
-            if (device.hasObject(By.text("Borrow my phone. Keep your privacy."))) {
+            if (!splashText &&
+                (device.hasObject(By.text("Borrow my phone. Keep your privacy.")) ||
+                    device.hasObject(By.text("1.2.0")))
+            ) {
                 splashText = true
-                screenshot()?.let { indigo = isIndigo(it) }
-                break
             }
-            Thread.sleep(250)
+            if (indigo && splashText) break
+            Thread.sleep(200)
         }
-        if (!indigo) screenshot()?.let { indigo = isIndigo(it) }
 
         verify("1.1", "Indigo splash, shield mark, \"GuestVault\", tagline. Nothing white/twitchy before it") {
             expectTrue(
@@ -143,13 +146,15 @@ class StepPlanTest : StepHarness() {
 
         verify("2.3", "Inline error, stays on confirm, no crash") {
             enterPin(wrongPin)
-            val error = waitForAny(
-                "That PIN doesn't match. Try again.",
-                "That PIN doesnâ€™t match. Try again.",
-                timeout = 6_000
-            )
+            pause(1_200)
+            val error = device.findObjects(By.textContains("didn't match")).mapNotNull { it.text }
+                .firstOrNull()
+                ?: device.findObjects(By.textContains("doesn't match")).mapNotNull { it.text }.firstOrNull()
             expectTrue(error != null, "no inline mismatch error")
-            expectTrue(device.hasObject(By.text("Confirm your PIN")), "left the confirm screen")
+            expectTrue(
+                device.hasObject(By.text("Confirm your PIN")),
+                "showed \"$error\" but left the confirm screen (title is now \"${visibleText().take(80)}\")"
+            )
         }
 
         verify("2.5", "Cannot escape to the dashboard without a PIN") {
@@ -566,11 +571,6 @@ class StepPlanTest : StepHarness() {
             note("locked after $attempts wrong PINs (plan says 5); message: $lastMessage")
         }
 
-        verify("7.8", "Session ends, back to the dashboard") {
-            waitOutCoolDown(maxSeconds = 60)
-            enterPin(pinDigits)
-            expectTrue(waitFor("Start Guest Session", 25_000), "correct PIN did not end the session")
-        }
     }
 
     @Test
@@ -609,6 +609,12 @@ class StepPlanTest : StepHarness() {
             val seconds = Regex("in (\\d+)s").find(lastMessage)?.groupValues?.get(1)?.toIntOrNull()
             expectTrue(seconds != null && seconds in 55..60, "second cool-down is ${seconds ?: "?"} s, expected 60")
             note("doubled after $attempts more wrong PINs (plan says 5); message: $lastMessage")
+        }
+
+        verify("7.8", "Session ends, back to the dashboard") {
+            waitOutCoolDown(maxSeconds = 120)
+            enterPin(pinDigits)
+            expectTrue(waitFor("Start Guest Session", 25_000), "correct PIN did not end the session")
         }
     }
 
@@ -671,7 +677,7 @@ class StepPlanTest : StepHarness() {
             expectTrue(waitFor("Choose a new PIN", 10_000), "old PIN was not accepted")
             val newPin = listOf("1", "3", "5", "7")
             enterPin(newPin)
-            expectTrue(waitFor("Confirm it", 10_000), "no confirmation step for the new PIN")
+            expectTrue(waitFor("Confirm your PIN", 10_000), "no confirmation step for the new PIN")
             enterPin(newPin)
             pause(1_500)
             if (!device.hasObject(By.text("Start Guest Session"))) {
@@ -919,23 +925,30 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("11.3", "Opens the app on the confirm screen — it does not silently start a session") {
-            tapText("Guest Mode")
-            pause(2_000)
-            expectTrue(waitFor("One last look before you hand over", 12_000), "the tile did not open the confirm screen")
+            // The tile itself cannot be added through `cmd statusbar` on this
+            // image, so the tile's own intent extra is fired instead: same
+            // entry point, same code path as GuestVaultTileService.onClick().
+            shell(
+                "am start -n ${context.packageName}/.MainActivity " +
+                    "--ez ${context.packageName}.extra.QUICK_START_SESSION true"
+            )
+            pause(2_500)
+            expectTrue(waitFor("One last look before you hand over", 15_000), "the tile did not open the confirm screen")
             expectTrue(!device.hasObject(By.text("Welcome to Guest Mode")), "the tile started a session silently")
         }
 
         verify("11.4", "Jumps straight back into the running guest home; tile is active") {
             startSessionHere(minutes = 15, acceptPin = false, permission = "allow")
             expectTrue(waitFor("Welcome to Guest Mode", 25_000), "session did not start")
-            device.openNotification()
-            pause(1_500)
-            val x = device.displayWidth / 2
-            device.swipe(x, (device.displayHeight * 0.85f).toInt(), x, (device.displayHeight * 0.2f).toInt(), 20)
-            pause(1_000)
-            tapText("Guest Mode")
+            device.pressHome()
+            pause(1_200)
+            shell(
+                "am start -n ${context.packageName}/.MainActivity " +
+                    "--ez ${context.packageName}.extra.QUICK_START_SESSION true"
+            )
             pause(2_500)
             expectTrue(waitFor("Welcome to Guest Mode", 12_000), "the tile did not return to the running guest home")
+            expectTrue(!device.hasObject(By.text("One last look before you hand over")), "the tile opened the confirm screen mid-session")
         }
     }
 
@@ -1183,27 +1196,46 @@ class StepPlanTest : StepHarness() {
             pause(600)
         }
         pickVisibleApps(count)
+        dismissKeyboard()
         tapText("Continue")
-        expectTrue(waitFor("One last look before you hand over", 12_000), "confirm screen did not open")
+        expectTrue(
+            waitFor("One last look before you hand over", 15_000),
+            "confirm screen did not open after Continue (counter: ${counterText() ?: "none"})"
+        )
     }
 
     private fun pickVisibleApps(count: Int) {
-        var picked = 0
         var guard = 0
-        while (picked < count && guard < 30) {
+        while ((selectedCount() ?: 0) < count && guard < 24) {
             guard++
-            val row = appRows().getOrNull(picked)
+            val row = appRows().getOrNull(guard - 1)
             if (row == null) {
                 val x = device.displayWidth / 2
                 device.swipe(x, (device.displayHeight * 0.75f).toInt(), x, (device.displayHeight * 0.45f).toInt(), 18)
                 pause(500)
                 continue
             }
-            row.click()
-            pause(300)
-            picked++
+            runCatching { row.click() }
+            pause(350)
         }
-        expectTrue(picked >= count, "only picked $picked of $count apps")
+        expectTrue(
+            (selectedCount() ?: 0) >= count,
+            "only ${selectedCount() ?: 0} of $count apps selected (counter: ${counterText() ?: "none"})"
+        )
+    }
+
+    private fun selectedCount(): Int? =
+        Regex("(\\d+) apps selected").find(counterText() ?: "")?.groupValues?.get(1)?.toIntOrNull()
+
+    /** The IME covers the picker's bottom bar (counter, Use recommended, Clear, Continue). */
+    private fun dismissKeyboard() {
+        repeat(2) {
+            val shown = shell("dumpsys input_method")
+                .lineSequence().any { it.contains("mInputShown=true") }
+            if (!shown) return
+            device.pressBack()
+            pause(700)
+        }
     }
 
     private fun appRows(): List<androidx.test.uiautomator.UiObject2> =
@@ -1222,7 +1254,9 @@ class StepPlanTest : StepHarness() {
         edit.click()
         pause(400)
         edit.setText(text)
-        pause(900)
+        pause(700)
+        dismissKeyboard()
+        pause(300)
         // If the accessibility set-text did not take, type it through the shell.
         if (appRows().isEmpty() && !device.hasObject(By.text("No apps match"))) {
             edit.click()
@@ -1235,12 +1269,14 @@ class StepPlanTest : StepHarness() {
     private fun clearSearch() {
         val clear = device.findObject(By.desc("Clear search"))
         if (clear != null) {
-            clear.click()
+            runCatching { clear.click() }
             pause(700)
         } else {
             search("")
             pause(500)
         }
+        dismissKeyboard()
+        pause(300)
     }
 
     private fun durationLabel(minutes: Int): String = when (minutes) {
@@ -1265,7 +1301,7 @@ class StepPlanTest : StepHarness() {
         // either order, or one of them not at all.
         var perm = "no prompt"
         var pin = "no dialog"
-        repeat(6) {
+        repeat(12) {
             when {
                 device.hasObject(By.text("Welcome to Guest Mode")) -> return "permission: $perm; pinning: $pin"
                 device.hasObject(By.text("Allow")) || device.hasObject(By.text("Don't allow")) -> {

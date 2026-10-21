@@ -513,12 +513,16 @@
         {
           "id": "11.1",
           "action": "Pull the shade → edit tiles → add Guest Mode",
-          "expect": "Tile appears"
+          "expect": "Tile appears",
+          "mode": "manual",
+          "why": "the emulator image has no `cmd statusbar add-tile`, so the tile can only be added by hand in the shade editor"
         },
         {
           "id": "11.2",
           "action": "Read the subtitle (no session)",
-          "expect": "\"Tap to start a guest session\""
+          "expect": "\"Tap to start a guest session\"",
+          "mode": "manual",
+          "why": "the emulator image has no `cmd statusbar add-tile`, so the tile can only be added by hand in the shade editor"
         },
         {
           "id": "11.3",
