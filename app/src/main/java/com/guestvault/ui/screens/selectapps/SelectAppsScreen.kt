@@ -245,10 +245,16 @@ fun SelectAppsScreen(
                         TextButton(onClick = onUseRecommended) {
                             Text("Use recommended", style = MaterialTheme.typography.labelMedium)
                         }
-                        if (state.selected.isNotEmpty()) {
-                            TextButton(onClick = onClear) {
-                                Text("Clear", style = MaterialTheme.typography.labelMedium)
-                            }
+                        TextButton(onClick = onClear, enabled = state.selected.isNotEmpty()) {
+                            Text(
+                                "Clear",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (state.selected.isEmpty()) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                }
+                            )
                         }
                     }
                     PrimaryButton(

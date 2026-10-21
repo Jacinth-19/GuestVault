@@ -63,6 +63,18 @@ abstract class StepHarness {
         pendingNote = text
     }
 
+    /** A setup failure is reported against every step of the pass, not just swallowed. */
+    protected var setupError: String? = null
+
+    protected fun arrange(block: () -> Unit) {
+        if (setupError != null) return
+        try {
+            block()
+        } catch (t: Throwable) {
+            setupError = t.message?.takeIf { it.isNotBlank() } ?: t.javaClass.simpleName
+        }
+    }
+
     protected fun verify(
         id: String,
         expect: String,
@@ -71,6 +83,10 @@ abstract class StepHarness {
     ) {
         val started = System.currentTimeMillis()
         pendingNote = ""
+        if (setupError != null) {
+            StepResults.fail(id, expect, "setup failed before this step: $setupError", 0)
+            return
+        }
         try {
             body()
             val evidence = note.ifBlank { pendingNote.ifBlank { "met" } }
@@ -210,8 +226,19 @@ abstract class StepHarness {
                     pause(1_400)
                 }
                 else -> {
-                    launchApp()
-                    pause(1_500)
+                    // A nested screen (picker, settings, history) is not "home".
+                    // Relaunching only brings the same screen forward, so walk
+                    // back out of it first.
+                    if (device.hasObject(By.text("Allow anyway"))) {
+                        tapText("Cancel")
+                        pause(600)
+                    } else if (device.hasObject(By.desc("Back"))) {
+                        device.findObject(By.desc("Back"))?.click()
+                        pause(900)
+                    } else {
+                        launchApp()
+                        pause(1_200)
+                    }
                 }
             }
         }

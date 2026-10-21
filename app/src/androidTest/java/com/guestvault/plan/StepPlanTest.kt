@@ -152,10 +152,8 @@ class StepPlanTest : StepHarness() {
         verify("2.3", "Inline error, stays on confirm, no crash") {
             enterPin(wrongPin)
             pause(1_200)
-            val error = device.findObjects(By.textContains("didn't match")).mapNotNull { it.text }
-                .firstOrNull()
-                ?: device.findObjects(By.textContains("doesn't match")).mapNotNull { it.text }.firstOrNull()
-            expectTrue(error != null, "no inline mismatch error")
+            val error = waitForAny("Try again", "didn't match", "doesn't match", timeout = 6_000)
+            expectTrue(error != null, "no inline mismatch error (screen: ${visibleText().take(150)})")
             expectTrue(
                 device.hasObject(By.text("Confirm your PIN")),
                 "showed \"$error\" but left the confirm screen (title is now \"${visibleText().take(80)}\")"
@@ -189,7 +187,7 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass03() {
-        ensureOwnerHome()
+        arrange { ensureOwnerHome() }
 
         verify("3.1", "\"READY TO LEND\", big white Start Guest Session, \"Exit with your PIN\"") {
             expectTrue(device.hasObject(By.text("READY TO LEND")), "no READY TO LEND badge")
@@ -240,8 +238,8 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass04() {
-        ensureOwnerHome()
-        openAppPicker()
+        arrange { ensureOwnerHome() }
+        arrange { openAppPicker() }
 
         verify("4.1", "Search bar, \"Use recommended\", \"Clear\", app list") {
             expectTrue(device.hasObject(By.text("Search apps")), "no search bar")
@@ -344,8 +342,8 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass05a() {
-        ensureOwnerHome()
-        pickApps(3)
+        arrange { ensureOwnerHome() }
+        arrange { pickApps(3) }
 
         verify("5.1", "Only one selected at a time") {
             // The plan names the five chips literally: No limit / 5 / 15 / 30 / 60 min.
@@ -413,8 +411,8 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass05b() {
-        ensureOwnerHome()
-        pickApps(3)
+        arrange { ensureOwnerHome() }
+        arrange { pickApps(3) }
 
         verify("5.6", "Session must still start (not blocked)") {
             val note = startSessionHere(minutes = 15, acceptPin = false, permission = "deny")
@@ -430,8 +428,8 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass06() {
-        ensureOwnerHome()
-        pickApps(3)
+        arrange { ensureOwnerHome() }
+        arrange { pickApps(3) }
         val startNote = startSessionHere(minutes = 30, acceptPin = false, permission = "allow")
         val startTop = topActivityLine()
         val startLuma = screenshot()?.let { luma(it) } ?: -1.0
@@ -548,8 +546,8 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass07a() {
-        ensureOwnerHome()
-        pickApps(3)
+        arrange { ensureOwnerHome() }
+        arrange { pickApps(3) }
         startSessionHere(minutes = 0, acceptPin = false, permission = "allow")
         expectTrue(waitFor("Welcome to Guest Mode", 25_000), "guest session did not start")
 
@@ -645,8 +643,8 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass08() {
-        ensureOwnerHome()
-        pickApps(3)
+        arrange { ensureOwnerHome() }
+        arrange { pickApps(3) }
         startSessionHere(minutes = 5, acceptPin = false, permission = "allow")
         expectTrue(waitFor("Welcome to Guest Mode", 25_000), "session did not start")
         pause(3_000)
@@ -690,7 +688,7 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass09a() {
-        ensureOwnerHome()
+        arrange { ensureOwnerHome() }
         openSettings()
 
         verify("9.1", "Old PIN path works; new PIN takes effect immediately — verify by starting a session and unlocking with the new one") {
@@ -894,13 +892,13 @@ class StepPlanTest : StepHarness() {
     @Test
     fun pass10a() {
         // Creates the PIN on a fresh install; the host then revokes notifications.
-        ensureOwnerHome()
+        arrange { ensureOwnerHome() }
         expectTrue(device.hasObject(By.text("Start Guest Session")), "dashboard not reached before revocation")
     }
 
     @Test
     fun pass10b() {
-        ensureOwnerHome()
+        arrange { ensureOwnerHome() }
 
         verify("10.1", "Row shows \"Not granted\" with a button to fix it") {
             openSettings()
@@ -931,7 +929,7 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass11() {
-        ensureOwnerHome()
+        arrange { ensureOwnerHome() }
 
         verify("11.1", "Tile appears") {
             val out = shell("cmd statusbar add-tile ${context.packageName}/.quicktile.GuestVaultTileService")
@@ -986,8 +984,8 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass12a() {
-        ensureOwnerHome()
-        pickApps(3)
+        arrange { ensureOwnerHome() }
+        arrange { pickApps(3) }
         startSessionHere(minutes = 5, acceptPin = false, permission = "allow")
         expectTrue(waitFor("Welcome to Guest Mode", 25_000), "5-minute session did not start")
 
@@ -1010,8 +1008,8 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass12b() {
-        ensureOwnerHome()
-        pickApps(3)
+        arrange { ensureOwnerHome() }
+        arrange { pickApps(3) }
         startSessionHere(minutes = 5, acceptPin = false, permission = "allow")
         expectTrue(waitFor("Welcome to Guest Mode", 25_000), "5-minute session did not start")
 
@@ -1048,8 +1046,8 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass13a() {
-        ensureOwnerHome()
-        pickApps(3)
+        arrange { ensureOwnerHome() }
+        arrange { pickApps(3) }
         startSessionHere(minutes = 30, acceptPin = false, permission = "allow")
 
         verify("13.1", "—") {
@@ -1121,7 +1119,7 @@ class StepPlanTest : StepHarness() {
 
     @Test
     fun pass14b() {
-        ensureOwnerHome()
+        arrange { ensureOwnerHome() }
 
         verify("14.2", "Guest home survives; no crash, no escape") {
             pickApps(3)
@@ -1153,10 +1151,8 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("14.4", "Irrelevant — the app has no INTERNET permission at all") {
-            if (!device.hasObject(By.text("Start Guest Session"))) {
-                device.pressBack()
-                pause(1_000)
-            }
+            ensureOwnerHome()
+            expectTrue(waitFor("Start Guest Session", 10_000), "dashboard not shown before the airplane-mode check")
             val perms = shell("dumpsys package ${context.packageName}")
             expectTrue(!perms.contains("android.permission.INTERNET"), "the APK declares android.permission.INTERNET")
             shell("cmd connectivity airplane-mode enable")
@@ -1220,7 +1216,7 @@ class StepPlanTest : StepHarness() {
     }
 
     private fun pickApps(count: Int) {
-        openAppPicker()
+        arrange { openAppPicker() }
         if (device.hasObject(By.text("Clear"))) {
             tapText("Clear")
             pause(600)

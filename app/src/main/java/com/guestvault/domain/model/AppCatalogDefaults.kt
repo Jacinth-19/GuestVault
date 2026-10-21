@@ -47,8 +47,7 @@ object AppCatalogDefaults {
         "com.android.email",
         "com.google.android.apps.docs",
         "com.google.android.apps.walletnfcrel",
-        "com.google.android.apps.nbu.files",
-        "com.android.chrome" /* browser history/accounts: flagged, but still useful */
+        "com.google.android.apps.nbu.files"
     )
 
     private val communicationPackages = setOf(
