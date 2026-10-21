@@ -21,6 +21,8 @@ interface SettingsRepository {
     suspend fun setBiometricEnabled(enabled: Boolean)
     suspend fun setLockTaskEnabled(enabled: Boolean)
     suspend fun setDefaultSessionMinutes(minutes: Int)
+    suspend fun setNotifyTimerAlerts(enabled: Boolean)
+    suspend fun setNotifySessionSummary(enabled: Boolean)
     suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setActiveSession(session: GuestSession?)
     suspend fun addSessionRecord(record: SessionRecord)

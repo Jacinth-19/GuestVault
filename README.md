@@ -71,6 +71,12 @@ allow-list → session setup → guest home → wrong PIN → unlock → history
 |:--:|:--:|:--:|:--:|
 | <img src="docs/media/14-dashboard-history.png" width="190"/> | <img src="docs/media/15-dashboard-dark.png" width="190"/> | <img src="docs/media/16-about-dark.png" width="190"/> | <img src="docs/media/17-permissions.png" width="190"/> |
 
+**Notifications** — four channels, all private on the lock screen
+
+| Ongoing session notice | | | |
+|:--:|:--:|:--:|:--:|
+| <img src="docs/media/18-session-notification.png" width="190"/> | | | |
+
 ## ✨ Features
 
 **Owner**
@@ -89,9 +95,23 @@ allow-list → session setup → guest home → wrong PIN → unlock → history
 - Live countdown when a session timer is set
 - "Return to Owner" always one tap away — but it needs your PIN or fingerprint
 
+**Notifications** — four channels, each with one job
+- **Guest session** (Low, silent, no badge): the ongoing "Guest Mode is on · ends in 24:31" notice.
+  Opens the guest home; cannot be swiped away while a session runs.
+- **Timer reminders** (Default): "5 minutes left" and "1 minute left", each exactly once, with an
+  **End now** action that opens the PIN pad. A short session skips the 5-minute reminder, and a
+  phone that slept through it wakes up to the *most relevant* one, not a stale one.
+- **Session summaries** (Default, **off by default**): "18 min · 4 apps allowed · 12 MB cleared"
+  when a session ends, opening session history.
+- **Security alerts** (High): after **3 wrong owner PINs**, and again when the cool-down ends —
+  one per cool-down round, never one per digit.
+- No app names, no people, no PII; `VISIBILITY_PRIVATE` on the lock screen; every string in
+  `strings.xml`; live channel status on the Permissions screen; toggles in Settings; channels
+  are created without ever asking for `INTERNET`.
+
 **Protection**
 - PIN is stored only as a salted **PBKDF2-SHA256** hash inside `EncryptedSharedPreferences`
-- 5 wrong attempts start a cool-down that **doubles** (30 s → 60 s → … capped at 15 min) and is
+- 3 wrong attempts start a cool-down that **doubles** (30 s → 60 s → … capped at 15 min) and is
   persisted, so rotating the device or killing the activity never resets it
 - Optional Android **screen pinning** (`startLockTask`) so Home/Recents can't escape the guest UI,
   with an explicit warning banner when pinning was declined
@@ -203,16 +223,18 @@ androidx.security (encrypted prefs) · BiometricPrompt · coroutines/Flow · min
 | [**Release APK**](.github/workflows/release.yml) | Builds the release + debug APKs **and the Play bundle**, and publishes them (with the demo media and store graphics) on a [GitHub Release](https://github.com/Jacinth-19/GuestVault/releases). |
 
 - **Unit tests** (`app/src/test`): PIN hashing (round-trip, salt uniqueness, tamper rejection),
-  session timer math, history model, formatters, and the lockout escalation policy
-  (5 attempts → 30 s, doubling to a 15-minute cap, counter surviving a cool-down).
+  session timer math, history model, formatters, the lockout escalation policy
+  (3 attempts → 30 s, doubling to a 15-minute cap, counter surviving a cool-down), and the
+  timer-reminder rules (one notification per threshold, no stale 5-minute warning after a
+  sleeping device wakes up at 40 seconds).
 - **Instrumented E2E** (`GuestVaultFlowTest`): onboarding → PIN creation → dashboard → settings →
   allow-list → session setup → guest home → wrong PIN → correct PIN → dashboard history → dark mode.
   The same test captures every screenshot in this README, and the flow is recorded to
   `docs/media/walkthrough.mp4`. It runs against a real emulator on every push.
 
 Everything above is written up as an **18-pass manual test plan** — every screen, every toggle,
-brute force, reboot recovery, accessibility and the Play Store submission checks:
-**[docs/TESTING.md](docs/TESTING.md)**.
+the notification channels, brute force, reboot recovery, accessibility and the Play Store
+submission checks: **[docs/TESTING.md](docs/TESTING.md)**.
 
 Run them yourself:
 

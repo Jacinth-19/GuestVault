@@ -131,6 +131,24 @@ class GuestVaultFlowTest {
         Thread.sleep(2_000) // let app icons resolve
         shot("11-guest-home.png")
 
+        // ---------------------------------------------------- notification --
+        // The ongoing session notice only exists while a session runs, so it has
+        // to be captured here. The shade needs screen pinning to be off, which
+        // the confirm screen already handled above. Non-fatal: this is a
+        // documentation capture, and a locked-down OEM build may refuse.
+        step("session notification")
+        runCatching {
+            shell("cmd statusbar expand-notifications")
+            if (waitFor("Guest Mode is on", 8_000)) {
+                Thread.sleep(900)
+                shot("18-session-notification.png")
+            } else {
+                step("session notification not visible")
+            }
+            shell("cmd statusbar collapse")
+            Thread.sleep(600)
+        }.onFailure { step("notification shade unavailable") }
+
         // -------------------------------------------------------------- exit --
         tapText("Return to Owner")
         assertTrue(
@@ -140,8 +158,9 @@ class GuestVaultFlowTest {
         Thread.sleep(600)
         shot("12-lock-screen.png")
 
+        // LockoutPolicy allows 3 attempts per round, so one wrong PIN leaves 2.
         enterPin(listOf("1", "1", "1", "1"))
-        assertTrue("Wrong PIN should be rejected", waitFor("Incorrect PIN. 4 attempts left.", 15_000))
+        assertTrue("Wrong PIN should be rejected", waitFor("Incorrect PIN. 2 attempts left.", 15_000))
         Thread.sleep(500)
         shot("13-lock-wrong-pin.png")
 

@@ -28,6 +28,7 @@ import com.guestvault.ui.screens.splash.SplashRoute
 @Composable
 fun GuestVaultNavHost(
     quickStartRequest: Int = 0,
+    historyRequest: Int = 0,
     navController: NavHostController = rememberNavController()
 ) {
     NavHost(
@@ -156,12 +157,23 @@ fun GuestVaultNavHost(
     // is honoured once the owner has actually reached the dashboard (after the
     // splash, onboarding and PIN setup), so a cold start can never skip setup.
     var handledRequests by rememberSaveable { mutableIntStateOf(0) }
+    var handledHistory by rememberSaveable { mutableIntStateOf(0) }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     LaunchedEffect(quickStartRequest, currentRoute) {
         if (quickStartRequest > handledRequests && currentRoute == Routes.DASHBOARD) {
             handledRequests = quickStartRequest
             navController.navigate(Routes.CONFIRM_SESSION) { launchSingleTop = true }
+        }
+    }
+
+    // The session-summary notification opens history. Same rule as above: only
+    // once the owner is actually on the dashboard, so a cold start still walks
+    // through onboarding and PIN setup first.
+    LaunchedEffect(historyRequest, currentRoute) {
+        if (historyRequest > handledHistory && currentRoute == Routes.DASHBOARD) {
+            handledHistory = historyRequest
+            navController.navigate(Routes.HISTORY) { launchSingleTop = true }
         }
     }
 }

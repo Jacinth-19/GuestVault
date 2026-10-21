@@ -26,6 +26,8 @@ import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.LocationOff
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.RestartAlt
@@ -51,6 +53,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.guestvault.core.notifications.GuestChannel
 import com.guestvault.ui.components.GuestVaultDivider
 import com.guestvault.ui.components.GuestVaultTopBar
 import com.guestvault.ui.components.IconBadge
@@ -98,7 +101,14 @@ fun PermissionsRoute(onBack: () -> Unit) {
             notificationsGranted = notificationsGranted,
             biometricReady = biometricReady,
             notificationsPermanentlyDenied = !notificationsGranted &&
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
+            channels = GuestChannel.entries.map { channel ->
+                ChannelStatus(
+                    name = context.getString(channel.nameRes),
+                    description = context.getString(channel.descriptionRes),
+                    enabled = notificationsGranted && GuestChannel.isEnabled(context, channel)
+                )
+            }
         )
     }
 
@@ -125,7 +135,15 @@ fun PermissionsRoute(onBack: () -> Unit) {
 data class PermissionState(
     val notificationsGranted: Boolean,
     val biometricReady: Boolean,
-    val notificationsPermanentlyDenied: Boolean
+    val notificationsPermanentlyDenied: Boolean,
+    val channels: List<ChannelStatus> = emptyList()
+)
+
+/** One notification channel as Android currently reports it. */
+data class ChannelStatus(
+    val name: String,
+    val description: String,
+    val enabled: Boolean
 )
 
 @Composable
@@ -208,6 +226,27 @@ fun PermissionsScreen(
                         status = "Automatic",
                         granted = true
                     )
+                }
+            }
+
+            item {
+                PermissionGroup(title = "Notification channels") {
+                    if (state.notificationsGranted) {
+                        state.channels.forEachIndexed { index, channel ->
+                            if (index > 0) GuestVaultDivider()
+                            ChannelRow(
+                                channel = channel,
+                                onOpenSettings = onOpenNotificationSettings
+                            )
+                        }
+                    } else {
+                        NotRequestedRow(
+                            Icons.Rounded.NotificationsOff,
+                            "All channels blocked",
+                            "Allow notifications for GuestVault to see the session timer and " +
+                                "owner alerts on the lock screen."
+                        )
+                    }
                 }
             }
 
@@ -353,6 +392,47 @@ private fun PermissionRow(
                 GuestTextButton(text = actionText, onClick = onAction)
             }
         }
+    }
+}
+
+@Composable
+private fun ChannelRow(channel: ChannelStatus, onOpenSettings: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconBadge(
+            icon = if (channel.enabled) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff
+        )
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = channel.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = channel.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (!channel.enabled) {
+                Spacer(Modifier.height(6.dp))
+                GuestTextButton(text = "Turn on", onClick = onOpenSettings)
+            }
+        }
+        StatusPill(
+            text = if (channel.enabled) "On" else "Off",
+            containerColor = if (channel.enabled) {
+                Success.copy(alpha = 0.16f)
+            } else {
+                Warning.copy(alpha = 0.18f)
+            },
+            contentColor = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 

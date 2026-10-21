@@ -57,7 +57,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import com.guestvault.BuildConfig
+import com.guestvault.core.AppVersion
 import com.guestvault.core.Formatters
 import com.guestvault.data.session.SessionController
 import com.guestvault.domain.model.OwnerSettings
@@ -212,7 +212,7 @@ fun DashboardScreen(
 
             item {
                 Text(
-                    text = "GuestVault ${BuildConfig.VERSION_NAME} · Android 10+ · " +
+                    text = "GuestVault ${AppVersion.display} · Android 10+ · " +
                         "Your data stays on this phone",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -13,6 +13,17 @@ data class OwnerSettings(
      */
     val lockTaskEnabled: Boolean = true,
     val defaultSessionMinutes: Int = 0,
+    /**
+     * Reminders a few minutes before a timed session ends. Security alerts are
+     * always on: they exist to tell the owner something is wrong, so allowing
+     * them to be switched off would defeat the point.
+     */
+    val notifyTimerAlerts: Boolean = true,
+    /**
+     * A short recap once a session has ended. Nobody's safety depends on it, so
+     * it is the one notification the owner has to opt into.
+     */
+    val notifySessionSummary: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val activeSession: GuestSession? = null,
     val history: List<SessionRecord> = emptyList()

@@ -47,8 +47,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.guestvault.BuildConfig
 import com.guestvault.R
+import com.guestvault.core.AppVersion
 import com.guestvault.ui.theme.Indigo800
 import com.guestvault.ui.theme.LightSystemBarIcons
 
@@ -61,13 +61,14 @@ import com.guestvault.ui.theme.LightSystemBarIcons
  * placeholder and made the README screenshot ambiguous with the onboarding
  * pages.
  *
- * The version comes from [BuildConfig.VERSION_NAME] rather than a literal, so it
- * can never drift from the build again.
+ * The version comes from [AppVersion.display] rather than a literal, so it can
+ * never drift from the build again — and never leaks the `-debug` suffix into a
+ * screenshot.
  */
 @Composable
 fun SplashScreen(
     modifier: Modifier = Modifier,
-    versionName: String = BuildConfig.VERSION_NAME
+    versionName: String = AppVersion.display
 ) {
     LightSystemBarIcons()
 

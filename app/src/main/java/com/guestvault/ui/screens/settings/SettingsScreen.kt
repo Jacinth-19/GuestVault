@@ -1,5 +1,7 @@
 package com.guestvault.ui.screens.settings
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,10 +26,13 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Summarize
 import androidx.compose.material.icons.rounded.SettingsBrightness
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.FilterChip
@@ -54,7 +59,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.biometric.BiometricManager
-import com.guestvault.BuildConfig
+import com.guestvault.core.AppVersion
 import com.guestvault.core.Formatters
 import com.guestvault.core.LegalText
 import com.guestvault.domain.model.OwnerSettings
@@ -113,6 +118,14 @@ class SettingsViewModel @Inject constructor(
     fun setDefaultSessionMinutes(minutes: Int) = viewModelScope.launch {
         settingsRepository.setDefaultSessionMinutes(minutes)
     }
+
+    fun setTimerAlerts(enabled: Boolean) = viewModelScope.launch {
+        settingsRepository.setNotifyTimerAlerts(enabled)
+    }
+
+    fun setSessionSummary(enabled: Boolean) = viewModelScope.launch {
+        settingsRepository.setNotifySessionSummary(enabled)
+    }
 }
 
 @Composable
@@ -138,7 +151,9 @@ fun SettingsRoute(
         onBiometricChange = viewModel::setBiometric,
         onLockTaskChange = viewModel::setLockTask,
         onThemeChange = viewModel::setThemeMode,
-        onDefaultSessionChange = viewModel::setDefaultSessionMinutes
+        onDefaultSessionChange = viewModel::setDefaultSessionMinutes,
+        onTimerAlertsChange = viewModel::setTimerAlerts,
+        onSessionSummaryChange = viewModel::setSessionSummary
     )
 }
 
@@ -155,7 +170,9 @@ fun SettingsScreen(
     onBiometricChange: (Boolean) -> Unit,
     onLockTaskChange: (Boolean) -> Unit,
     onThemeChange: (ThemeMode) -> Unit,
-    onDefaultSessionChange: (Int) -> Unit
+    onDefaultSessionChange: (Int) -> Unit,
+    onTimerAlertsChange: (Boolean) -> Unit,
+    onSessionSummaryChange: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val settings = state.settings
@@ -163,6 +180,12 @@ fun SettingsScreen(
         BiometricManager.from(context)
             .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
             BiometricManager.BIOMETRIC_SUCCESS
+    }
+
+    val openSystemNotificationSettings: () -> Unit = {
+        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        runCatching { context.startActivity(intent) }
     }
 
     var showDurationDialog by remember { mutableStateOf(false) }
@@ -261,6 +284,35 @@ fun SettingsScreen(
             }
 
             item {
+                SettingsGroup(title = "Notifications") {
+                    SettingSwitchRow(
+                        icon = Icons.Rounded.NotificationsActive,
+                        title = "Timer reminders",
+                        subtitle = "Warn me 5 minutes and 1 minute before a timed session ends",
+                        checked = settings.notifyTimerAlerts,
+                        onCheckedChange = onTimerAlertsChange,
+                        switchDescription = "Timer reminder toggle"
+                    )
+                    GuestVaultDivider()
+                    SettingSwitchRow(
+                        icon = Icons.Rounded.Summarize,
+                        title = "Session summary",
+                        subtitle = "A short recap after each session ends",
+                        checked = settings.notifySessionSummary,
+                        onCheckedChange = onSessionSummaryChange,
+                        switchDescription = "Session summary toggle"
+                    )
+                    GuestVaultDivider()
+                    SettingRow(
+                        icon = Icons.Rounded.NotificationsNone,
+                        title = "Android notification settings",
+                        subtitle = "Per-channel sound, vibration and lock-screen options",
+                        onClick = openSystemNotificationSettings
+                    )
+                }
+            }
+
+            item {
                 SettingsGroup(title = "Appearance") {
                     Row(
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
@@ -342,7 +394,7 @@ fun SettingsScreen(
                         icon = Icons.Rounded.Info,
                         title = "Version",
                         subtitle = "GuestVault for Android 10+",
-                        trailingText = BuildConfig.VERSION_NAME
+                        trailingText = AppVersion.display
                     )
                 }
             }

@@ -7,7 +7,10 @@ import com.guestvault.domain.model.UnlockGuard
  * covered by fast JVM unit tests (`LockoutPolicyTest`).
  *
  * Rules:
- *  - [MAX_ATTEMPTS] wrong PINs in a row trigger a cool-down.
+ *  - [MAX_ATTEMPTS] wrong PINs in a row trigger a cool-down, and one security
+ *    notification (see `GuestNotifications.notifyLockout`). Three is deliberate:
+ *    the guest gets a fair chance at a typo, and the owner hears about it before
+ *    a patient guesser gets far.
  *  - The cool-down doubles on every further round of failures (30s, 60s, ...)
  *    and is capped at [MAX_LOCKOUT_SECONDS].
  *  - Attempts are never reset by recreating the UI; only a correct PIN (or a
@@ -15,7 +18,7 @@ import com.guestvault.domain.model.UnlockGuard
  */
 object LockoutPolicy {
 
-    const val MAX_ATTEMPTS = 5
+    const val MAX_ATTEMPTS = 3
     const val BASE_LOCKOUT_SECONDS = 30L
     const val MAX_LOCKOUT_SECONDS = 900L
 

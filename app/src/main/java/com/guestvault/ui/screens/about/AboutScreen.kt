@@ -45,7 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.guestvault.core.LegalText
-import com.guestvault.BuildConfig
+import com.guestvault.core.AppVersion
 import com.guestvault.ui.components.GuestVaultCard
 import com.guestvault.ui.components.GuestVaultTopBar
 import com.guestvault.ui.components.GuestVaultMark
@@ -100,7 +100,7 @@ fun AboutScreen(onBack: () -> Unit) {
                     )
                     Spacer(Modifier.height(10.dp))
                     StatusPill(
-                        text = "Version ${BuildConfig.VERSION_NAME} · MIT",
+                        text = "Version ${AppVersion.display} · MIT",
                         icon = Icons.Rounded.Security
                     )
                 }
