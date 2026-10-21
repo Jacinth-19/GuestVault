@@ -90,6 +90,8 @@ are unsupported — which is fine, because the generator does not emit them.
 | Session alerts | `TimerRemindersTest` | 5-min and 1-min warnings fire once each, short sessions skip the 5-min one, a dozing device gets only the most relevant reminder. |
 | Session model | `SessionModelTest` | `durationMinutes = 0` means no limit; `remainingMillis()` never goes negative; end reasons round-trip through storage. |
 | Formatting | `FormattersTest` | Countdown, duration and day labels stay stable. |
+| Version display | `AppVersionTest` | `AppVersion.display` never contains a build-type suffix and always equals `VERSION_NAME.substringBefore('-')`, so the splash pill, footer, About page and Settings row cannot disagree. |
+| Splash progress | `SplashSweepTest` | The ping-pong sweep starts and ends on the track, mirrors itself, never overhangs the track at any phase, and leaves a visible highlight when the clock is frozen (animations off). |
 
 ### What the instrumented walkthrough covers (`GuestVaultFlowTest`)
 
@@ -181,9 +183,10 @@ Work through them in order on a fresh install first, then repeat the ones marked
    composition with the shield/keyhole drawn — not a blank box and not frame 0.
    Lottie scales its playback speed by the system animator scale, so at scale 0
    an "animate once" composition *stalls* on frame 0 unless the app substitutes
-   the final frame itself; `ui/Motion.kt` is that substitution, and it is re-read
-   on every resume so toggling the setting while backgrounded still takes
-   effect.
+   the final frame itself. `ui/Motion.kt` is that substitution: it asks
+   `ValueAnimator.areAnimatorsEnabled()` — the same signal Compose and Lottie
+   consume — and re-reads it on every resume, so toggling the setting while the
+   app is backgrounded still takes effect.
    **Also expect:** the splash progress line keeps a teal highlight at a fixed
    position (about a third along), because an infinite animation at duration
    scale 0 has no meaningful phase to sample.
