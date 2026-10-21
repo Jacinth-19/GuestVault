@@ -377,6 +377,8 @@ class StepPlanTest : StepHarness() {
         verify("5.1", "Only one selected at a time") {
             // The plan names the five chips literally: No limit / 5 / 15 / 30 / 60 min.
             val wanted = listOf("No limit", "5 min", "15 min", "30 min", "60 min")
+            scrollToText("Session length", maxSwipes = 8)
+            pause(600)
             val anchor = device.findObject(By.text("No limit")) ?: device.findObject(By.text("5 min"))
             val rowY = runCatching { anchor!!.visibleCenter.y }.getOrDefault(device.displayHeight / 2)
             val seen = mutableSetOf<String>()
@@ -848,9 +850,9 @@ class StepPlanTest : StepHarness() {
             expectTrue(waitFor("Confirm your PIN", 10_000), "no confirmation step for the new PIN")
             enterPin(newPin)
             pause(1_500)
-            // Everything after this point (including ensureOwnerHome) unlocks
-            // with the PIN that is now stored.
-            pinDigits = newPin
+            // Everything after this point (including the next instrumentation
+            // process) unlocks with the PIN that is now stored.
+            rememberPin(newPin)
             if (!device.hasObject(By.text("Start Guest Session"))) {
                 while (!device.hasObject(By.text("Start Guest Session")) && device.hasObject(By.desc("Back"))) {
                     tapDesc("Back")
@@ -1553,7 +1555,17 @@ class StepPlanTest : StepHarness() {
         expectTrue(waitFor("One last look before you hand over", 12_000), "confirm screen not open")
         if (minutes > 0) {
             val label = durationLabel(minutes)
-            if (!tapChip(label)) note("could not find the $label chip")
+            tapChip(label)
+            if (selectedChips().none { it.contains(label.removeSuffix(" min")) }) {
+                // One more try with the page scrolled to the row's own heading.
+                scrollToText("Session length", maxSwipes = 8)
+                pause(500)
+                tapChip(label)
+            }
+            expectTrue(
+                selectedChips().any { it.contains(label.removeSuffix(" min")) },
+                "the $label chip could not be selected (selected: ${selectedChips()})"
+            )
         }
         tapText("Start Guest Mode")
         pause(1_500)

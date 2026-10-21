@@ -27,6 +27,6 @@ class FormattersTest {
     fun `timer options are labelled`() {
         assertEquals("No limit", Formatters.minutesLabel(0))
         assertEquals("5 min", Formatters.minutesLabel(5))
-        assertEquals("1 hour", Formatters.minutesLabel(60))
+        assertEquals("60 min", Formatters.minutesLabel(60))
     }
 }

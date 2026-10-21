@@ -25,8 +25,32 @@ abstract class StepHarness {
     protected lateinit var screenshots: File
 
     protected val pin = "4726"
-    /** Changes after step 9.1, so later steps unlock with the new PIN. */
+
+    /**
+     * The PIN the app currently has.
+     *
+     * Steps run as separate instrumentation processes, so a PIN changed in 9.1
+     * would otherwise be forgotten and every later unlock would spend attempts
+     * on the old one until the cool-down locked the whole pass out. The value is
+     * kept in the app's own data directory, so `pm clear` (and a fresh install)
+     * wipes the note exactly when it wipes the PIN.
+     */
     protected var pinDigits: List<String> = pin.map(Char::toString)
+        private set
+
+    protected fun rememberPin(digits: List<String>) {
+        pinDigits = digits
+        runCatching {
+            File(context.filesDir, PIN_FILE).writeText(digits.joinToString(""))
+        }
+    }
+
+    private fun restorePin() {
+        val saved = runCatching { File(context.filesDir, PIN_FILE).readText().trim() }.getOrNull()
+        if (saved != null && saved.length == 4 && saved.all(Char::isDigit)) {
+            pinDigits = saved.map(Char::toString)
+        }
+    }
 
     /** Call from `@Before`. Leaves the device awake, unlocked and on the launcher. */
     open fun prepare() {
@@ -35,6 +59,7 @@ abstract class StepHarness {
         context = ApplicationProvider.getApplicationContext()
 
         StepResults.initialise(context)
+        restorePin()
 
         screenshots = File(context.filesDir, "plan-shots").apply { mkdirs() }
 
@@ -254,6 +279,8 @@ abstract class StepHarness {
                     // The probe can be a frame ahead of the screen; only type
                     // when the keypad is really there, otherwise look again.
                     tryEnterPin(pinDigits)
+                    // Later phases run in a new process: record which PIN this is.
+                    rememberPin(pinDigits)
                     pause(1_200)
                 }
                 "guestHome" -> {
@@ -548,8 +575,7 @@ abstract class StepHarness {
         }
     }
 
-    /** Every visible text on screen — used to prove a string is *absent*. */
-    /** Never throws: a stale node must not cost a whole pass its verdicts. */
+    /** Every visible text on screen — never throws: a stale node must not cost a whole pass its verdicts. */
     protected fun visibleText(): String = runCatching {
         device.findObjects(By.textContains(""))
             .mapNotNull { node -> runCatching { node.text }.getOrNull() }
@@ -559,5 +585,9 @@ abstract class StepHarness {
     protected fun shot(name: String) {
         pause(350)
         runCatching { device.takeScreenshot(File(screenshots, name)) }
+    }
+
+    private companion object {
+        const val PIN_FILE = "plan-pin.txt"
     }
 }
