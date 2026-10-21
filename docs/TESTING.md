@@ -87,7 +87,7 @@ are unsupported — which is fine, because the generator does not emit them.
 | --- | --- | --- |
 | PIN storage | `PinHasherTest` | The raw PIN is never stored; salted PBKDF2 hashes differ per PIN and per salt. |
 | Brute force | `LockoutPolicyTest` | 3 wrong PINs start a 30 s cool-down, each further round doubles it, capped at 15 min, and only a correct PIN resets the counter. |
-| Timer reminders | `TimerRemindersTest` | 5-min and 1-min warnings fire once each, short sessions skip the 5-min one, a dozing device gets only the most relevant reminder. |
+| Session alerts | `TimerRemindersTest` | 5-min and 1-min warnings fire once each, short sessions skip the 5-min one, a dozing device gets only the most relevant reminder. |
 | Session model | `SessionModelTest` | `durationMinutes = 0` means no limit; `remainingMillis()` never goes negative; end reasons round-trip through storage. |
 | Formatting | `FormattersTest` | Countdown, duration and day labels stay stable. |
 
@@ -293,11 +293,11 @@ Four channels, each with one job. Check them in Android settings
 
 1. Fresh install, grant notifications when asked.
 2. Open Settings → Permissions & privacy → **Notification channels**.
-   **Expect:** four rows, all **On**: *Guest session*, *Timer reminders*,
+   **Expect:** four rows, all **On**: *Guest session*, *Session alerts*,
    *Session summaries*, *Security alerts*.
 3. Open Android's notification settings for GuestVault and check each channel:
    * Guest session — importance **Low**, no sound, no vibration, no badge.
-   * Timer reminders — **Default**.
+   * Session alerts — **Default**.
    * Session summaries — **Default**.
    * Security alerts — **High**, sound and vibration on, appears on the lock
      screen.
@@ -320,7 +320,7 @@ Four channels, each with one job. Check them in Android settings
 4. Tap it.
    **Expect:** the guest home opens (not the dashboard).
 
-#### 8c. Timer reminders
+#### 8c. Session alerts
 
 1. Start a 15-minute session and wait.
    **Expect:** at **5:00** remaining, "5 minutes left"; at **1:00** remaining,
@@ -331,7 +331,7 @@ Four channels, each with one job. Check them in Android settings
 3. Start a **5-minute** session.
    **Expect:** no "5 minutes left" banner at t=0. The only reminder is
    "1 minute left" at 1:00.
-4. Set **Settings → Notifications → Timer reminders** off, start a 5-minute
+4. Set **Settings → Notifications → Session alerts** off, start a 5-minute
    session, wait for the 1-minute mark.
    **Expect:** no reminder, and the session still ends on time.
 5. Put the phone to sleep through the 5-minute mark of a 15-minute session, wake
@@ -353,7 +353,7 @@ Four channels, each with one job. Check them in Android settings
 4. Turn the summary setting off and end another session.
    **Expect:** no summary. The setting survives a restart.
 5. End a session while inside a session-notification tap.
-   **Expect:** the ongoing notice and any timer reminders disappear together;
+   **Expect:** the ongoing notice and any session alerts disappear together;
    the summary is the only thing left in the shade.
 
 #### 8e. Security alerts
@@ -447,7 +447,7 @@ Work down every row.
    shows no "Wiped".
 5. **Default session timer** — pick 15 min; the confirm screen preselects 15 min.
 6. **Session history** — opens Pass 10.
-7. **Notifications → Timer reminders / Session summary** — see Pass 8.
+7. **Notifications → Session alerts / Session summary** — see Pass 8.
 8. **Notifications → Android notification settings** — opens the OS screen for
    GuestVault, not a generic settings page.
 9. **Appearance → Theme** — System / Light / Dark all apply immediately,
