@@ -247,7 +247,7 @@ abstract class StepHarness {
         digits.forEach { digit ->
             val selector = By.desc("PIN key $digit")
             expectTrue(device.wait(Until.hasObject(selector), 8_000), "PIN key $digit not found")
-            val clicked = runCatching { device.findObject(selector)?.click() ?: false }.getOrDefault(false)
+            val clicked = runCatching { device.findObject(selector)!!.click() }.isSuccess
             if (!clicked) {
                 pause(350)
                 runCatching { device.findObject(selector)?.click() }
@@ -293,7 +293,7 @@ abstract class StepHarness {
 
     protected fun tapText(text: String, timeout: Long = 15_000) {
         expectTrue(waitFor(text, timeout), "Timed out waiting for \"$text\"")
-        val clicked = runCatching { device.findObject(By.text(text))?.click() ?: false }.getOrDefault(false)
+        val clicked = runCatching { device.findObject(By.text(text))!!.click() }.isSuccess
         if (!clicked) {
             pause(400)
             runCatching { device.findObject(By.text(text))?.click() }
@@ -303,7 +303,7 @@ abstract class StepHarness {
 
     protected fun tapDesc(desc: String, timeout: Long = 15_000) {
         expectTrue(waitForDesc(desc, timeout), "Timed out waiting for description \"$desc\"")
-        val clicked = runCatching { device.findObject(By.desc(desc))?.click() ?: false }.getOrDefault(false)
+        val clicked = runCatching { device.findObject(By.desc(desc))!!.click() }.isSuccess
         if (!clicked) {
             pause(400)
             runCatching { device.findObject(By.desc(desc))?.click() }
