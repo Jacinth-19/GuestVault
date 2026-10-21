@@ -19,3 +19,9 @@ object AppVersion {
     val display: String
         get() = BuildConfig.VERSION_NAME.substringBefore('-')
 }
+
+/**
+ * The public privacy policy the Play listing points at. It has to stay a live,
+ * non-geofenced web page; [LegalText.PRIVACY_POLICY] is the offline copy.
+ */
+const val PRIVACY_POLICY_URL = "https://jacinth-19.github.io/GuestVault/privacy.html"
