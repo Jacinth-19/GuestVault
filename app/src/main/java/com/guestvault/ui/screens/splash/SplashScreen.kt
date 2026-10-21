@@ -108,22 +108,20 @@ fun SplashScreen(
             .fillMaxSize()
             .background(Indigo800)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(Modifier.weight(1f))
+        // Measured on the *screen*, not on the padded column: "~30% of the
+        // width" means 30% of the phone, and the column's 28 dp gutters would
+        // otherwise shrink the mark to ~26%.
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val markSize = (maxWidth * 0.30f).coerceIn(104.dp, 168.dp)
 
-            BoxWithConstraints(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // "~30% of the screen width", clamped so it still reads as the
-                // hero element on a small phone and does not become a billboard
-                // on a tablet.
-                val markSize = (maxWidth * 0.30f).coerceIn(104.dp, 168.dp)
+                Spacer(Modifier.weight(1f))
+
                 ShieldMark(
                     size = markSize,
                     modifier = Modifier
@@ -133,70 +131,61 @@ fun SplashScreen(
                             alpha = logoAlpha
                         }
                 )
-            }
 
-            Spacer(Modifier.height(26.dp))
+                Spacer(Modifier.height(26.dp))
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .alpha(textAlpha)
-            ) {
-                Text(
-                    text = stringResource(R.string.app_name),
-                    color = Color.White,
-                    fontSize = 40.sp,
-                    lineHeight = 44.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-1.1).sp,
-                    maxLines = 1,
-                    softWrap = false
-                )
-                Spacer(Modifier.width(10.dp))
-                Box(
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
-                        .alpha(pillAlpha)
-                        .clip(RoundedCornerShape(percent = 50))
-                        .background(Color.White.copy(alpha = 0.22f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                        .semantics { contentDescription = versionDescription }
+                        .fillMaxWidth()
+                        .alpha(textAlpha)
                 ) {
                     Text(
-                        text = versionName,
+                        text = stringResource(R.string.app_name),
                         color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.2.sp
+                        fontSize = 40.sp,
+                        lineHeight = 44.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-1.1).sp,
+                        maxLines = 1,
+                        softWrap = false
                     )
+                    Spacer(Modifier.width(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .alpha(pillAlpha)
+                            .clip(RoundedCornerShape(percent = 50))
+                            .background(Color.White.copy(alpha = 0.22f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .semantics { contentDescription = versionDescription }
+                    ) {
+                        Text(
+                            text = versionName,
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.2.sp
+                        )
+                    }
                 }
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text = stringResource(R.string.app_tagline),
+                    color = Color.White.copy(alpha = 0.78f),
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.alpha(textAlpha)
+                )
+
+                Spacer(Modifier.height(30.dp))
+
+                IndeterminateLine(modifier = Modifier.alpha(textAlpha))
+
+                Spacer(Modifier.weight(1f))
             }
-
-            Spacer(Modifier.height(12.dp))
-
-            Text(
-                text = stringResource(R.string.app_tagline),
-                color = Color.White.copy(alpha = 0.78f),
-                fontSize = 14.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.alpha(textAlpha)
-            )
-
-            Spacer(Modifier.height(30.dp))
-
-            IndeterminateLine(modifier = Modifier.alpha(textAlpha))
-
-            Spacer(Modifier.weight(1f))
-
-            Text(
-                text = versionDescription,
-                color = Color.White.copy(alpha = 0.45f),
-                fontSize = 11.sp,
-                modifier = Modifier
-                    .padding(bottom = 18.dp)
-                    .alpha(pillAlpha)
-            )
         }
     }
 }
