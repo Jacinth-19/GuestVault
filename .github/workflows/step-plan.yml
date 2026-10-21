@@ -108,6 +108,7 @@ jobs:
             step-plan.log
             step-plan-build.log
             build/logcat/*.txt
+            build/logcat/*.logcat.txt
           if-no-files-found: warn
 
       - name: Report failure details

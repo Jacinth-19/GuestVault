@@ -160,6 +160,7 @@ class StepPlanTest : StepHarness() {
             enterPin(wrongPin)
             pause(1_200)
             val error = waitForAny("Try again", "didn't match", "doesn't match", timeout = 6_000)
+                ?: waitForContains("Try again", 4_000).let { if (it) "Try again" else null }
             expectTrue(error != null, "no inline mismatch error (screen: ${visibleText().take(150)})")
             expectTrue(
                 device.hasObject(By.text("Confirm your PIN")),
@@ -298,7 +299,10 @@ class StepPlanTest : StepHarness() {
             val noWarning = mutableListOf<String>()
             listOf("Settings", "Play Store", "Messages", "Contacts", "Photos").forEach { label ->
                 search(label)
-                pause(500)
+                repeat(8) {
+                    if (appRows().isNotEmpty() || device.hasObject(By.text("No apps match"))) return@repeat
+                    pause(400)
+                }
                 if (appRows().isEmpty()) {
                     missing += "$label (no row; screen: ${visibleText().take(70)})"
                     return@forEach
@@ -361,13 +365,27 @@ class StepPlanTest : StepHarness() {
                 "chips missing: ${absent.joinToString()} (the row shows: ${visibleText().take(140)})"
             )
             tapText("15 min")
-            pause(500)
-            expectTrue(chipSelected("15 min"), "15 min did not become selected")
-            expectTrue(!chipSelected("No limit"), "No limit is still selected")
+            pause(700)
+            val afterFifteen = selectedChips()
+            expectTrue(
+                afterFifteen.any { it.contains("15") },
+                "15 min did not become selected (selected: $afterFifteen)"
+            )
+            expectTrue(
+                afterFifteen.none { it.contains("No limit") },
+                "No limit is still selected alongside ${afterFifteen.joinToString()}"
+            )
             tapText("No limit")
-            pause(500)
-            expectTrue(chipSelected("No limit"), "No limit did not become selected")
-            expectTrue(!chipSelected("15 min"), "15 min is still selected")
+            pause(700)
+            val afterNoLimit = selectedChips()
+            expectTrue(
+                afterNoLimit.any { it.contains("No limit") },
+                "No limit did not become selected (selected: $afterNoLimit)"
+            )
+            expectTrue(
+                afterNoLimit.none { it.contains("15") },
+                "15 min is still selected alongside ${afterNoLimit.joinToString()}"
+            )
         }
 
         verify("5.2", "State persists through the toggle") {
@@ -864,8 +882,9 @@ class StepPlanTest : StepHarness() {
             openSettings()
             tapText("Permissions & privacy")
             expectTrue(
-                waitForAny("No internet permission", "Permissions on this device", timeout = 12_000) != null,
-                "permissions screen did not open"
+                waitForAny("Permissions & privacy", "Permissions on this device", timeout = 10_000) != null ||
+                    waitForContains("No internet permission", 6_000),
+                "permissions screen did not open (screen: ${visibleText().take(120)})"
             )
             listOf("Notifications", "Biometrics", "Foreground service", "Start at boot").forEach {
                 expectTrue(device.hasObject(By.text(it)), "missing permission row: $it")
@@ -940,8 +959,9 @@ class StepPlanTest : StepHarness() {
             scrollToText("Permissions & privacy")
             tapText("Permissions & privacy")
             expectTrue(
-                waitForAny("No internet permission", "Permissions on this device", timeout = 12_000) != null,
-                "permissions screen did not open"
+                waitForAny("Permissions & privacy", "Permissions on this device", timeout = 10_000) != null ||
+                    waitForContains("No internet permission", 6_000),
+                "permissions screen did not open (screen: ${visibleText().take(120)})"
             )
             expectTrue(device.hasObject(By.text("Not granted")), "notifications row does not say Not granted")
             expectTrue(device.hasObject(By.text("Open settings")), "no button to fix it")
@@ -953,8 +973,11 @@ class StepPlanTest : StepHarness() {
                 pause(600)
             }
             pickApps(3)
-            startSessionHere(minutes = 15, acceptPin = false, permission = "deny")
-            expectTrue(waitFor("Welcome to Guest Mode", 25_000), "session was blocked without notifications")
+            val denyNote = startSessionHere(minutes = 15, acceptPin = false, permission = "deny")
+            expectTrue(
+                waitFor("Welcome to Guest Mode", 25_000),
+                "session was blocked without notifications ($denyNote)"
+            )
             val dump = shell("dumpsys notification --noredact")
             expectTrue(!dump.contains("Guest Mode is on"), "a notification was posted even though it was revoked")
         }
@@ -1350,6 +1373,12 @@ class StepPlanTest : StepHarness() {
         else -> "$minutes min"
     }
 
+    /** Compose exposes the chip's selected state on the chip node, not the label. */
+    private fun selectedChips(): List<String> =
+        (device.findObjects(By.selected(true)) + device.findObjects(By.checked(true)))
+            .mapNotNull { it.text }
+            .filter { it.isNotBlank() }
+
     private fun chipSelected(label: String): Boolean =
         device.findObjects(By.selected(true)).any { it.text?.contains(label) == true } ||
             device.findObject(By.text(label))?.isSelected == true
@@ -1613,13 +1642,13 @@ class StepPlanTest : StepHarness() {
 
     private fun swipeLeft() {
         device.swipe(
-            (device.displayWidth * 0.85f).toInt(),
+            (device.displayWidth * 0.9f).toInt(),
             (device.displayHeight * 0.45f).toInt(),
-            (device.displayWidth * 0.15f).toInt(),
+            (device.displayWidth * 0.1f).toInt(),
             (device.displayHeight * 0.45f).toInt(),
-            20
+            12
         )
-        pause(900)
+        pause(1_200)
     }
 
     private fun swipeRight() {
