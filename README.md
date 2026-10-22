@@ -252,6 +252,9 @@ Everything above is written up as an **18-pass manual test plan** — every scre
 the notification channels, brute force, reboot recovery, reduced motion (`ui/Motion.kt`) and the
 Play Store submission checks: **[docs/TESTING.md](docs/TESTING.md)**.
 
+The 14-pass acceptance plan, graded on real emulators by CI with a verdict for
+every numbered step: **[docs/PLAN_RESULTS.md](docs/PLAN_RESULTS.md)**.
+
 Run them yourself:
 
 ```bash

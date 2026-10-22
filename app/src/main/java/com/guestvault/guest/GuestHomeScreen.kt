@@ -2,6 +2,8 @@ package com.guestvault.guest
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -116,8 +119,18 @@ fun GuestHomeRoute(
     }
 
     // The session can end from the lock screen, the timer service or a wipe.
+    //
+    // A *new* session, however, is written to DataStore by SessionController and
+    // this activity is opened straight afterwards. A collector that attached a
+    // moment too early sees the previous (empty) value and would bounce the
+    // owner right back out, which is what made "start a session" land on the
+    // launcher. Wait for the write to land before treating "no session" as the
+    // end of one; the effect is keyed on the session, so the wait is cancelled
+    // the instant it arrives.
     LaunchedEffect(state.loaded, state.session) {
-        if (state.loaded && state.session == null) onReturnToOwner()
+        if (!state.loaded || state.session != null) return@LaunchedEffect
+        delay(2_000)
+        onReturnToOwner()
     }
 
     // Never let Back leave the guest space. The handler stays enabled while the
@@ -174,6 +187,10 @@ fun GuestHomeScreen(
     }
     val remaining = session.remainingMillis(now)
 
+    // In landscape the decorative hero would otherwise eat the whole screen and
+    // push the app grid out of reach.
+    val compact = LocalConfiguration.current.screenHeightDp < 560
+
     // Redundant safety net in case the foreground service was killed.
     LaunchedEffect(remaining) {
         if (remaining != null && remaining <= 0L) onEndSession(EndReason.TIMER_EXPIRED)
@@ -187,7 +204,7 @@ fun GuestHomeScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(330.dp)
+                .height(if (compact) 190.dp else 330.dp)
                 .background(HeroGradient)
         )
         Box(
@@ -199,7 +216,13 @@ fun GuestHomeScreen(
                 .background(Color.White.copy(alpha = 0.05f))
         )
 
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = if (compact) {
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            } else {
+                Modifier.fillMaxSize()
+            }
+        ) {
             // ---------------------------------------------------------- header
             Column(
                 modifier = Modifier
@@ -247,20 +270,26 @@ fun GuestHomeScreen(
                     }
                 }
 
-                Spacer(Modifier.height(22.dp))
+                Spacer(Modifier.height(if (compact) 8.dp else 22.dp))
                 Text(
                     text = "Welcome to Guest Mode",
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = if (compact) {
+                        MaterialTheme.typography.titleMedium
+                    } else {
+                        MaterialTheme.typography.headlineSmall
+                    },
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "This phone is in a temporary, limited space.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.75f)
-                )
-                Spacer(Modifier.height(14.dp))
+                if (!compact) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "This phone is in a temporary, limited space.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.75f)
+                    )
+                }
+                Spacer(Modifier.height(if (compact) 6.dp else 14.dp))
 
                 if (remaining != null) {
                     Surface(
@@ -328,7 +357,10 @@ fun GuestHomeScreen(
                         )
                     }
 
-                    if (state.session?.lockTaskEnabled == true && !pinned) {
+                    // Any session that is not actually pinned can be left with
+                    // the system buttons, whether pinning was disabled in
+                    // settings or the owner declined the system dialog.
+                    if (!pinned) {
                         Spacer(Modifier.height(10.dp))
                         InfoBanner(
                             icon = Icons.Rounded.WarningAmber,
@@ -344,7 +376,7 @@ fun GuestHomeScreen(
                     Spacer(Modifier.height(10.dp))
 
                     if (state.apps.isEmpty()) {
-                        Box(modifier = Modifier.weight(1f)) {
+                        Box(modifier = if (compact) Modifier.height(160.dp) else Modifier.weight(1f)) {
                             EmptyState(
                                 icon = Icons.Rounded.Shield,
                                 title = "No apps allowed",
@@ -354,7 +386,10 @@ fun GuestHomeScreen(
                     } else {
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(4),
-                            modifier = Modifier.weight(1f),
+                            // A weighted child of a scrollable column has no
+                            // height, so landscape gets an explicit one and the
+                            // page scrolls instead.
+                            modifier = if (compact) Modifier.height(210.dp) else Modifier.weight(1f),
                             contentPadding = PaddingValues(vertical = 6.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(14.dp)

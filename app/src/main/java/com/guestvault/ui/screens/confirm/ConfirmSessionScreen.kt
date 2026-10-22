@@ -8,6 +8,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,8 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CleaningServices
@@ -177,6 +177,7 @@ fun ConfirmSessionRoute(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ConfirmSessionScreen(
     state: ConfirmUiState,
@@ -311,8 +312,26 @@ fun ConfirmSessionScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(10.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(DURATION_OPTIONS) { minutes ->
+                    // The chips show what exists; this line shows what is chosen,
+                    // which is also the only place the choice is stated in words.
+                    Text(
+                        text = if (state.durationMinutes > 0) {
+                            "Ends automatically after ${Formatters.minutesLabel(state.durationMinutes)}"
+                        } else {
+                            "No time limit"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    // All five choices wrap instead of scrolling sideways: a
+                    // hidden chip is a choice the owner cannot see or make.
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        DURATION_OPTIONS.forEach { minutes ->
                             FilterChip(
                                 selected = state.durationMinutes == minutes,
                                 onClick = { onDurationChange(minutes) },
@@ -365,7 +384,9 @@ fun ConfirmSessionScreen(
                     icon = Icons.Rounded.Lock,
                     title = "Honest limits",
                     text = "The notification shade and hardware buttons remain available unless you " +
-                        "enable screen pinning. True user isolation requires system privileges.",
+                        "enable screen pinning. Android does not let one app erase another app's " +
+                        "data either, so a wipe only clears what this session created. True user " +
+                        "isolation requires system privileges.",
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -1,6 +1,7 @@
 package com.guestvault.ui.screens.settings
 
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -60,6 +61,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.biometric.BiometricManager
 import com.guestvault.core.AppVersion
+import com.guestvault.core.PRIVACY_POLICY_URL
 import com.guestvault.core.Formatters
 import com.guestvault.core.LegalText
 import com.guestvault.domain.model.OwnerSettings
@@ -190,6 +192,19 @@ fun SettingsScreen(
 
     var showDurationDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
+
+    // The policy lives on the public page the Play listing links to. Opening it
+    // there is what the store requires; the in-app copy stays as an offline
+    // fallback for phones with no browser.
+    val openPrivacyPolicy: () -> Unit = {
+        val opened = runCatching {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }.isSuccess
+        if (!opened) showPrivacyDialog = true
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -387,7 +402,7 @@ fun SettingsScreen(
                         icon = Icons.Rounded.PrivacyTip,
                         title = "Privacy policy",
                         subtitle = "What is stored, and what never leaves the phone",
-                        onClick = { showPrivacyDialog = true }
+                        onClick = openPrivacyPolicy
                     )
                     GuestVaultDivider()
                     SettingRow(
@@ -427,7 +442,8 @@ fun SettingsScreen(
     if (showPrivacyDialog) {
         LongTextDialog(
             title = "Privacy policy",
-            body = LegalText.PRIVACY_POLICY,
+            body = LegalText.PRIVACY_POLICY +
+                "\n\nThe same policy, always up to date: " + PRIVACY_POLICY_URL,
             onDismiss = { showPrivacyDialog = false }
         )
     }

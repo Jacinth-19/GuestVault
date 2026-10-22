@@ -470,13 +470,15 @@ private fun HistoryRow(record: SessionRecord) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "${Formatters.dayLabel(record.startedAt)} · ${Formatters.timeOnly(record.startedAt)}",
+                    text = "${Formatters.dayLabel(record.startedAt)} · " +
+                        "${Formatters.timeOnly(record.startedAt)} – ${Formatters.timeOnly(record.endedAt)}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "${record.appCount} apps · ${Formatters.duration(record.durationMillis)}",
+                    text = "${Formatters.duration(record.durationMillis)} · " +
+                        "${record.appCount} apps allowed",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

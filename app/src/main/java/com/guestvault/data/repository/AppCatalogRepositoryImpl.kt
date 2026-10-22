@@ -39,10 +39,14 @@ class AppCatalogRepositoryImpl @Inject constructor(
             packageManager.queryIntentActivities(launcherIntent, 0)
         }.getOrElse { emptyList() }
 
-        val homePackages = runCatching {
+        // Compare *components*, not packages: the Settings app also ships the
+        // pre-unlock FallbackHome activity, so excluding its whole package removed
+        // Settings (and its sensitive-app warning) from the picker entirely.
+        val homeComponents = runCatching {
             packageManager.queryIntentActivities(homeIntent, 0)
         }.getOrElse { emptyList() }
-            .map { it.activityInfo.packageName }
+            .mapNotNull { it.activityInfo }
+            .map { "${it.packageName}/${it.name}" }
             .toSet()
 
         val seen = HashSet<String>(launchers.size)
@@ -51,7 +55,8 @@ class AppCatalogRepositoryImpl @Inject constructor(
         for (resolveInfo in launchers) {
             val packageName = resolveInfo.activityInfo?.packageName ?: continue
             if (packageName == selfPackage) continue
-            if (packageName in homePackages) continue
+            val component = "${packageName}/${resolveInfo.activityInfo?.name}"
+            if (component in homeComponents) continue
             if (!seen.add(packageName)) continue
 
             val appInfo = resolveInfo.activityInfo.applicationInfo ?: continue

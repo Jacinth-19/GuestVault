@@ -23,10 +23,12 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.retryWhen
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "guestvault_settings"
@@ -38,6 +40,17 @@ class SettingsRepositoryImpl @Inject constructor(
 ) : SettingsRepository {
 
     override val settings: Flow<OwnerSettings> = context.settingsDataStore.data
+        .retryWhen { cause, attempt ->
+            // A read can fail transiently (a write landing while the file is
+            // replaced). Only fall back to defaults after a few attempts, and
+            // never lose a completed onboarding because of one bad read.
+            if (cause is IOException && attempt < 3) {
+                delay(120)
+                true
+            } else {
+                false
+            }
+        }
         .catch { error ->
             if (error is IOException) {
                 Log.w(TAG, "Could not read settings, using defaults", error)
@@ -108,7 +121,13 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun addSessionRecord(record: SessionRecord) {
         context.settingsDataStore.edit { prefs ->
             val existing = decodeHistory(prefs[Keys.HISTORY])
-            val updated = (listOf(record) + existing).take(MAX_HISTORY)
+            // An end() that raced another end() could add the same session
+            // twice; the history screen then had duplicate rows.
+            val duplicate = existing.any {
+                it.startedAt == record.startedAt && it.endedAt == record.endedAt
+            }
+            val updated = (if (duplicate) existing else listOf(record) + existing)
+                .take(MAX_HISTORY)
             prefs[Keys.HISTORY] = updated.joinToString("\n") { it.encode() }
         }
     }
