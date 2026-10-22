@@ -357,6 +357,17 @@ abstract class StepHarness {
      * machine, where a stale probe must not fail the pass.
      */
     protected fun tryEnterPin(digits: List<String>): Boolean {
+        // A cool-down ignores taps; waiting is the difference between "the PIN
+        // was rejected" and "the app never saw it".
+        if (has(By.textContains("Too many attempts"))) {
+            val deadline = System.currentTimeMillis() + 120_000
+            while (System.currentTimeMillis() < deadline &&
+                has(By.textContains("Too many attempts"))
+            ) {
+                Thread.sleep(1_000)
+            }
+            pause(600)
+        }
         for (digit in digits) {
             val selector = By.desc("PIN key $digit")
             val found = runCatching { device.wait(Until.hasObject(selector), 5_000) }.getOrDefault(false)
@@ -374,16 +385,31 @@ abstract class StepHarness {
         runCatching { device.wait(Until.hasObject(By.desc("PIN key 1")), 8_000) }
         pause(400)
 
+        // While a cool-down is running the keypad ignores every tap; typing into
+        // it would leave the dots empty and look like a broken screen.
+        if (has(By.textContains("Too many attempts"))) {
+            val deadline = System.currentTimeMillis() + 120_000
+            while (System.currentTimeMillis() < deadline &&
+                has(By.textContains("Too many attempts"))
+            ) {
+                Thread.sleep(1_000)
+            }
+            pause(800)
+        }
+
         repeat(2) { attempt ->
             // An error left over from the *previous* attempt says nothing about
             // this one, so compare against it: a digit landing clears it.
             val errorBefore = pinError()
+            val titleBefore = pinTitle()
             typePinDigits(digits)
-            // Did the entry land? A submit shows "Checking…", a fresh error, or
-            // the flow moves on; anything else means digits were dropped while
-            // the screen was still settling.
+            // Did the entry land? The flow advances, the screen shows
+            // "Checking…", a fresh error appears, or all four dots are filled.
+            // Anything else means digits were dropped while the screen settled.
             val errorNow = pinError()
-            val answered = has(By.textContains("Checking…")) ||
+            val advanced = pinTitle() != titleBefore
+            val answered = advanced ||
+                has(By.textContains("Checking…")) ||
                 (errorNow != null && errorNow != errorBefore)
             val filled = filledDots()
             if (answered || filled == null || filled >= digits.size) return
@@ -447,6 +473,16 @@ abstract class StepHarness {
         }
         pause(900)
     }
+
+    /** Which PIN screen is up, by its own title. */
+    private fun pinTitle(): String? =
+        listOf(
+            "Owner lock",
+            "Create your owner PIN",
+            "Confirm your PIN",
+            "Enter your current PIN",
+            "Choose a new PIN"
+        ).firstOrNull { has(By.text(it)) }
 
     /** The PIN screen's inline error, if one is showing. */
     private fun pinError(): String? =
