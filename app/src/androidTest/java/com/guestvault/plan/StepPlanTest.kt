@@ -420,18 +420,18 @@ class StepPlanTest : StepHarness() {
             )
             tapChipUntil("15 min", "Ends automatically after 15 min")
             expectTrue(
-                device.hasObject(By.text("Ends automatically after 15 min")),
+                waitForTextScan("Ends automatically after 15 min", 5_000),
                 "choosing 15 min is not reflected (selection reads: ${selectedChips()}; " +
                     "text=${visibleText().take(160)})"
             )
             tapChipUntil("No limit", "No time limit")
             expectTrue(
-                device.hasObject(By.text("No time limit")),
+                waitForTextScan("No time limit", 5_000),
                 "only one chip may be chosen, but No limit did not replace 15 min " +
                     "(text=${visibleText().take(160)})"
             )
             expectTrue(
-                !device.hasObject(By.text("Ends automatically after 15 min")),
+                !visibleText().contains("Ends automatically after 15 min"),
                 "both 15 min and No limit are marked as chosen"
             )
         }
@@ -1098,14 +1098,16 @@ class StepPlanTest : StepHarness() {
                 expectTrue(device.hasObject(By.text(it)), "missing permission row: $it")
             }
             // PermissionGroup renders the header in caps ("NEVER REQUESTED").
+            val sawSection = scrollUntil(30_000) {
+                visibleText().contains("NEVER REQUESTED", ignoreCase = true) ||
+                    visibleText().contains("Never requested", ignoreCase = true)
+            }
             expectTrue(
-                scrollToText("Internet", maxSwipes = 12) &&
-                    (device.hasObject(By.text("Never requested")) ||
-                        device.hasObject(By.text("NEVER REQUESTED"))),
+                sawSection,
                 "no Never requested section (text=${visibleText().take(160)})"
             )
-            scrollToText("Internet", maxSwipes = 12)
-            expectTrue(device.hasObject(By.text("Internet")), "Internet is not listed")
+            val sawInternet = scrollUntil(20_000) { visibleText().contains("Internet") }
+            expectTrue(sawInternet, "Internet is not listed (text=${visibleText().take(160)})")
         }
 
         verify("9.8", "Limitations page, no marketing spin") {
@@ -1976,11 +1978,11 @@ class StepPlanTest : StepHarness() {
      */
     private fun tapChipUntil(chip: String, caption: String, attempts: Int = 3): Boolean {
         repeat(attempts) {
-            if (device.hasObject(By.text(caption))) return true
+            if (waitForTextScan(caption, 1_000)) return true
             runCatching { tapChip(chip) }
-            if (waitFor(caption, 8_000)) return true
+            if (waitForTextScan(caption, 8_000)) return true
         }
-        return device.hasObject(By.text(caption))
+        return waitForTextScan(caption, 2_000)
     }
 
     /** `Ends in 14:31` → 871 s, so two readings can be compared with slack. */

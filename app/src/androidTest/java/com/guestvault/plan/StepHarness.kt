@@ -630,6 +630,43 @@ abstract class StepHarness {
         }
     }
 
+    /**
+     * Polls the same text scan the failure evidence uses.
+     *
+     * `By.text` is an exact match on one node; a caption can be a merged node
+     * whose text is "No time limit" plus its own descendants. Polling the scan
+     * keeps the assertion and the evidence from disagreeing.
+     */
+    protected fun waitForTextScan(text: String, timeoutMs: Long = 10_000): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (visibleText().contains(text, ignoreCase = true)) return true
+            Thread.sleep(250)
+        }
+        return visibleText().contains(text, ignoreCase = true)
+    }
+
+    /** Scrolls the page down until [predicate] holds, alternating methods. */
+    protected fun scrollUntil(timeoutMs: Long = 25_000, predicate: () -> Boolean): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var round = 0
+        while (System.currentTimeMillis() < deadline) {
+            if (predicate()) return true
+            if (round % 2 == 0) {
+                scrollForward()
+            } else {
+                val x = device.displayWidth / 2
+                device.swipe(
+                    x, (device.displayHeight * 0.80f).toInt(),
+                    x, (device.displayHeight * 0.25f).toInt(), 16
+                )
+            }
+            round++
+            pause(450)
+        }
+        return predicate()
+    }
+
     /** Every visible text on screen — never throws: a stale node must not cost a whole pass its verdicts. */
     protected fun visibleText(): String = runCatching {
         device.findObjects(By.textContains(""))
