@@ -920,8 +920,9 @@ class StepPlanTest : StepHarness() {
             // process) unlocks with the PIN that is now stored.
             rememberPin(newPin)
             if (!device.hasObject(By.text("Start Guest Session"))) {
-                while (!device.hasObject(By.text("Start Guest Session")) && device.hasObject(By.desc("Back"))) {
-                    tapDesc("Back")
+                while (!device.hasObject(By.text("Start Guest Session")) &&
+                    tapDescIfPresent("Back")
+                ) {
                     pause(700)
                 }
             }
@@ -1035,8 +1036,9 @@ class StepPlanTest : StepHarness() {
 
         verify("9.6", "Applies instantly, survives a restart, and the guest home follows too") {
             // Theme is set here; persistence is graded in pass09b after a force-stop.
-            while (!device.hasObject(By.text("Start Guest Session")) && device.hasObject(By.desc("Back"))) {
-                tapDesc("Back")
+            while (!device.hasObject(By.text("Start Guest Session")) &&
+                tapDescIfPresent("Back")
+            ) {
                 pause(700)
             }
             openSettings()
@@ -1215,9 +1217,12 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("10.2", "Session still starts; the ongoing notification is simply absent") {
-            while (!device.hasObject(By.text("Start Guest Session")) && device.hasObject(By.desc("Back"))) {
-                tapDesc("Back")
-                pause(600)
+            // On the dashboard already (the common case) there is no Back to
+            // tap, so only walk back when a nested screen has one.
+            if (!device.hasObject(By.text("Start Guest Session")) &&
+                device.hasObject(By.desc("Back"))
+            ) {
+                backToDashboard()
             }
             pickApps(3)
             val denyNote = startSessionHere(minutes = 15, acceptPin = false, permission = "deny")
@@ -1888,8 +1893,9 @@ class StepPlanTest : StepHarness() {
 
     private fun openSettings() {
         if (!device.hasObject(By.text("Start Guest Session"))) {
-            while (!device.hasObject(By.text("Start Guest Session")) && device.hasObject(By.desc("Back"))) {
-                tapDesc("Back")
+            while (!device.hasObject(By.text("Start Guest Session")) &&
+                tapDescIfPresent("Back")
+            ) {
                 pause(600)
             }
         }
