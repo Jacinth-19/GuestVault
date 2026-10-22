@@ -918,12 +918,10 @@ class StepPlanTest : StepHarness() {
         verify("9.1", "Old PIN path works; new PIN takes effect immediately — verify by starting a session and unlocking with the new one") {
             tapText("Change owner PIN")
             expectTrue(waitFor("Enter your current PIN", 10_000), "change-PIN flow did not ask for the old PIN")
+            // No retry here: re-typing the old PIN on the *new PIN* screen would
+            // silently set the old PIN as the new one and poison every later
+            // step. enterPin already retries a dropped entry internally.
             enterPin(pinDigits)
-            if (!waitFor("Choose a new PIN", 8_000)) {
-                // A dropped digit is the usual reason; the flow stays on the
-                // same screen, so one clean retry is safe.
-                enterPin(pinDigits)
-            }
             expectTrue(
                 waitFor("Choose a new PIN", 10_000),
                 "old PIN was not accepted (screen: ${visibleText().take(140)})"
@@ -933,9 +931,6 @@ class StepPlanTest : StepHarness() {
             expectTrue(waitFor("Confirm your PIN", 10_000), "no confirmation step for the new PIN")
             enterPin(newPin)
             pause(1_500)
-            // Everything after this point (including the next instrumentation
-            // process) unlocks with the PIN that is now stored.
-            rememberPin(newPin)
             // A completed change returns to Settings, one Back from the dashboard.
             backToDashboard()
             expectTrue(
@@ -949,6 +944,9 @@ class StepPlanTest : StepHarness() {
             expectTrue(waitForDesc("PIN key 1", 10_000), "lock screen missing")
             enterPin(newPin)
             expectTrue(waitFor("Start Guest Session", 25_000), "the new PIN did not unlock the session")
+            // Only now is it proven that the stored PIN really changed, so this
+            // is where the harness (and the next process) starts using it.
+            rememberPin(newPin)
         }
 
         verify("9.2", "Shows unavailable if no fingerprint/face is enrolled") {
