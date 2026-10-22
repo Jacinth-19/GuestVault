@@ -5,10 +5,11 @@ Every numbered step of the 14-pass manual plan, run on real Android emulators
 
 | | |
 | --- | --- |
-| Run | [39740107511](https://github.com/Jacinth-19/GuestVault/actions/runs/39740107511) |
-| Commit | `9ff8c96` |
+| Best run | [39740107511](https://github.com/Jacinth-19/GuestVault/actions/runs/39740107511) — commit `9ff8c96` |
+| Repeat run | [39743108321](https://github.com/Jacinth-19/GuestVault/actions/runs/39743108321) — commit `67b65df` |
 | Device | API 34 `google_apis` x86_64, Pixel 6 profile, six fresh emulators |
 | Result | **76 passed · 1 failed · 4 not automated** (of 81 steps) |
+| Repeat | 75 passed · 2 failed (9.10 + one flaky 7.3, see below) |
 
 A step with no recorded result counts as failed: if the harness did not
 verify it, it is not allowed to look green.
@@ -131,6 +132,15 @@ in the plan, not a defect in the build — but it is reported as a failure,
 not quietly re-baselined. Either the plan's Expect column should read
 `1.2.0`, or the product version should be moved back to `1.1.1`; that is
 the owner's call, so the step stays red until it is made.
+
+## The one flaky step
+
+**7.3 — Red error, dots clear.** It passed in the run above and in most runs,
+and failed in the repeat. The lock's inline error only appears after the fourth
+digit submits; on a loaded emulator a single dropped tap leaves three digits on
+screen, so nothing is submitted and nothing is reported. The step now retries the
+wrong PIN once when no error appears and the keypad still has an incomplete
+entry. (7.4 depends on this same error path and has been green throughout.)
 
 ## The four steps no emulator can answer
 

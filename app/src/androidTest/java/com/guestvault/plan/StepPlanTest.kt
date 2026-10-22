@@ -692,6 +692,16 @@ class StepPlanTest : StepHarness() {
             tapText("Return to Owner")
             expectTrue(waitForDesc("PIN key 1", 10_000), "lock screen missing")
             enterPin(wrongPin)
+            // A tap dropped while the keypad settles leaves three digits on
+            // screen: no submit, so no error either. One clean retry tells that
+            // apart from an app that really does not report a wrong PIN.
+            if (!waitForContains("Incorrect PIN", 3_000) &&
+                !device.hasObject(By.textContains("Too many attempts")) &&
+                device.hasObject(By.desc("PIN key 1"))
+            ) {
+                pause(700)
+                enterPin(wrongPin)
+            }
             var error = waitForContains("Incorrect PIN", 6_000)
             if (!error && device.hasObject(By.textContains("Too many attempts"))) {
                 // An earlier pass left the guard one failure short of a cool-down,
