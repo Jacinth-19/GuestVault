@@ -1107,7 +1107,7 @@ class StepPlanTest : StepHarness() {
         verify("9.7", "4 rows with live status + a \"Never requested\" list that includes Internet") {
             openSettings()
             expectTrue(
-                scrollToText("Permissions & privacy", maxSwipes = 12),
+                reachRow("Permissions & privacy"),
                 "the Permissions & privacy row is not in Settings " +
                     "(text=${visibleText().take(160)})"
             )
@@ -1137,7 +1137,7 @@ class StepPlanTest : StepHarness() {
             backToDashboard()
             openSettings()
             expectTrue(
-                scrollToText("How GuestVault works", maxSwipes = 12),
+                reachRow("How GuestVault works"),
                 "the How GuestVault works row is not in Settings " +
                     "(text=${visibleText().take(160)})"
             )
@@ -1151,7 +1151,7 @@ class StepPlanTest : StepHarness() {
             backToDashboard()
             openSettings()
             expectTrue(
-                scrollToText("Privacy policy", maxSwipes = 12),
+                reachRow("Privacy policy"),
                 "the Privacy policy row is not in Settings (text=${visibleText().take(160)})"
             )
             tapText("Privacy policy")
@@ -1196,7 +1196,7 @@ class StepPlanTest : StepHarness() {
             // 9.9 hands over to the browser, so the app is not in front any more.
             backToDashboard()
             openSettings()
-            expectTrue(scrollToText("Version", maxSwipes = 12), "the Version row is not in Settings")
+            expectTrue(reachRow("Version"), "the Version row is not in Settings (text=${visibleText().take(160)})")
             val version = device.findObjects(By.textContains(".")).mapNotNull { it.text }
                 .firstOrNull { Regex("^\\d+\\.\\d+\\.\\d+$").containsMatchIn(it.trim()) }
                 ?: "nothing"
@@ -1868,6 +1868,19 @@ class StepPlanTest : StepHarness() {
     }
 
     /** Presses Back until the dashboard is visible (bounded, so it cannot loop). */
+    /**
+     * Scrolls a long Settings page until [row] is on screen.
+     *
+     * Plain swipes stall on rows that take the gesture themselves (switches,
+     * channel rows), and Compose's LazyColumn only composes what is near the
+     * viewport, so this alternates swipes with accessibility scrolling for a
+     * generous amount of time before giving up.
+     */
+    private fun reachRow(row: String, timeoutMs: Long = 35_000): Boolean {
+        if (device.hasObject(By.text(row))) return true
+        return scrollUntil(timeoutMs) { device.hasObject(By.text(row)) }
+    }
+
     private fun backToDashboard(maxPresses: Int = 6) {
         repeat(maxPresses) {
             if (device.hasObject(By.text("Start Guest Session"))) return
