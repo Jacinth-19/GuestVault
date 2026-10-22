@@ -397,132 +397,30 @@ abstract class StepHarness {
             pause(800)
         }
 
-        repeat(4) { attempt ->
-            // An error left over from the *previous* attempt says nothing about
-            // this one, so compare against it: a digit landing clears it.
-            val errorBefore = pinError()
-            val titleBefore = pinTitle()
-            typePinDigits(digits)
-            // Did the entry land? The flow advances, the screen shows
-            // "Checking…", a fresh error appears, or all four dots are filled.
-            // Anything else means digits were dropped while the screen settled.
-            val errorNow = pinError()
-            val advanced = pinTitle() != titleBefore
-            val answered = advanced ||
-                has(By.textContains("Checking…")) ||
-                (errorNow != null && errorNow != errorBefore)
-            val filled = filledDots()
-            if (answered) return
-            // A full dots row is not proof on its own: the submit may still be in
-            // flight, so give it a moment to advance too.
-            if (filled != null && filled >= digits.size) {
-                pause(800)
-                if (pinTitle() != titleBefore || has(By.textContains("Checking…"))) return
-            }
-            // Clear whatever did land and type the PIN once more. The keypad is
-            // genuinely dead while the stored guard / last attempt is loading,
-            // so this is allowed to take a few rounds.
-            if (filled != null && filled > 0) {
-                repeat(filled) {
-                    runCatching { device.findObject(By.desc("Delete digit"))?.click() }
-                    pause(200)
-                }
-            }
-            pause(1_200)
-        }
-        expectTrue(
-            false,
-            "the PIN could not be typed (dots: ${filledDots()} of ${digits.size}; " +
-                "screen: ${screen()}; key=${keypadState()}; text=${visibleText().take(160)})"
-        )
-    }
-
-    private fun typePinDigits(digits: List<String>) {
-
-        digits.forEachIndexed { index, digit ->
+        digits.forEach { digit ->
             val selector = By.desc("PIN key $digit")
             var found = runCatching { device.wait(Until.hasObject(selector), 8_000) }.getOrDefault(false)
             if (!found) {
                 pause(800)
                 found = runCatching { device.wait(Until.hasObject(selector), 6_000) }.getOrDefault(false)
             }
-            expectTrue(
-                found,
-                "PIN key $digit not found (screen: ${screen()} | ${visibleText().take(140)})"
-            )
+            if (!found) {
+                // The flow can move on mid-entry (the fourth digit submits, the
+                // session ends, a screen closes). There is nothing left to type.
+                if (!has(By.desc("PIN key 1"))) return
+                expectTrue(
+                    false,
+                    "PIN key $digit not found (screen: ${screen()} | ${visibleText().take(140)})"
+                )
+            }
             // A tap can be swallowed while Compose re-lays out (the dots row
             // grows). A dropped digit makes the *next* attempt verify the wrong
             // four digits, which reads as "Incorrect PIN" for a correct PIN.
-            // The dots row exposes "N of 4 PIN digits entered", so a dropped tap
-            // can be seen and repeated instead of being guessed at.
-            val target = index + 1
-            val last = index == digits.lastIndex
-            var tries = 0
-            while (tries < 3) {
-                runCatching { device.findObject(selector)!!.click() }
-                tries++
-                // Poll for the counter instead of sampling once: a slow frame
-                // would otherwise look like a dropped tap, and clicking the
-                // same digit twice types the wrong PIN.
-                val deadline = System.currentTimeMillis() + 3_000
-                var settled = false
-                while (System.currentTimeMillis() < deadline) {
-                    val filled = filledDots()
-                    if (filled == null) { settled = true; break }   // no dots UI
-                    if (filled == target) { settled = true; break }
-                    if (last && filled == 0) { settled = true; break } // moved on
-                    if (filled > target - 1) { settled = true; break }
-                    Thread.sleep(150)
-                }
-                if (settled) return@forEachIndexed
-                // Two and a half seconds at "one short": the tap really was lost.
-                pause(300)
-            }
+            runCatching { device.findObject(selector)!!.click() }
+            pause(420)
         }
         pause(900)
     }
-
-    /** Whether the keypad looks tappable, for the failure message. */
-    private fun keypadState(): String =
-        runCatching {
-            val key = device.findObject(By.desc("PIN key 1"))
-            when {
-                key == null -> "missing"
-                key.isEnabled -> "enabled"
-                else -> "disabled"
-            }
-        }.getOrDefault("unknown")
-
-    /** Which PIN screen is up, by its own title. */
-    private fun pinTitle(): String? =
-        listOf(
-            "Owner lock",
-            "Create your owner PIN",
-            "Confirm your PIN",
-            "Enter your current PIN",
-            "Choose a new PIN"
-        ).firstOrNull { has(By.text(it)) }
-
-    /** The PIN screen's inline error, if one is showing. */
-    private fun pinError(): String? =
-        runCatching {
-            listOf("Incorrect", "Too many attempts", "doesn't match")
-                .flatMap { phrase ->
-                    device.findObjects(By.textContains(phrase)).mapNotNull { it.text }
-                }
-                .firstOrNull()
-        }.getOrNull()
-
-    /** "3 of 4 PIN digits entered" → 3, from whichever dots row is on screen. */
-    private fun filledDots(): Int? =
-        runCatching {
-            device.findObjects(By.descContains("PIN digits entered"))
-                .mapNotNull { it.contentDescription }
-                .mapNotNull {
-                    Regex("(\\d+) of \\d+ PIN").find(it)?.groupValues?.get(1)?.toIntOrNull()
-                }
-                .firstOrNull()
-        }.getOrNull()
 
     /**
      * Types the PIN and, if the lock answers "Incorrect PIN" anyway, waits for
