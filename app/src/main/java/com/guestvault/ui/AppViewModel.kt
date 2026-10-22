@@ -12,8 +12,11 @@ import com.guestvault.domain.repository.PinRepository
 import com.guestvault.domain.usecase.ObserveSettingsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -43,6 +46,9 @@ class AppViewModel @Inject constructor(
         .map { it?.themeMode ?: ThemeMode.SYSTEM }
         .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
 
+    /** False until the "did this session outlive a reboot?" check has answered. */
+    private val recoveryDone = MutableStateFlow(false)
+
     /**
      * True while a guest session is running.
      *
@@ -50,20 +56,25 @@ class AppViewModel @Inject constructor(
      * GuestVault from the launcher during a session, MainActivity immediately
      * hands over to the restricted guest home. Ending a session always requires
      * the owner PIN / biometrics first.
+     *
+     * A session only counts once [recoveryDone] is true: otherwise the first
+     * frame after a reboot would still see the stale session and hand over to
+     * the guest home before it had been closed.
      */
-    val sessionActive: StateFlow<Boolean> = settings
-        .map { it?.activeSession != null }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val sessionActive: StateFlow<Boolean> = combine(settings, recoveryDone) { current, ready ->
+        ready && current?.activeSession != null
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
-    init {
-        // The BOOT_COMPLETED receiver can be delivered long after the device is
-        // usable (and not at all while the keyguard is up). Recovering here too
-        // guarantees a session that started before this boot is closed before
-        // the UI trusts it.
-        viewModelScope.launch {
-            runCatching { settingsFlow.first() }.getOrNull()
-                ?.let { recoverSessionFromBeforeBoot(it) }
-        }
+    /**
+     * The BOOT_COMPLETED receiver can be delivered long after the device is
+     * usable (and not at all while the keyguard is up). Recovering here too
+     * guarantees a session that started before this boot is closed before the
+     * UI trusts it; [startState] waits for this before it routes anywhere.
+     */
+    private val recoveryJob: Job = viewModelScope.launch {
+        runCatching { settingsFlow.first() }.getOrNull()
+            ?.let { recoverSessionFromBeforeBoot(it) }
+        recoveryDone.value = true
     }
 
     /**
@@ -84,8 +95,8 @@ class AppViewModel @Inject constructor(
 
     /** Decides where the splash screen should send the user. */
     suspend fun startState(): AppStartState {
+        recoveryJob.join()
         val current = settingsFlow.first()
-        recoverSessionFromBeforeBoot(current)
         val pinSet = pinRepository.isPinSet()
         return AppStartState(
             // An owner PIN can only be created after onboarding. If storage

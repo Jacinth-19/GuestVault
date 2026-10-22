@@ -645,14 +645,10 @@ class StepPlanTest : StepHarness() {
             // the guest home, so leave the lock again before reading it. The lock
             // takes a moment to paint, so wait for it instead of sampling.
             device.pressBack()
-            if (waitForDesc("PIN key 1", 6_000)) {
-                if (device.hasObject(By.text("Cancel"))) tapText("Cancel") else device.pressBack()
-                pause(1_200)
-            }
-            dismissPinnedDialog(timeoutMs = 2_000)
             expectTrue(
-                waitFor("Welcome to Guest Mode", 10_000),
-                "did not get back to the guest home (screen: ${screen()}; text=${visibleText().take(140)})"
+                leaveOwnerLock(),
+                "did not get back to the guest home (screen: ${screen()}; " +
+                    "text=${visibleText().take(140)})"
             )
             val first = waitForCountdown()
             expectTrue(first != null, "no \"Ends in\" countdown on the guest home")
@@ -1146,13 +1142,20 @@ class StepPlanTest : StepHarness() {
             ).flatMap { id -> runCatching { device.findObjects(By.res(id)) }.getOrDefault(emptyList()) }
                 .mapNotNull { runCatching { it.text }.getOrNull() }
                 .joinToString(" ")
+            // Chrome's first-run screen may cover the page on a fresh image, and
+            // the emulator has no network. The URL is still in the intent the
+            // app handed over, and in the task log.
+            val evidence = urlBar + " " +
+                shell("dumpsys activity activities") + " " +
+                shell("dumpsys activity top") + " " +
+                shell("logcat -d -t 1500")
             val hasUrl = device.findObjects(By.textContains("github.io")).isNotEmpty() ||
                 device.findObjects(By.textContains("https://")).isNotEmpty() ||
-                urlBar.contains("jacinth-19.github.io") ||
-                shell("dumpsys activity activities").contains("jacinth-19.github.io")
+                evidence.contains("jacinth-19.github.io")
             expectTrue(
                 hasUrl,
-                "the privacy policy did not name the public page (foreground: $browser)"
+                "the privacy policy did not name the public page (foreground: $browser; " +
+                    "screen=${visibleText().take(120)})"
             )
             note(
                 if (inBrowser) {
@@ -1165,10 +1168,9 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("9.10", "Shows 1.1.1 — compare with the dashboard footer (9.5 in Pass 3)") {
-            while (!device.hasObject(By.text("Owner-only controls")) && device.hasObject(By.desc("Back"))) {
-                tapDesc("Back")
-                pause(600)
-            }
+            // 9.9 hands over to the browser, so the app is not in front any more.
+            backToDashboard()
+            openSettings()
             expectTrue(scrollToText("Version", maxSwipes = 12), "the Version row is not in Settings")
             val version = device.findObjects(By.textContains(".")).mapNotNull { it.text }
                 .firstOrNull { Regex("^\\d+\\.\\d+\\.\\d+$").containsMatchIn(it.trim()) }
@@ -1851,6 +1853,33 @@ class StepPlanTest : StepHarness() {
             launchApp()
             pause(1_500)
         }
+    }
+
+    /**
+     * Leaves the owner lock and waits for the guest home. Tapping "Cancel" once
+     * is not enough on a busy emulator: the tap can land while the lock is still
+     * animating in.
+     */
+    private fun leaveOwnerLock(timeoutMs: Long = 15_000): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (device.hasObject(By.text("Welcome to Guest Mode"))) {
+                dismissPinnedDialog(timeoutMs = 1_500)
+                if (device.hasObject(By.text("Welcome to Guest Mode"))) return true
+            }
+            dismissPinnedDialog(timeoutMs = 800)
+            if (device.hasObject(By.desc("PIN key 1"))) {
+                if (device.hasObject(By.text("Cancel"))) {
+                    tapText("Cancel", timeout = 2_000)
+                } else {
+                    device.pressBack()
+                }
+                pause(900)
+            } else {
+                pause(500)
+            }
+        }
+        return device.hasObject(By.text("Welcome to Guest Mode"))
     }
 
     private fun openSettings() {
