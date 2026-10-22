@@ -131,7 +131,10 @@ fun HistoryScreen(
                             modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)
                         )
                     }
-                    items(records, key = { it.startedAt }) { record ->
+                    // Positional keys: two sessions can share a millisecond
+                    // (a recovered session plus a quick manual one), and a
+                    // duplicate key crashed the whole history screen.
+                    items(records) { record ->
                         HistoryCard(record)
                     }
                 }

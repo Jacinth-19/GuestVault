@@ -116,8 +116,28 @@ adb shell wm dismiss-keyguard
 adb shell input keyevent KEYCODE_WAKEUP
 
 echo "== install =="
-adb install -r -t "$APK" || exit 1
-adb install -r -t "$TEST_APK" || exit 1
+# A cold emulator can still be finishing its first boot when adb says it is
+# ready, and then `install` fails with a package-manager timeout. Retry, and
+# fall back to a clean uninstall (a half-finished install poisons the next try).
+install_apk() {
+  local apk="$1"
+  for attempt in 1 2 3; do
+    if adb install -r -t "$apk" 2>&1 | tee -a build/install.log | grep -q "Success"; then
+      return 0
+    fi
+    echo "install attempt $attempt failed for $(basename "$apk")" | tee -a build/install.log
+    sleep 5
+  done
+  return 1
+}
+if ! install_apk "$APK"; then
+  adb uninstall "$PACKAGE" >/dev/null 2>&1 || true
+  install_apk "$APK" || { echo "FATAL: the app APK could not be installed"; exit 1; }
+fi
+if ! install_apk "$TEST_APK"; then
+  adb uninstall "${PACKAGE}.test" >/dev/null 2>&1 || true
+  install_apk "$TEST_APK" || { echo "FATAL: the test APK could not be installed"; exit 1; }
+fi
 
 # FD 3, not stdin: adb commands inside the loop would otherwise consume the
 # phase list and silently end the plan after the first phase.

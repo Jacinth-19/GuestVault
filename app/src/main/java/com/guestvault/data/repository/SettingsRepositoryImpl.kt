@@ -121,7 +121,13 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun addSessionRecord(record: SessionRecord) {
         context.settingsDataStore.edit { prefs ->
             val existing = decodeHistory(prefs[Keys.HISTORY])
-            val updated = (listOf(record) + existing).take(MAX_HISTORY)
+            // An end() that raced another end() could add the same session
+            // twice; the history screen then had duplicate rows.
+            val duplicate = existing.any {
+                it.startedAt == record.startedAt && it.endedAt == record.endedAt
+            }
+            val updated = (if (duplicate) existing else listOf(record) + existing)
+                .take(MAX_HISTORY)
             prefs[Keys.HISTORY] = updated.joinToString("\n") { it.encode() }
         }
     }
