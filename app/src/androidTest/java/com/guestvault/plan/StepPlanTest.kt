@@ -1876,8 +1876,14 @@ class StepPlanTest : StepHarness() {
      * viewport, so this alternates swipes with accessibility scrolling for a
      * generous amount of time before giving up.
      */
-    private fun reachRow(row: String, timeoutMs: Long = 35_000): Boolean {
+    private fun reachRow(row: String, timeoutMs: Long = 20_000): Boolean {
         if (device.hasObject(By.text(row))) return true
+        if (scrollUntil(timeoutMs) { device.hasObject(By.text(row)) }) return true
+        // Still not there: the page may have been left behind (a dialog, a
+        // hand-over to the browser, a slow first frame). Start again from the
+        // dashboard instead of failing on the first attempt.
+        backToDashboard()
+        openSettings()
         return scrollUntil(timeoutMs) { device.hasObject(By.text(row)) }
     }
 
