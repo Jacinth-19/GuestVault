@@ -374,6 +374,37 @@ abstract class StepHarness {
         runCatching { device.wait(Until.hasObject(By.desc("PIN key 1")), 8_000) }
         pause(400)
 
+        repeat(2) { attempt ->
+            // An error left over from the *previous* attempt says nothing about
+            // this one, so compare against it: a digit landing clears it.
+            val errorBefore = pinError()
+            typePinDigits(digits)
+            // Did the entry land? A submit shows "Checking…", a fresh error, or
+            // the flow moves on; anything else means digits were dropped while
+            // the screen was still settling.
+            val errorNow = pinError()
+            val answered = has(By.textContains("Checking…")) ||
+                (errorNow != null && errorNow != errorBefore)
+            val filled = filledDots()
+            if (answered || filled == null || filled >= digits.size) return
+            if (attempt == 0) {
+                // Clear whatever did land and type the PIN once more.
+                repeat(filled) {
+                    runCatching { device.findObject(By.desc("Delete digit"))?.click() }
+                    pause(200)
+                }
+                pause(500)
+            }
+        }
+        expectTrue(
+            false,
+            "the PIN could not be typed (dots: ${filledDots()} of ${digits.size}; " +
+                "screen: ${screen()} | ${visibleText().take(120)})"
+        )
+    }
+
+    private fun typePinDigits(digits: List<String>) {
+
         digits.forEachIndexed { index, digit ->
             val selector = By.desc("PIN key $digit")
             var found = runCatching { device.wait(Until.hasObject(selector), 8_000) }.getOrDefault(false)
@@ -416,6 +447,16 @@ abstract class StepHarness {
         }
         pause(900)
     }
+
+    /** The PIN screen's inline error, if one is showing. */
+    private fun pinError(): String? =
+        runCatching {
+            listOf("Incorrect", "Too many attempts", "doesn't match")
+                .flatMap { phrase ->
+                    device.findObjects(By.textContains(phrase)).mapNotNull { it.text }
+                }
+                .firstOrNull()
+        }.getOrNull()
 
     /** "3 of 4 PIN digits entered" → 3, from whichever dots row is on screen. */
     private fun filledDots(): Int? =

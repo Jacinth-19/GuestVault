@@ -936,14 +936,12 @@ class StepPlanTest : StepHarness() {
             // Everything after this point (including the next instrumentation
             // process) unlocks with the PIN that is now stored.
             rememberPin(newPin)
-            if (!device.hasObject(By.text("Start Guest Session"))) {
-                while (!device.hasObject(By.text("Start Guest Session")) &&
-                    tapDescIfPresent("Back")
-                ) {
-                    pause(700)
-                }
-            }
-            expectTrue(waitFor("Start Guest Session", 15_000), "did not return to the dashboard")
+            // A completed change returns to Settings, one Back from the dashboard.
+            backToDashboard()
+            expectTrue(
+                waitFor("Start Guest Session", 15_000),
+                "did not return to the dashboard (screen: ${visibleText().take(140)})"
+            )
             pickApps(3)
             startSessionHere(minutes = 15, acceptPin = false, permission = "allow")
             expectTrue(waitFor("Welcome to Guest Mode", 25_000), "session did not start")
