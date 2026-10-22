@@ -393,22 +393,25 @@ abstract class StepHarness {
             val target = index + 1
             val last = index == digits.lastIndex
             var tries = 0
-            while (tries < 3) {
+            while (tries < 2) {
                 runCatching { device.findObject(selector)!!.click() }
                 tries++
-                pause(400)
-                val filled = filledDots()
-                // No dots on screen (a different keypad): classic behaviour.
-                if (filled == null) return@forEachIndexed
-                if (filled == target) return@forEachIndexed
-                // The last digit may have moved the flow on to a fresh screen.
-                if (last && filled == 0) return@forEachIndexed
-                // Counter stuck one short: the tap was dropped. Try again.
-                if (filled == target - 1) {
-                    pause(350)
-                    continue
+                // Poll for the counter instead of sampling once: a slow frame
+                // would otherwise look like a dropped tap, and clicking the
+                // same digit twice types the wrong PIN.
+                val deadline = System.currentTimeMillis() + 2_500
+                var settled = false
+                while (System.currentTimeMillis() < deadline) {
+                    val filled = filledDots()
+                    if (filled == null) { settled = true; break }   // no dots UI
+                    if (filled == target) { settled = true; break }
+                    if (last && filled == 0) { settled = true; break } // moved on
+                    if (filled > target - 1) { settled = true; break }
+                    Thread.sleep(150)
                 }
-                return@forEachIndexed
+                if (settled) return@forEachIndexed
+                // Two and a half seconds at "one short": the tap really was lost.
+                pause(300)
             }
         }
         pause(900)

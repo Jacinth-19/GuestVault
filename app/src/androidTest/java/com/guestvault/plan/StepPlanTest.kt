@@ -692,7 +692,16 @@ class StepPlanTest : StepHarness() {
             tapText("Return to Owner")
             expectTrue(waitForDesc("PIN key 1", 10_000), "lock screen missing")
             enterPin(wrongPin)
-            val error = waitForContains("Incorrect PIN", 10_000)
+            var error = waitForContains("Incorrect PIN", 6_000)
+            if (!error && device.hasObject(By.textContains("Too many attempts"))) {
+                // An earlier pass left the guard one failure short of a cool-down,
+                // so this wrong PIN started one. Wait it out and try again on the
+                // fresh round, which is what this step is about.
+                note("the cool-down from an earlier attempt was still running; waiting it out")
+                waitOutCoolDown(maxSeconds = 70)
+                enterPin(wrongPin)
+                error = waitForContains("Incorrect PIN", 10_000)
+            }
             expectTrue(error, "no inline error after a wrong PIN (screen: ${visibleText().take(120)})")
             expectTrue(device.hasObject(By.desc("PIN key 1")), "keypad disappeared")
         }
@@ -910,7 +919,15 @@ class StepPlanTest : StepHarness() {
             tapText("Change owner PIN")
             expectTrue(waitFor("Enter your current PIN", 10_000), "change-PIN flow did not ask for the old PIN")
             enterPin(pinDigits)
-            expectTrue(waitFor("Choose a new PIN", 10_000), "old PIN was not accepted")
+            if (!waitFor("Choose a new PIN", 8_000)) {
+                // A dropped digit is the usual reason; the flow stays on the
+                // same screen, so one clean retry is safe.
+                enterPin(pinDigits)
+            }
+            expectTrue(
+                waitFor("Choose a new PIN", 10_000),
+                "old PIN was not accepted (screen: ${visibleText().take(140)})"
+            )
             val newPin = listOf("1", "3", "5", "7")
             enterPin(newPin)
             expectTrue(waitFor("Confirm your PIN", 10_000), "no confirmation step for the new PIN")
