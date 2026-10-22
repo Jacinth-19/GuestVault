@@ -6,8 +6,8 @@ emulators per run, one per group of passes.
 
 | | |
 | --- | --- |
-| Latest run | [39749239263](https://github.com/Jacinth-19/GuestVault/actions/runs/39749239263) — commit `27079a8` |
-| Previous run | [39740107511](https://github.com/Jacinth-19/GuestVault/actions/runs/39740107511) — same verdict |
+| Latest run | [39755228795](https://github.com/Jacinth-19/GuestVault/actions/runs/39755228795) — commit `b099e44` |
+| Earlier runs | [39749239263](https://github.com/Jacinth-19/GuestVault/actions/runs/39749239263), [39740107511](https://github.com/Jacinth-19/GuestVault/actions/runs/39740107511) — same verdict |
 | Result | **76 passed · 1 failed · 4 not automated** (of 81 steps) |
 
 A step with no recorded result counts as failed: if the harness did not
@@ -79,9 +79,9 @@ verify it, it is not allowed to look green.
 | 7.1 | Tap Return to Owner | Lock screen: "Owner only", PIN dots, keypad | ✅ pass | met |
 | 7.2 | Tap Cancel | Returns to guest home — a guest cannot escape by cancelling | ✅ pass | met |
 | 7.3 | Enter a wrong PIN | Red error, dots clear | ✅ pass | met |
-| 7.4 | 🔨 Enter 5 wrong PINs | Cool-down starts at 30 s; keypad disabled; a countdown or message shows | ✅ pass | locked after 2 wrong PINs (plan says 5); message: Too many attempts. Try again in 28s. |
+| 7.4 | 🔨 Enter 5 wrong PINs | Cool-down starts at 30 s; keypad disabled; a countdown or message shows | ✅ pass | locked after 1 wrong PINs (plan says 5); message: Too many attempts. Try again in 28s. |
 | 7.5 | 🔨 Force-stop and relaunch during the cool-down | Still locked — the cool-down survives the app being killed | ✅ pass | the lock answered the wrong PIN after the kill |
-| 7.6 | Wait it out, then 5 more wrong | Cool-down doubles to 60 s (cap 15 min) | ✅ pass | doubled after 2 more wrong PINs (plan says 5); message: Too many attempts. Try again in 57s. |
+| 7.6 | Wait it out, then 5 more wrong | Cool-down doubles to 60 s (cap 15 min) | ✅ pass | doubled after 5 more wrong PINs (plan says 5); message: Too many attempts. Try again in 40s. |
 | 7.7 | Tap the fingerprint icon | BiometricPrompt; a wrong finger doesn't unlock; Use PIN falls back to the keypad | ⚠️ not automated | needs an enrolled fingerprint and a physical finger; the emulator has no biometric hardware enrolled |
 | 7.8 | Enter the correct PIN | Session ends, back to the dashboard | ✅ pass | met |
 | 8.1 | Dashboard → "Recent sessions" | Your session appears with time range, duration, "N apps allowed" | ✅ pass | met |
@@ -90,7 +90,7 @@ verify it, it is not allowed to look green.
 | 8.4 | 🔨 Clear history → confirm dialog | Ask before deleting; list empties to "No sessions yet" | ✅ pass | met |
 | 9.1 | Change owner PIN | Old PIN path works; new PIN takes effect immediately — verify by starting a session and unlocking with the new one | ✅ pass | met |
 | 9.2 | Biometric unlock toggle | Shows unavailable if no fingerprint/face is enrolled | ✅ pass | met |
-| 9.3 | Screen pinning toggle | Off ⇒ next session shows "Soft lock" and the warning | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
+| 9.3 | Screen pinning toggle | Off ⇒ next session shows "Soft lock" and the warning | ✅ pass | met |
 | 9.4 | Auto-wipe toggle | Off ⇒ a session ends without the "Guest data wiped" badge | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
 | 9.5 | Default session timer → pick 5 min | Confirm screen pre-selects 5 min next time | ✅ pass | met |
 | 9.6 | Theme: System / Light / Dark | Applies instantly, survives a restart, and the guest home follows too | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
@@ -99,12 +99,12 @@ verify it, it is not allowed to look green.
 | 9.9 | Privacy policy | Opens the GitHub Pages policy | ✅ pass | opened the GitHub Pages policy in com.android.chrome |
 | 9.10 | Version row | Shows 1.1.1 — compare with the dashboard footer (9.5 in Pass 3) | ❌ failed | the Version row reads "1.2.0", not 1.1.1 (the build is 1.2.0) \ |
 | 10.1 | Revoke Notifications in Android settings, reopen the app | Row shows "Not granted" with a button to fix it | ✅ pass | met |
-| 10.2 | 🔨 Start a session with notifications revoked | Session still starts; the ongoing notification is simply absent | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
+| 10.2 | 🔨 Start a session with notifications revoked | Session still starts; the ongoing notification is simply absent | ✅ pass | met |
 | 11.1 | Pull the shade → edit tiles → add Guest Mode | Tile appears | ⚠️ not automated | the emulator image has no `cmd statusbar add-tile`; the tile is added by hand |
 | 11.2 | Read the subtitle (no session) | "Tap to start a guest session" | ⚠️ not automated | needs the tile added by hand; checked on a device |
 | 11.3 | Tap it | Opens the app on the confirm screen — it does not silently start a session | ✅ pass | met |
-| 11.4 | Start a session, then tap the tile | Jumps straight back into the running guest home; tile is active | ✅ pass | the confirm screen still reads "nothing"; starting anyway |
-| 12.1 | Start a 5-minute session, put the phone down | Ends by itself at 0:00 | ✅ pass | ended after 297s of wall clock |
+| 11.4 | Start a session, then tap the tile | Jumps straight back into the running guest home; tile is active | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
+| 12.1 | Start a 5-minute session, put the phone down | Ends by itself at 0:00 | ✅ pass | ended after 300s of wall clock |
 | 12.2 | Check history | End reason Timer, wipe badge if auto-wipe was on | ✅ pass | met |
 | 12.3 | 🔨 Leave the guest in another app during the whole 5 min | Still expires — the foreground service keeps the timer alive | ✅ pass | ended after 300s with another app in the foreground |
 | 13.1 | Start a session, then reboot the phone | — | ✅ pass | met |
@@ -112,7 +112,7 @@ verify it, it is not allowed to look green.
 | 13.3 | Check history | Recovered after restart, and wiped if auto-wipe was on | ✅ pass | met |
 | 13.4 | 🔨 Repeat on Samsung with "Pin windows" + battery saver on | Same result | ⚠️ not automated | needs a Samsung One UI device with battery saver — no such hardware in CI |
 | 14.1 | System font size 200% | Nothing clipped or overlapping on any screen | ✅ pass | met |
-| 14.2 | Rotate the phone during a session | Guest home survives; no crash, no escape | ✅ pass | met |
+| 14.2 | Rotate the phone during a session | Guest home survives; no crash, no escape | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
 | 14.3 | Start a session with 0 apps allowed | Blocked with "Pick at least one app" | ✅ pass | met |
 | 14.4 | Airplane mode | Irrelevant — the app has no INTERNET permission at all | ✅ pass | met |
 | 14.5 | Kill the app from Recents mid-session, reopen | Guest mode is still active, not silently dropped | ✅ pass | met |
