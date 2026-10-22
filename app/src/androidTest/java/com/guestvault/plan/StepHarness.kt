@@ -412,11 +412,17 @@ abstract class StepHarness {
                 has(By.textContains("Checking…")) ||
                 (errorNow != null && errorNow != errorBefore)
             val filled = filledDots()
-            if (answered || filled == null || filled >= digits.size) return
+            if (answered) return
+            // A full dots row is not proof on its own: the submit may still be in
+            // flight, so give it a moment to advance too.
+            if (filled != null && filled >= digits.size) {
+                pause(800)
+                if (pinTitle() != titleBefore || has(By.textContains("Checking…"))) return
+            }
             // Clear whatever did land and type the PIN once more. The keypad is
             // genuinely dead while the stored guard / last attempt is loading,
             // so this is allowed to take a few rounds.
-            if (filled > 0) {
+            if (filled != null && filled > 0) {
                 repeat(filled) {
                     runCatching { device.findObject(By.desc("Delete digit"))?.click() }
                     pause(200)
