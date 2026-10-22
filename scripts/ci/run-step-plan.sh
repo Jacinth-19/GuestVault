@@ -28,6 +28,18 @@ rm -f plan-failed.txt
 PHASES="build/phase-log.md"
 printf '| Phase | Exit | Device | Foreground window | Crash / error |\n| --- | --- | --- | --- | --- |\n' > "$PHASES"
 
+# A failure before the first phase used to end the script silently: the group
+# uploaded an empty phase table and nobody could see why (the job log is not
+# reachable from every environment). Record it as a phase row instead.
+fail_setup() {
+  local reason="$1"
+  printf '| SETUP | 1 | %s | - | %s |\n' \
+    "$(adb get-state 2>&1 | tr -d '\r' | head -c 40)" "$(echo "$reason" | tr '\n' ' ' | cut -c1-300)" \
+    >> "$PHASES"
+  echo "FATAL: $reason"
+  exit 2
+}
+
 run_phase() {
   local name="$1" out status device summary
   device="$(adb get-state 2>&1 | tr -d '\r')"
@@ -103,8 +115,7 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 if [ "$SYSTEM_READY" -ne 1 ]; then
-  echo "EMULATOR UNHEALTHY: the Android system server never started."
-  exit 1
+  fail_setup "EMULATOR UNHEALTHY: the Android system server never started"
 fi
 
 echo "== system settings =="
@@ -120,24 +131,43 @@ echo "== install =="
 # ready, and then `install` fails with a package-manager timeout. Retry, and
 # fall back to a clean uninstall (a half-finished install poisons the next try).
 install_apk() {
-  local apk="$1"
+  local apk="$1" pkg="$2" attempt
   for attempt in 1 2 3; do
-    if adb install -r -t "$apk" 2>&1 | tee -a build/install.log | grep -q "Success"; then
+    # No pipe: `grep -q` closing the pipe early makes `tee` die of SIGPIPE, and
+    # under `pipefail` that turned a successful install into a failure.
+    if adb install -r -t "$apk" >> build/install.log 2>&1; then
       return 0
     fi
-    echo "install attempt $attempt failed for $(basename "$apk")" | tee -a build/install.log
+    # Already installed is good enough to run the plan.
+    if adb shell pm path "$pkg" 2>/dev/null | grep -q package; then
+      echo "$(basename "$apk"): install failed but $pkg is present" >> build/install.log
+      return 0
+    fi
+    echo "install attempt $attempt failed for $(basename "$apk")" >> build/install.log
     sleep 5
   done
   return 1
 }
-if ! install_apk "$APK"; then
+install_apk "$APK" "$PACKAGE" || {
   adb uninstall "$PACKAGE" >/dev/null 2>&1 || true
-  install_apk "$APK" || { echo "FATAL: the app APK could not be installed"; exit 1; }
-fi
-if ! install_apk "$TEST_APK"; then
+  install_apk "$APK" "$PACKAGE" ||
+    fail_setup "the app APK could not be installed: $(tail -n 3 build/install.log 2>/dev/null | tr '\n' ' ')"
+}
+install_apk "$TEST_APK" "${PACKAGE}.test" || {
   adb uninstall "${PACKAGE}.test" >/dev/null 2>&1 || true
-  install_apk "$TEST_APK" || { echo "FATAL: the test APK could not be installed"; exit 1; }
+  install_apk "$TEST_APK" "${PACKAGE}.test" ||
+    fail_setup "the test APK could not be installed: $(tail -n 3 build/install.log 2>/dev/null | tr '\n' ' ')"
+}
+
+# The phase list is materialised first: if `plan_ops.py` ever fails, the loop
+# below would simply have nothing to read and the group would "pass" with an
+# empty plan.
+python3 scripts/ci/plan_ops.py "$MANIFEST" ${PLAN_GROUP:+--group "$PLAN_GROUP"} \
+  > build/phases.tsv 2>> build/install.log
+if [ ! -s build/phases.tsv ]; then
+  fail_setup "no phases were generated for group '${PLAN_GROUP:-all}' (manifest=$MANIFEST)"
 fi
+echo "== phases =="; cat build/phases.tsv
 
 # FD 3, not stdin: adb commands inside the loop would otherwise consume the
 # phase list and silently end the plan after the first phase.
@@ -220,7 +250,11 @@ while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE <&3; do
       echo "::warning::unknown host action $NAME"
       ;;
   esac
-done 3< <(python3 scripts/ci/plan_ops.py "$MANIFEST" ${PLAN_GROUP:+--group "$PLAN_GROUP"})
+done 3< build/phases.tsv
+
+if [ ! -s "$RAW" ]; then
+  fail_setup "the plan ran but wrote no verdicts (phases: $(wc -l < build/phases.tsv))"
+fi
 
 echo "== verdicts =="
 cat "$RAW" || true
