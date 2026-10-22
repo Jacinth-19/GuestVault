@@ -418,17 +418,15 @@ class StepPlanTest : StepHarness() {
                 "chips missing: ${absent.joinToString()} — the row offers " +
                     "${visibleText().split(" | ").filter { it.contains("min") || it.contains("limit") || it.contains("hour") }}"
             )
-            tapText("15 min")
-            pause(800)
+            tapChipUntil("15 min", "Ends automatically after 15 min")
             expectTrue(
-                waitFor("Ends automatically after 15 min", 12_000),
+                device.hasObject(By.text("Ends automatically after 15 min")),
                 "choosing 15 min is not reflected (selection reads: ${selectedChips()}; " +
                     "text=${visibleText().take(160)})"
             )
-            tapText("No limit")
-            pause(800)
+            tapChipUntil("No limit", "No time limit")
             expectTrue(
-                waitFor("No time limit", 12_000),
+                device.hasObject(By.text("No time limit")),
                 "only one chip may be chosen, but No limit did not replace 15 min " +
                     "(text=${visibleText().take(160)})"
             )
@@ -1964,6 +1962,20 @@ class StepPlanTest : StepHarness() {
             .firstOrNull()
             ?: device.findObjects(By.textContains("Android 10+")).mapNotNull { it.text }
                 .firstOrNull { it.contains("·") }
+
+    /**
+     * Taps a duration chip until the caption states it. A tap that lands while
+     * the row is still settling is simply repeated; 3 x 8 s is far longer than
+     * a recomposition needs, and a genuine bug still fails.
+     */
+    private fun tapChipUntil(chip: String, caption: String, attempts: Int = 3): Boolean {
+        repeat(attempts) {
+            if (device.hasObject(By.text(caption))) return true
+            runCatching { tapChip(chip) }
+            if (waitFor(caption, 8_000)) return true
+        }
+        return device.hasObject(By.text(caption))
+    }
 
     /** `Ends in 14:31` → 871 s, so two readings can be compared with slack. */
     private fun secondsOf(text: String?): Int? {
