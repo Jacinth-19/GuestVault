@@ -585,9 +585,18 @@ abstract class StepHarness {
         return device.hasObject(By.text(text))
     }
 
-    /** One accessibility scroll down the page's own scrollable list. */
+    /**
+     * One accessibility scroll down the page's own scrollable list.
+     *
+     * The largest scrollable is the page; a smaller one is a nested row (a
+     * horizontal chip strip, a channel with its own action) and scrolling that
+     * leaves the page where it was.
+     */
     protected fun scrollForward(percent: Float = 0.9f) {
-        val list = device.findObject(By.scrollable(true)) ?: return
+        val lists = runCatching { device.findObjects(By.scrollable(true)) }.getOrDefault(emptyList())
+        val list = lists.maxByOrNull {
+            runCatching { it.visibleBounds.height() }.getOrDefault(0)
+        } ?: return
         runCatching { list.scroll(Direction.DOWN, percent) }
     }
 

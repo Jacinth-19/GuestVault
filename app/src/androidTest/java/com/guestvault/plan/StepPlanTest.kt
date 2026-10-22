@@ -1276,7 +1276,13 @@ class StepPlanTest : StepHarness() {
                     "--ez ${context.packageName}.extra.QUICK_START_SESSION true"
             )
             pause(2_500)
-            expectTrue(waitFor("Welcome to Guest Mode", 12_000), "the tile did not return to the running guest home")
+            // Screen pinning re-prompts each time the task comes to the front.
+            dismissPinnedDialog(timeoutMs = 6_000)
+            expectTrue(
+                waitFor("Welcome to Guest Mode", 15_000),
+                "the tile did not return to the running guest home " +
+                    "(screen: ${screen()}; text=${visibleText().take(140)})"
+            )
             expectTrue(!device.hasObject(By.text("One last look before you hand over")), "the tile opened the confirm screen mid-session")
         }
     }
