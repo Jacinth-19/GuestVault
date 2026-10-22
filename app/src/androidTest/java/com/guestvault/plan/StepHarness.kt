@@ -397,7 +397,7 @@ abstract class StepHarness {
             pause(800)
         }
 
-        repeat(2) { attempt ->
+        repeat(4) { attempt ->
             // An error left over from the *previous* attempt says nothing about
             // this one, so compare against it: a digit landing clears it.
             val errorBefore = pinError()
@@ -413,19 +413,21 @@ abstract class StepHarness {
                 (errorNow != null && errorNow != errorBefore)
             val filled = filledDots()
             if (answered || filled == null || filled >= digits.size) return
-            if (attempt == 0) {
-                // Clear whatever did land and type the PIN once more.
+            // Clear whatever did land and type the PIN once more. The keypad is
+            // genuinely dead while the stored guard / last attempt is loading,
+            // so this is allowed to take a few rounds.
+            if (filled > 0) {
                 repeat(filled) {
                     runCatching { device.findObject(By.desc("Delete digit"))?.click() }
                     pause(200)
                 }
-                pause(500)
             }
+            pause(1_200)
         }
         expectTrue(
             false,
             "the PIN could not be typed (dots: ${filledDots()} of ${digits.size}; " +
-                "screen: ${screen()} | ${visibleText().take(120)})"
+                "screen: ${screen()}; key=${keypadState()}; text=${visibleText().take(160)})"
         )
     }
 
@@ -450,13 +452,13 @@ abstract class StepHarness {
             val target = index + 1
             val last = index == digits.lastIndex
             var tries = 0
-            while (tries < 2) {
+            while (tries < 3) {
                 runCatching { device.findObject(selector)!!.click() }
                 tries++
                 // Poll for the counter instead of sampling once: a slow frame
                 // would otherwise look like a dropped tap, and clicking the
                 // same digit twice types the wrong PIN.
-                val deadline = System.currentTimeMillis() + 2_500
+                val deadline = System.currentTimeMillis() + 3_000
                 var settled = false
                 while (System.currentTimeMillis() < deadline) {
                     val filled = filledDots()
@@ -473,6 +475,17 @@ abstract class StepHarness {
         }
         pause(900)
     }
+
+    /** Whether the keypad looks tappable, for the failure message. */
+    private fun keypadState(): String =
+        runCatching {
+            val key = device.findObject(By.desc("PIN key 1"))
+            when {
+                key == null -> "missing"
+                key.isEnabled -> "enabled"
+                else -> "disabled"
+            }
+        }.getOrDefault("unknown")
 
     /** Which PIN screen is up, by its own title. */
     private fun pinTitle(): String? =
