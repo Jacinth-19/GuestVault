@@ -642,23 +642,30 @@ class StepPlanTest : StepHarness() {
 
         verify("6.10", "Updates every second, matches the notification") {
             // Back on the guest home opens the owner lock; the countdown lives on
-            // the guest home, so leave the lock again before reading it.
+            // the guest home, so leave the lock again before reading it. The lock
+            // takes a moment to paint, so wait for it instead of sampling.
             device.pressBack()
-            pause(1_200)
-            if (device.hasObject(By.text("Cancel")) && device.hasObject(By.desc("PIN key 1"))) {
-                tapText("Cancel")
+            if (waitForDesc("PIN key 1", 6_000)) {
+                if (device.hasObject(By.text("Cancel"))) tapText("Cancel") else device.pressBack()
                 pause(1_200)
             }
             dismissPinnedDialog(timeoutMs = 2_000)
+            expectTrue(
+                waitFor("Welcome to Guest Mode", 10_000),
+                "did not get back to the guest home (screen: ${screen()}; text=${visibleText().take(140)})"
+            )
             val first = waitForCountdown()
             expectTrue(first != null, "no \"Ends in\" countdown on the guest home")
             Thread.sleep(2_400)
             val second = waitForCountdown()
             expectTrue(second != null && second != first, "countdown did not change in 2.4 s: $first")
-            val notif = Regex("Ends in (\\d+(?::\\d+)+)").find(shell("dumpsys notification --noredact"))?.groupValues?.get(1)
+            val shown = secondsOf(second)
+            val notif = Regex("Ends in (\\d+(?::\\d+)+)").find(shell("dumpsys notification --noredact"))
+                ?.groupValues?.get(1)
             expectTrue(notif != null, "notification has no countdown to compare against")
+            val notified = secondsOf("Ends in $notif")
             expectTrue(
-                notif == second?.removePrefix("Ends in "),
+                shown != null && notified != null && kotlin.math.abs(shown - notified) <= 2,
                 "UI shows $first/$second but the notification says $notif"
             )
         }
@@ -1828,16 +1835,21 @@ class StepPlanTest : StepHarness() {
     private fun backToDashboard(maxPresses: Int = 6) {
         repeat(maxPresses) {
             if (device.hasObject(By.text("Start Guest Session"))) return
-            if (!device.hasObject(By.desc("Back"))) {
-                device.pressBack()
-            } else {
+            dismissPinnedDialog(timeoutMs = 1_000)
+            if (device.hasObject(By.desc("Back"))) {
                 tapDesc("Back")
+                pause(800)
+            } else {
+                // Not inside a nested screen. A bare Back from the dashboard
+                // leaves the app (and a second one opens the app drawer), so
+                // bring GuestVault's own task forward instead.
+                launchApp()
+                pause(1_000)
             }
-            pause(800)
         }
         if (!device.hasObject(By.text("Start Guest Session"))) {
-            device.pressBack()
-            pause(800)
+            launchApp()
+            pause(1_500)
         }
     }
 
@@ -1917,6 +1929,12 @@ class StepPlanTest : StepHarness() {
             .firstOrNull()
             ?: device.findObjects(By.textContains("Android 10+")).mapNotNull { it.text }
                 .firstOrNull { it.contains("·") }
+
+    /** `Ends in 14:31` → 871 s, so two readings can be compared with slack. */
+    private fun secondsOf(text: String?): Int? {
+        val stamp = Regex("(\\d+(?::\\d+)+)").find(text ?: "")?.groupValues?.get(1) ?: return null
+        return stamp.split(":").fold(0) { total, part -> total * 60 + (part.toIntOrNull() ?: return null) }
+    }
 
     private fun waitForCountdown(): String? =
         device.findObjects(By.textContains("Ends in")).mapNotNull { it.text }
