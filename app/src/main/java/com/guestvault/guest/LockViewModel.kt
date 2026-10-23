@@ -61,6 +61,10 @@ class LockViewModel @Inject constructor(
     val state: StateFlow<LockUiState> = _state.asStateFlow()
 
     private var entered = ""
+    // Digits tapped before the stored guard has loaded. The guard lives in
+    // DataStore, so a cold start takes a moment; dropping taps in that window
+    // made the keypad look dead and ate the first digits of a fast entry.
+    private val pending = StringBuilder()
     private var guard = UnlockGuard()
     private var lockoutJob: Job? = null
     private var ending = false
@@ -87,18 +91,40 @@ class LockViewModel @Inject constructor(
                     lockedOutSeconds = remaining
                 )
             }
-            if (remaining > 0) startLockoutCountdown()
+            if (remaining > 0) {
+                // Cool-down wins: input typed before it was known is discarded,
+                // never counted as a fresh attempt.
+                pending.clear()
+                _state.update { it.copy(pinLength = entered.length) }
+                startLockoutCountdown()
+            } else {
+                flushPending()
+            }
         }
     }
 
     fun reset() {
         entered = ""
+        pending.clear()
         _state.update { it.copy(pinLength = 0, error = null, unlocked = false) }
     }
 
     fun onDigit(digit: Char) {
         val current = _state.value
-        if (!current.guardLoaded || current.verifying || current.lockedOut || current.unlocked) return
+        if (current.verifying || current.lockedOut || current.unlocked) return
+        if (!current.guardLoaded) {
+            if (entered.length + pending.length >= PIN_LENGTH) return
+            pending.append(digit)
+            _state.update { it.copy(pinLength = entered.length + pending.length, error = null) }
+            return
+        }
+        acceptDigit(digit)
+    }
+
+    /** The real entry path, once the guard is known. */
+    private fun acceptDigit(digit: Char) {
+        val current = _state.value
+        if (current.verifying || current.lockedOut || current.unlocked) return
         if (entered.length >= PIN_LENGTH) return
 
         entered += digit
@@ -106,10 +132,21 @@ class LockViewModel @Inject constructor(
         if (entered.length == PIN_LENGTH) submit()
     }
 
+    private fun flushPending() {
+        if (pending.isEmpty()) return
+        val queued = pending.toString()
+        pending.clear()
+        _state.update { it.copy(pinLength = entered.length) }
+        queued.forEach { acceptDigit(it) }
+    }
+
     fun onBackspace() {
         if (_state.value.verifying) return
-        if (entered.isNotEmpty()) entered = entered.dropLast(1)
-        _state.update { it.copy(pinLength = entered.length) }
+        when {
+            pending.isNotEmpty() -> pending.deleteAt(pending.length - 1)
+            entered.isNotEmpty() -> entered = entered.dropLast(1)
+        }
+        _state.update { it.copy(pinLength = entered.length + pending.length) }
     }
 
     fun toggleWipeMode() = _state.update { it.copy(wipeMode = !it.wipeMode) }
