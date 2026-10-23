@@ -128,10 +128,11 @@ the step was reported as a failure until that was resolved. It was a stale
 expectation, not a defect: the splash pill, the dashboard footer (step 3.5)
 and the Settings row all read the build's own version.
 
-The Expect column now says `1.2.0`, and the assertion compares the row with
+The Expect column now reads *"Shows the build version — compare with the
+dashboard footer (3.5 in Pass 3)"*, and the assertion compares the row with
 `BuildConfig.VERSION_NAME` (via `AppVersion.display`, which strips the
-`-debug` suffix) instead of a hard-coded string, so a version bump cannot
-rot the step again. Step 3.5 independently proves the footer agrees.
+`-debug` suffix) instead of a hard-coded string, so a version bump cannot rot
+the step. Step 3.5 independently proves the footer agrees.
 
 ## The four steps no emulator can answer
 

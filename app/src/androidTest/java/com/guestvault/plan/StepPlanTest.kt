@@ -1207,7 +1207,7 @@ class StepPlanTest : StepHarness() {
 
         verify(
             "9.10",
-            "Shows 1.2.0 — compare with the dashboard footer (3.5 in Pass 3)"
+            "Shows the build version — compare with the dashboard footer (3.5 in Pass 3)"
         ) {
             // 9.9 hands over to the browser, so the app is not in front any more.
             backToDashboard()
