@@ -723,6 +723,20 @@ abstract class StepHarness {
         return predicate()
     }
 
+    /**
+     * Wakes a dozing emulator and dismisses its keyguard.
+     *
+     * A sleeping device shows nothing but its lock-screen clock, and every tap
+     * after that lands on the lock screen. That is what "the row is not in
+     * Settings (text=9:22)" actually meant on runs 39917817868 and 39930421320.
+     */
+    protected fun wakeDevice() {
+        if (has(By.text("Start Guest Session")) || has(By.desc("PIN key 1"))) return
+        shell("input keyevent KEYCODE_WAKEUP")
+        shell("wm dismiss-keyguard")
+        pause(600)
+    }
+
     /** A scroll injected by `input`, independent of UiAutomator's gesture path. */
     protected fun systemSwipeUp(fraction: Float = 0.55f) {
         val x = (device.displayWidth * 0.5f).toInt()

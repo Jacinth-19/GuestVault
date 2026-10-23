@@ -1921,6 +1921,7 @@ class StepPlanTest : StepHarness() {
     }
 
     private fun backToDashboard(maxPresses: Int = 6) {
+        wakeDevice()
         repeat(maxPresses) {
             if (device.hasObject(By.text("Start Guest Session"))) return
             dismissPinnedDialog(timeoutMs = 1_000)
@@ -1969,6 +1970,7 @@ class StepPlanTest : StepHarness() {
     }
 
     private fun openSettings() {
+        wakeDevice()
         if (!device.hasObject(By.text("Start Guest Session"))) {
             while (!device.hasObject(By.text("Start Guest Session")) &&
                 tapDescIfPresent("Back")
