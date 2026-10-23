@@ -656,6 +656,8 @@ abstract class StepHarness {
     protected fun scrollUntil(timeoutMs: Long = 25_000, predicate: () -> Boolean): Boolean {
         val deadline = System.currentTimeMillis() + timeoutMs
         var round = 0
+        var lastPage = ""
+        var stillRounds = 0
         while (System.currentTimeMillis() < deadline) {
             if (predicate()) return true
             when (round % 3) {
@@ -673,6 +675,18 @@ abstract class StepHarness {
             }
             round++
             pause(400)
+            // If three different scroll methods all leave the page byte-for-byte
+            // identical, the list is wedged (a system window is eating input, the
+            // emulator is degrading). Burning the rest of the timeout is useless:
+            // return early so the caller can take a different route.
+            val page = visibleText().take(300)
+            if (page == lastPage) {
+                stillRounds++
+                if (stillRounds >= 3) return predicate()
+            } else {
+                stillRounds = 0
+                lastPage = page
+            }
         }
         return predicate()
     }

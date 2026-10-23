@@ -1883,19 +1883,25 @@ class StepPlanTest : StepHarness() {
      * viewport, so this alternates swipes with accessibility scrolling for a
      * generous amount of time before giving up.
      */
-    private fun reachRow(row: String, timeoutMs: Long = 20_000): Boolean {
-        repeat(2) { attempt ->
+    private fun reachRow(row: String, timeoutMs: Long = 15_000): Boolean {
+        repeat(3) { attempt ->
             if (device.hasObject(By.text(row))) return true
             if (scrollUntil(timeoutMs) { device.hasObject(By.text(row)) }) return true
-            // Still not there: the page may have been left behind (a dialog, a
-            // hand-over to the browser, a half-painted list). Start again from
-            // the dashboard rather than failing on the first attempt.
-            if (attempt == 0) {
-                backToDashboard()
-                openSettings()
-            }
+            // The page may not be what we think it is (a dialog, a hand-over to
+            // the browser, a list that has stopped moving). Rebuild the screen
+            // from a cold start of the app rather than failing on the spot.
+            if (attempt < 2) relaunchToSettings()
         }
         return device.hasObject(By.text(row))
+    }
+
+    /** Relaunches the owner app and walks back into Settings. */
+    private fun relaunchToSettings() {
+        launchApp()
+        pause(1_200)
+        dismissPinnedDialog(timeoutMs = 2_000)
+        backToDashboard()
+        openSettings()
     }
 
     private fun backToDashboard(maxPresses: Int = 6) {
