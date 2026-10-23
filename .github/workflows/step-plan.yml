@@ -201,6 +201,10 @@ jobs:
         if: always()
         run: |
           if [ -f report-failed.txt ]; then
+            # A push run has no pull request to comment on, and job logs live on a
+            # host that is not reachable from every environment. Annotations come
+            # back through the ordinary REST API, so name the failing steps there.
+            python3 scripts/ci/annotate_failures.py || true
             echo "::error::At least one numbered step failed or never ran. See the verdict comment."
             exit 1
           fi

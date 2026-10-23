@@ -70,7 +70,9 @@ fun GuestLockScreen(
         onDispose { gate.cancel() }
     }
 
-    val keypadEnabled = state.guardLoaded && !state.lockedOut && !state.verifying
+    // guardLoaded is deliberately not part of this: digits tapped before the
+    // guard arrives are buffered by the view model, not thrown away.
+    val keypadEnabled = !state.lockedOut && !state.verifying
     val useBiometrics = biometricHardware && state.biometricEnabled
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
@@ -134,6 +136,7 @@ fun GuestLockScreen(
             Text(
                 text = when {
                     state.verifying -> "Checking…"
+                    !state.guardLoaded -> "Getting ready…"
                     else -> state.error.orEmpty()
                 },
                 style = MaterialTheme.typography.bodySmall,

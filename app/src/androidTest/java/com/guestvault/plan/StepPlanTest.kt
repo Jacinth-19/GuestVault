@@ -157,6 +157,9 @@ class StepPlanTest : StepHarness() {
         }
 
         verify("2.3", "Inline error, stays on confirm, no crash") {
+            // The fourth digit of 2.1 swaps the keypad for the confirm step; typing
+            // into a keypad that is still being swapped loses taps.
+            waitFor("Confirm your PIN", 8_000)
             enterPin(wrongPin)
             pause(1_200)
             val error = waitForAny("Try again", "didn't match", "doesn't match", timeout = 6_000)
