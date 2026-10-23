@@ -136,13 +136,13 @@ icon 512×512 RGBA, feature graphic 1024×500 with no alpha, screenshots 1080×2
 
 **Testing → Internal testing → Create new release**
 
-1. Upload `GuestVault-1.2.0.aab` from
+1. Upload `GuestVault-1.2.1.aab` from
    [the latest release](https://github.com/Jacinth-19/GuestVault/releases) — under
    *Assets*, not the APKs.
 2. **Enrol in Play App Signing** when prompted (mandatory for bundles). Play generates
    the app signing key; your `upload-keystore.jks` only signs what you upload.
 3. Release notes: copy the 1.1.0 block from [`STORE_LISTING.md`](STORE_LISTING.md),
-   changing the version to 1.2.0.
+   changing the version to 1.2.1.
 4. Add yourself as an internal tester, roll out, install from the opt-in link.
 
 > **If the AAB is missing from the release**, the workflow detected that the upload
@@ -152,7 +152,7 @@ icon 512×512 RGBA, feature graphic 1024×500 with no alpha, screenshots 1080×2
 ### Verify the upload key actually signed it
 
 ```bash
-keytool -printcert -jarfile GuestVault-1.2.0.aab | head -3
+keytool -printcert -jarfile GuestVault-1.2.1.aab | head -3
 ```
 
 The `Owner:` line must **not** say `CN=Android Debug`. The release workflow also runs
@@ -162,7 +162,7 @@ this check and fails the build if it does.
 > (`[skip ci]` and friends), GitHub suppresses *every* workflow for it — the tag push
 > produces no run and no error. That is how the first `v1.1.1` attempt vanished. Tag a
 > commit with a normal message, or start the workflow by hand:
-> `gh workflow run release.yml -f version=1.2.0`. CI now runs
+> `gh workflow run release.yml -f version=1.2.1`. CI now runs
 > `scripts/ci/check_workflow_hygiene.py`, which fails if such a marker is ever committed.
 
 ---
@@ -215,7 +215,7 @@ Copy this into an issue and tick as you go.
 - [ ] App content: privacy policy, app access, ads, content rating, target audience, data safety
 - [ ] Foreground service `specialUse` declared **with** a YouTube demo link
 - [ ] Store listing filled, all 8 screenshots uploaded
-- [ ] `GuestVault-1.2.0.aab` uploaded to Internal testing, Play App Signing enrolled
+- [ ] `GuestVault-1.2.1.aab` uploaded to Internal testing, Play App Signing enrolled
 - [ ] Release-signed verified with `keytool -printcert`
 - [ ] Closed testing live with 12+ testers → **14-day clock started**
 - [ ] Production rollout submitted

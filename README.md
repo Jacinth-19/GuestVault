@@ -385,8 +385,8 @@ Ranked against the competition in [`docs/COMPETITORS.md`](docs/COMPETITORS.md).
 > **Status: signed, published, graded 77/77 — ready to upload. One human step remains.**
 >
 > ✅ **Upload key created** — the four `UPLOAD_*` secrets are set and
->    [`v1.2.0`](https://github.com/Jacinth-19/GuestVault/releases/tag/v1.2.0) ships the
->    current **release-signed** `GuestVault-1.2.0.aab`, built from the commit that passes
+>    [`v1.2.1`](https://github.com/Jacinth-19/GuestVault/releases/tag/v1.2.1) ships the
+>    current **release-signed** `GuestVault-1.2.1.aab`, built from the commit that passes
 >    all 77 executable steps of the 14-pass plan — see
 >    [`docs/PLAN_RESULTS.md`](docs/PLAN_RESULTS.md).
 >    Back up `~/upload-keystore.jks` **and** its `.credentials.txt`; neither can be committed.

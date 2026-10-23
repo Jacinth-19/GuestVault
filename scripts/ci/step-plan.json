@@ -462,7 +462,7 @@
         {
           "id": "9.10",
           "action": "Version row",
-          "expect": "Shows 1.2.0 — compare with the dashboard footer (3.5 in Pass 3)"
+          "expect": "Shows the build version — compare with the dashboard footer (3.5 in Pass 3)"
         }
       ],
       "group": 4
