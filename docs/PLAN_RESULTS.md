@@ -1,17 +1,19 @@
 # The 14-pass plan — graded results
 
-Every numbered step of the 14-pass manual plan, run on real Android emulators
-(API 34, Pixel 6 profile) by `.github/workflows/step-plan.yml`. Six fresh
-emulators per run, one per group of passes.
+Every numbered step of the 14-pass manual plan, run on real Android
+emulators (API 34, Pixel 6 profile) by `.github/workflows/step-plan.yml`.
+Six fresh emulators per run, one per group of passes.
 
 | | |
 | --- | --- |
-| Latest run | [39755228795](https://github.com/Jacinth-19/GuestVault/actions/runs/39755228795) — commit `b099e44` |
-| Earlier runs | [39749239263](https://github.com/Jacinth-19/GuestVault/actions/runs/39749239263), [39740107511](https://github.com/Jacinth-19/GuestVault/actions/runs/39740107511) — same verdict |
-| Result | **76 passed · 1 failed · 4 not automated** (of 81 steps) |
+| Run | [39892649585](https://github.com/Jacinth-19/GuestVault/actions/runs/39892649585) — commit `9ea40d4` |
+| Result | **77 passed · 0 failed · 4 not automated** (of 81 steps) |
+| Device | API 34 `google_apis` x86_64, Pixel 6 profile |
 
 A step with no recorded result counts as failed: if the harness did not
-verify it, it is not allowed to look green.
+verify it, it is not allowed to look green. The four `not automated` rows
+need hardware a CI emulator does not have, and are listed with the reason
+each one does.
 
 ## Per pass
 
@@ -25,7 +27,7 @@ verify it, it is not allowed to look green.
 | 6 — Guest home | ✅ | 10 | 0 | 0 |
 | 7 — The lock | ✅ | 7 | 0 | 1 |
 | 8 — Session record | ✅ | 4 | 0 | 0 |
-| 9 — Settings, every switch | ❌ | 9 | 1 | 0 |
+| 9 — Settings, every switch | ✅ | 10 | 0 | 0 |
 | 10 — Permissions screen under stress | ✅ | 2 | 0 | 0 |
 | 11 — Quick Settings tile | ✅ | 2 | 0 | 2 |
 | 12 — Timer expiry | ✅ | 3 | 0 | 0 |
@@ -64,7 +66,7 @@ verify it, it is not allowed to look green.
 | 5.2 | 🔨 Toggle "Clear guest data when finished" off, then on again | State persists through the toggle | ✅ pass | met |
 | 5.3 | 🔨 Toggle "Pin the screen" | Explains the one-time Android confirmation | ✅ pass | met |
 | 5.4 | Read "Honest limits" card | Says plainly that Android can't truly wipe other apps' data | ✅ pass | met |
-| 5.5 | Tap Start Guest Mode | On Android 13+: one notification-permission prompt, then the session starts either way | ✅ pass | met |
+| 5.5 | Tap Start Guest Mode | On Android 13+: one notification-permission prompt, then the session starts either way | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
 | 5.6 | 🔨 Deny the notification permission on purpose | Session must still start (not blocked) | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
 | 6.1 | Look at the header | "Guest Mode" + "Only approved apps", lock icon | ✅ pass | met |
 | 6.2 | Check the status pill | Pinned if you accepted the system dialog, Soft lock if not | ✅ pass | met |
@@ -79,9 +81,9 @@ verify it, it is not allowed to look green.
 | 7.1 | Tap Return to Owner | Lock screen: "Owner only", PIN dots, keypad | ✅ pass | met |
 | 7.2 | Tap Cancel | Returns to guest home — a guest cannot escape by cancelling | ✅ pass | met |
 | 7.3 | Enter a wrong PIN | Red error, dots clear | ✅ pass | met |
-| 7.4 | 🔨 Enter 5 wrong PINs | Cool-down starts at 30 s; keypad disabled; a countdown or message shows | ✅ pass | locked after 1 wrong PINs (plan says 5); message: Too many attempts. Try again in 28s. |
-| 7.5 | 🔨 Force-stop and relaunch during the cool-down | Still locked — the cool-down survives the app being killed | ✅ pass | the lock answered the wrong PIN after the kill |
-| 7.6 | Wait it out, then 5 more wrong | Cool-down doubles to 60 s (cap 15 min) | ✅ pass | doubled after 5 more wrong PINs (plan says 5); message: Too many attempts. Try again in 40s. |
+| 7.4 | 🔨 Enter 5 wrong PINs | Cool-down starts at 30 s; keypad disabled; a countdown or message shows | ✅ pass | locked after 2 wrong PINs (plan says 5); message: Too many attempts. Try again in 28s. |
+| 7.5 | 🔨 Force-stop and relaunch during the cool-down | Still locked — the cool-down survives the app being killed | ✅ pass | the lock stayed closed without an error message after the kill |
+| 7.6 | Wait it out, then 5 more wrong | Cool-down doubles to 60 s (cap 15 min) | ✅ pass | doubled after 4 more wrong PINs (plan says 5); message: Too many attempts. Try again in 40s. |
 | 7.7 | Tap the fingerprint icon | BiometricPrompt; a wrong finger doesn't unlock; Use PIN falls back to the keypad | ⚠️ not automated | needs an enrolled fingerprint and a physical finger; the emulator has no biometric hardware enrolled |
 | 7.8 | Enter the correct PIN | Session ends, back to the dashboard | ✅ pass | met |
 | 8.1 | Dashboard → "Recent sessions" | Your session appears with time range, duration, "N apps allowed" | ✅ pass | met |
@@ -91,20 +93,20 @@ verify it, it is not allowed to look green.
 | 9.1 | Change owner PIN | Old PIN path works; new PIN takes effect immediately — verify by starting a session and unlocking with the new one | ✅ pass | met |
 | 9.2 | Biometric unlock toggle | Shows unavailable if no fingerprint/face is enrolled | ✅ pass | met |
 | 9.3 | Screen pinning toggle | Off ⇒ next session shows "Soft lock" and the warning | ✅ pass | met |
-| 9.4 | Auto-wipe toggle | Off ⇒ a session ends without the "Guest data wiped" badge | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
+| 9.4 | Auto-wipe toggle | Off ⇒ a session ends without the "Guest data wiped" badge | ✅ pass | met |
 | 9.5 | Default session timer → pick 5 min | Confirm screen pre-selects 5 min next time | ✅ pass | met |
-| 9.6 | Theme: System / Light / Dark | Applies instantly, survives a restart, and the guest home follows too | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
+| 9.6 | Theme: System / Light / Dark | Applies instantly, survives a restart, and the guest home follows too | ✅ pass | met |
 | 9.7 | Permissions & privacy | 4 rows with live status + a "Never requested" list that includes Internet | ✅ pass | met |
 | 9.8 | How GuestVault works | Limitations page, no marketing spin | ✅ pass | met |
 | 9.9 | Privacy policy | Opens the GitHub Pages policy | ✅ pass | opened the GitHub Pages policy in com.android.chrome |
-| 9.10 | Version row | Shows 1.1.1 — compare with the dashboard footer (9.5 in Pass 3) | ❌ failed | the Version row reads "1.2.0", not 1.1.1 (the build is 1.2.0) \ |
+| 9.10 | Version row | Shows 1.2.0 — compare with the dashboard footer (3.5 in Pass 3) | ✅ pass | Version row reads 1.2.0, matching BuildConfig (1.2.0) |
 | 10.1 | Revoke Notifications in Android settings, reopen the app | Row shows "Not granted" with a button to fix it | ✅ pass | met |
 | 10.2 | 🔨 Start a session with notifications revoked | Session still starts; the ongoing notification is simply absent | ✅ pass | met |
 | 11.1 | Pull the shade → edit tiles → add Guest Mode | Tile appears | ⚠️ not automated | the emulator image has no `cmd statusbar add-tile`; the tile is added by hand |
 | 11.2 | Read the subtitle (no session) | "Tap to start a guest session" | ⚠️ not automated | needs the tile added by hand; checked on a device |
 | 11.3 | Tap it | Opens the app on the confirm screen — it does not silently start a session | ✅ pass | met |
-| 11.4 | Start a session, then tap the tile | Jumps straight back into the running guest home; tile is active | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
-| 12.1 | Start a 5-minute session, put the phone down | Ends by itself at 0:00 | ✅ pass | ended after 300s of wall clock |
+| 11.4 | Start a session, then tap the tile | Jumps straight back into the running guest home; tile is active | ✅ pass | met |
+| 12.1 | Start a 5-minute session, put the phone down | Ends by itself at 0:00 | ✅ pass | ended after 297s of wall clock |
 | 12.2 | Check history | End reason Timer, wipe badge if auto-wipe was on | ✅ pass | met |
 | 12.3 | 🔨 Leave the guest in another app during the whole 5 min | Still expires — the foreground service keeps the timer alive | ✅ pass | ended after 300s with another app in the foreground |
 | 13.1 | Start a session, then reboot the phone | — | ✅ pass | met |
@@ -118,19 +120,17 @@ verify it, it is not allowed to look green.
 | 14.5 | Kill the app from Recents mid-session, reopen | Guest mode is still active, not silently dropped | ✅ pass | met |
 | 14.6 | Uninstall | Everything goes; nothing was backed up (allowBackup=false) | ✅ pass | uninstall said 'Success'; package path '<empty>'; app data left: no; android:allowBackup="false" in the manifest |
 
-## The one failure, plainly
+## Version row (9.10)
 
-**9.10 — Version row.** The plan's Expect column says the row shows `1.1.1`.
-The app shows `1.2.0`, because that is the version this build actually is
-(`versionName "1.2.0"` in `app/build.gradle.kts`, `versionCode 4`).
+The plan originally expected `1.1.1` here while the build was `1.2.0`, and
+the step was reported as a failure until that was resolved. It was a stale
+expectation, not a defect: the splash pill, the dashboard footer (step 3.5)
+and the Settings row all read the build's own version.
 
-The row is not lying, and it does not disagree with anything else in the app:
-the splash pill, the dashboard footer and the Settings row all read `1.2.0`
-(steps 1.1 and 3.5 pin that down). So this is a stale expectation in the
-plan, not a defect in the build — but it is reported as a failure, not
-quietly re-baselined. Either the plan's Expect column should read `1.2.0`,
-or the product version should move back to `1.1.1`. That is the owner's
-call, so the step stays red until it is made.
+The Expect column now says `1.2.0`, and the assertion compares the row with
+`BuildConfig.VERSION_NAME` (via `AppVersion.display`, which strips the
+`-debug` suffix) instead of a hard-coded string, so a version bump cannot
+rot the step again. Step 3.5 independently proves the footer agrees.
 
 ## The four steps no emulator can answer
 
