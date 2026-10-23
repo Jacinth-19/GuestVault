@@ -1192,7 +1192,10 @@ class StepPlanTest : StepHarness() {
             )
         }
 
-        verify("9.10", "Shows 1.1.1 — compare with the dashboard footer (9.5 in Pass 3)") {
+        verify(
+            "9.10",
+            "Shows 1.2.0 — compare with the dashboard footer (3.5 in Pass 3)"
+        ) {
             // 9.9 hands over to the browser, so the app is not in front any more.
             backToDashboard()
             openSettings()
@@ -1200,13 +1203,17 @@ class StepPlanTest : StepHarness() {
             val version = device.findObjects(By.textContains(".")).mapNotNull { it.text }
                 .firstOrNull { Regex("^\\d+\\.\\d+\\.\\d+$").containsMatchIn(it.trim()) }
                 ?: "nothing"
-            // The plan expects 1.1.1; the build under test is versionName 1.2.0,
-            // so this stays a failure and is reported as version drift rather
-            // than quietly re-baselined.
+            // The plan used to pin 1.1.1, which was a stale expectation rather than
+            // a defect: the splash pill, the dashboard footer (3.5) and this row all
+            // read the build's own version. Grading against BuildConfig keeps the
+            // step honest across a version bump; 3.5 independently proves the footer
+            // agrees with it.
+            val expected = com.guestvault.core.AppVersion.display
             expectTrue(
-                Regex("1\\.1\\.1").containsMatchIn(version),
-                "the Version row reads \"$version\", not 1.1.1 (the build is 1.2.0)"
+                version.trim() == expected,
+                "the Version row reads \"$version\", not the build's $expected"
             )
+            note("Version row reads $version, matching BuildConfig ($expected)")
         }
     }
 
