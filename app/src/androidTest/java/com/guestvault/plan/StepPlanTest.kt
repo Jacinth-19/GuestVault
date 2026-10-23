@@ -1120,16 +1120,26 @@ class StepPlanTest : StepHarness() {
             listOf("Notifications", "Biometrics", "Foreground service", "Start at boot").forEach {
                 expectTrue(device.hasObject(By.text(it)), "missing permission row: $it")
             }
-            // PermissionGroup renders the header in caps ("NEVER REQUESTED").
-            val sawSection = scrollUntil(30_000) {
-                visibleText().contains("NEVER REQUESTED", ignoreCase = true) ||
-                    visibleText().contains("Never requested", ignoreCase = true)
+            // PermissionGroup renders the header in caps ("NEVER REQUESTED"), so
+            // one case-insensitive check covers both spellings.
+            var sawSection = scrollToBottom(14) { neverRequestedVisible() }
+            if (!sawSection) {
+                // A page that has stopped moving cannot be scrolled, but it can be
+                // rebuilt: re-enter from the dashboard and look again.
+                backToDashboard()
+                openSettings()
+                if (reachRow("Permissions & privacy")) {
+                    tapText("Permissions & privacy")
+                    waitForAny("Permissions & privacy", "Permissions on this device", timeout = 10_000)
+                    sawSection = scrollToBottom(14) { neverRequestedVisible() }
+                }
             }
             expectTrue(
                 sawSection,
                 "no Never requested section (text=${visibleText().take(160)})"
             )
-            val sawInternet = scrollUntil(20_000) { visibleText().contains("Internet") }
+            val sawInternet = visibleText().contains("Internet") ||
+                scrollToBottom(8) { visibleText().contains("Internet") }
             expectTrue(sawInternet, "Internet is not listed (text=${visibleText().take(160)})")
         }
 
@@ -1883,6 +1893,9 @@ class StepPlanTest : StepHarness() {
      * viewport, so this alternates swipes with accessibility scrolling for a
      * generous amount of time before giving up.
      */
+    private fun neverRequestedVisible(): Boolean =
+        visibleText().contains("NEVER REQUESTED", ignoreCase = true)
+
     private fun reachRow(row: String, timeoutMs: Long = 15_000): Boolean {
         repeat(3) { attempt ->
             if (device.hasObject(By.text(row))) return true
