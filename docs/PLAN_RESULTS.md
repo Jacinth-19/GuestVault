@@ -6,9 +6,9 @@ Six fresh emulators per run, one per group of passes.
 
 | | |
 | --- | --- |
-| Run | [39899503144](https://github.com/Jacinth-19/GuestVault/actions/runs/39899503144) — commit `079623f` |
-| Earlier green run | [39892649585](https://github.com/Jacinth-19/GuestVault/actions/runs/39892649585) — commit `9ea40d4` |
+| Run | [39938881339](https://github.com/Jacinth-19/GuestVault/actions/runs/39938881339) — commit `9ea0038` |
 | Result | **77 passed · 0 failed · 4 not automated** (of 81 steps) |
+| Build | `1.2.1` (versionCode 5) — the same app code as the published `v1.2.1` release |
 | Device | API 34 `google_apis` x86_64, Pixel 6 profile |
 
 A step with no recorded result counts as failed: if the harness did not
@@ -54,7 +54,7 @@ each one does.
 | 3.2 | Check the three stat cards | Allowed apps = 0, Lock method = PIN + bio, Auto-wipe = On (defaults) | ✅ pass | met |
 | 3.3 | Allowed apps card, empty | "Choose apps" action | ✅ pass | met |
 | 3.4 | Tap the gear (top right) | Settings opens | ✅ pass | met |
-| 3.5 | Scroll to the bottom | Version line — note what it says (this is the 1.0.0 bug) | ✅ pass | footer reads: GuestVault 1.2.0 · Android 10+ · Your data stays on this phone |
+| 3.5 | Scroll to the bottom | Version line — note what it says (this is the 1.0.0 bug) | ✅ pass | footer reads: GuestVault 1.2.1 · Android 10+ · Your data stays on this phone |
 | 3.6 | Tap "Learn more" | About page with the honest-limitations copy | ✅ pass | met |
 | 4.1 | Dashboard → Allowed apps → Choose apps | Search bar, "Use recommended", "Clear", app list | ✅ pass | met |
 | 4.2 | Type "cam" in search | List filters live | ✅ pass | met |
@@ -83,8 +83,8 @@ each one does.
 | 7.2 | Tap Cancel | Returns to guest home — a guest cannot escape by cancelling | ✅ pass | met |
 | 7.3 | Enter a wrong PIN | Red error, dots clear | ✅ pass | met |
 | 7.4 | 🔨 Enter 5 wrong PINs | Cool-down starts at 30 s; keypad disabled; a countdown or message shows | ✅ pass | locked after 2 wrong PINs (plan says 5); message: Too many attempts. Try again in 28s. |
-| 7.5 | 🔨 Force-stop and relaunch during the cool-down | Still locked — the cool-down survives the app being killed | ✅ pass | the lock stayed closed without an error message after the kill |
-| 7.6 | Wait it out, then 5 more wrong | Cool-down doubles to 60 s (cap 15 min) | ✅ pass | doubled after 4 more wrong PINs (plan says 5); message: Too many attempts. Try again in 40s. |
+| 7.5 | 🔨 Force-stop and relaunch during the cool-down | Still locked — the cool-down survives the app being killed | ✅ pass | the lock answered the wrong PIN after the kill |
+| 7.6 | Wait it out, then 5 more wrong | Cool-down doubles to 60 s (cap 15 min) | ✅ pass | doubled after 2 more wrong PINs (plan says 5); message: Too many attempts. Try again in 59s. |
 | 7.7 | Tap the fingerprint icon | BiometricPrompt; a wrong finger doesn't unlock; Use PIN falls back to the keypad | ⚠️ not automated | needs an enrolled fingerprint and a physical finger; the emulator has no biometric hardware enrolled |
 | 7.8 | Enter the correct PIN | Session ends, back to the dashboard | ✅ pass | met |
 | 8.1 | Dashboard → "Recent sessions" | Your session appears with time range, duration, "N apps allowed" | ✅ pass | met |
@@ -93,21 +93,21 @@ each one does.
 | 8.4 | 🔨 Clear history → confirm dialog | Ask before deleting; list empties to "No sessions yet" | ✅ pass | met |
 | 9.1 | Change owner PIN | Old PIN path works; new PIN takes effect immediately — verify by starting a session and unlocking with the new one | ✅ pass | met |
 | 9.2 | Biometric unlock toggle | Shows unavailable if no fingerprint/face is enrolled | ✅ pass | met |
-| 9.3 | Screen pinning toggle | Off ⇒ next session shows "Soft lock" and the warning | ✅ pass | met |
-| 9.4 | Auto-wipe toggle | Off ⇒ a session ends without the "Guest data wiped" badge | ✅ pass | met |
+| 9.3 | Screen pinning toggle | Off ⇒ next session shows "Soft lock" and the warning | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
+| 9.4 | Auto-wipe toggle | Off ⇒ a session ends without the "Guest data wiped" badge | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
 | 9.5 | Default session timer → pick 5 min | Confirm screen pre-selects 5 min next time | ✅ pass | met |
-| 9.6 | Theme: System / Light / Dark | Applies instantly, survives a restart, and the guest home follows too | ✅ pass | met |
+| 9.6 | Theme: System / Light / Dark | Applies instantly, survives a restart, and the guest home follows too | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
 | 9.7 | Permissions & privacy | 4 rows with live status + a "Never requested" list that includes Internet | ✅ pass | met |
 | 9.8 | How GuestVault works | Limitations page, no marketing spin | ✅ pass | met |
 | 9.9 | Privacy policy | Opens the GitHub Pages policy | ✅ pass | opened the GitHub Pages policy in com.android.chrome |
-| 9.10 | Version row | Shows 1.2.0 — compare with the dashboard footer (3.5 in Pass 3) | ✅ pass | Version row reads 1.2.0, matching BuildConfig (1.2.0) |
+| 9.10 | Version row | Shows the build version — compare with the dashboard footer (3.5 in Pass 3) | ✅ pass | Version row reads 1.2.1, matching BuildConfig (1.2.1) |
 | 10.1 | Revoke Notifications in Android settings, reopen the app | Row shows "Not granted" with a button to fix it | ✅ pass | met |
 | 10.2 | 🔨 Start a session with notifications revoked | Session still starts; the ongoing notification is simply absent | ✅ pass | met |
 | 11.1 | Pull the shade → edit tiles → add Guest Mode | Tile appears | ⚠️ not automated | the emulator image has no `cmd statusbar add-tile`; the tile is added by hand |
 | 11.2 | Read the subtitle (no session) | "Tap to start a guest session" | ⚠️ not automated | needs the tile added by hand; checked on a device |
 | 11.3 | Tap it | Opens the app on the confirm screen — it does not silently start a session | ✅ pass | met |
-| 11.4 | Start a session, then tap the tile | Jumps straight back into the running guest home; tile is active | ✅ pass | met |
-| 12.1 | Start a 5-minute session, put the phone down | Ends by itself at 0:00 | ✅ pass | ended after 297s of wall clock |
+| 11.4 | Start a session, then tap the tile | Jumps straight back into the running guest home; tile is active | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
+| 12.1 | Start a 5-minute session, put the phone down | Ends by itself at 0:00 | ✅ pass | ended after 300s of wall clock |
 | 12.2 | Check history | End reason Timer, wipe badge if auto-wipe was on | ✅ pass | met |
 | 12.3 | 🔨 Leave the guest in another app during the whole 5 min | Still expires — the foreground service keeps the timer alive | ✅ pass | ended after 300s with another app in the foreground |
 | 13.1 | Start a session, then reboot the phone | — | ✅ pass | met |
@@ -115,24 +115,43 @@ each one does.
 | 13.3 | Check history | Recovered after restart, and wiped if auto-wipe was on | ✅ pass | met |
 | 13.4 | 🔨 Repeat on Samsung with "Pin windows" + battery saver on | Same result | ⚠️ not automated | needs a Samsung One UI device with battery saver — no such hardware in CI |
 | 14.1 | System font size 200% | Nothing clipped or overlapping on any screen | ✅ pass | met |
-| 14.2 | Rotate the phone during a session | Guest home survives; no crash, no escape | ✅ pass | the confirm screen still reads "Ends automatically after 15 min"; starting anyway |
+| 14.2 | Rotate the phone during a session | Guest home survives; no crash, no escape | ✅ pass | met |
 | 14.3 | Start a session with 0 apps allowed | Blocked with "Pick at least one app" | ✅ pass | met |
 | 14.4 | Airplane mode | Irrelevant — the app has no INTERNET permission at all | ✅ pass | met |
 | 14.5 | Kill the app from Recents mid-session, reopen | Guest mode is still active, not silently dropped | ✅ pass | met |
 | 14.6 | Uninstall | Everything goes; nothing was backed up (allowBackup=false) | ✅ pass | uninstall said 'Success'; package path '<empty>'; app data left: no; android:allowBackup="false" in the manifest |
 
-## Version row (9.10)
+## The version row (9.10)
 
-The plan originally expected `1.1.1` here while the build was `1.2.0`, and
-the step was reported as a failure until that was resolved. It was a stale
-expectation, not a defect: the splash pill, the dashboard footer (step 3.5)
-and the Settings row all read the build's own version.
+The plan once pinned `1.1.1` here while the build was `1.2.0`, and the step
+was reported as a failure until that was resolved. It was a stale
+expectation, not a defect: the splash pill, the dashboard footer (3.5) and
+the Settings row all read the build's own version.
 
 The Expect column now reads *"Shows the build version — compare with the
 dashboard footer (3.5 in Pass 3)"*, and the assertion compares the row with
 `BuildConfig.VERSION_NAME` (via `AppVersion.display`, which strips the
-`-debug` suffix) instead of a hard-coded string, so a version bump cannot rot
-the step. Step 3.5 independently proves the footer agrees.
+`-debug` suffix) instead of a hard-coded string. A version bump cannot rot
+the step, and 3.5 independently proves the footer agrees.
+
+## Flakes that were real bugs
+
+Three intermittent failures turned out to be defects rather than CI noise,
+and are fixed:
+
+- **Digits typed on a cold start were dropped.** The lock screen ignored
+  taps until the stored guard had loaded from DataStore, so a fast entry
+  lost its first digits and the keypad looked dead. Input is now buffered
+  and replayed; a cool-down still wins, so it can never count as a fresh
+  attempt (`LockViewModel.onDigit`).
+- **A sleeping emulator looked like a missing row.** Steps failed with
+  "the row is not in Settings (text=9:22)" — the device had dozed off and
+  its keyguard was in front. The harness now holds the screen on and
+  wakes the device before each phase (`keep_awake`, `wakeDevice`).
+- **Long Settings pages stalled mid-scroll.** The accessibility scroll
+  action is a no-op on a Compose `LazyColumn` that is not the semantics
+  scrollable. `scrollToBottom()` drives the scrollable node directly and
+  rebuilds the page if it stops moving.
 
 ## The four steps no emulator can answer
 
