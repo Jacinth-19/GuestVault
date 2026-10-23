@@ -8,6 +8,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import java.io.File
 
@@ -687,6 +688,37 @@ abstract class StepHarness {
                 stillRounds = 0
                 lastPage = page
             }
+        }
+        return predicate()
+    }
+
+    /** The biggest scrollable on screen: the page, not a card inside it. */
+    protected fun tallestScrollable(): UiObject2? = runCatching {
+        device.findObjects(By.scrollable(true))
+            .maxByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
+    }.getOrNull()
+
+    /**
+     * Scrolls the page itself to the bottom.
+     *
+     * `scrollForward()` asks the accessibility tree to scroll; a Compose
+     * `LazyColumn` only moves through that action while it is the semantics
+     * scrollable, and coalesced gestures are swallowed by rows that handle drags.
+     * Driving the scrollable node directly is the one route that survives both.
+     */
+    protected fun scrollToBottom(maxSteps: Int = 12, predicate: () -> Boolean): Boolean {
+        if (predicate()) return true
+        var node = tallestScrollable()
+        repeat(maxSteps) {
+            if (predicate()) return true
+            val moved = node?.let { n ->
+                runCatching { n.scroll(Direction.DOWN, 0.9f) }.getOrDefault(false)
+            } ?: false
+            if (!moved) {
+                systemSwipeUp()
+                node = tallestScrollable()
+            }
+            pause(320)
         }
         return predicate()
     }
