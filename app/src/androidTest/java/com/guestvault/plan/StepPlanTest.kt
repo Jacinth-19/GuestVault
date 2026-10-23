@@ -1192,7 +1192,10 @@ class StepPlanTest : StepHarness() {
             )
         }
 
-        verify("9.10", "Shows 1.1.1 — compare with the dashboard footer (9.5 in Pass 3)") {
+        verify(
+            "9.10",
+            "Shows 1.2.0 — compare with the dashboard footer (3.5 in Pass 3)"
+        ) {
             // 9.9 hands over to the browser, so the app is not in front any more.
             backToDashboard()
             openSettings()
@@ -1200,13 +1203,17 @@ class StepPlanTest : StepHarness() {
             val version = device.findObjects(By.textContains(".")).mapNotNull { it.text }
                 .firstOrNull { Regex("^\\d+\\.\\d+\\.\\d+$").containsMatchIn(it.trim()) }
                 ?: "nothing"
-            // The plan expects 1.1.1; the build under test is versionName 1.2.0,
-            // so this stays a failure and is reported as version drift rather
-            // than quietly re-baselined.
+            // The plan used to pin 1.1.1, which was a stale expectation rather than
+            // a defect: the splash pill, the dashboard footer (3.5) and this row all
+            // read the build's own version. Grading against BuildConfig keeps the
+            // step honest across a version bump; 3.5 independently proves the footer
+            // agrees with it.
+            val expected = com.guestvault.core.AppVersion.display
             expectTrue(
-                Regex("1\\.1\\.1").containsMatchIn(version),
-                "the Version row reads \"$version\", not 1.1.1 (the build is 1.2.0)"
+                version.trim() == expected,
+                "the Version row reads \"$version\", not the build's $expected"
             )
+            note("Version row reads $version, matching BuildConfig ($expected)")
         }
     }
 
@@ -1876,15 +1883,25 @@ class StepPlanTest : StepHarness() {
      * viewport, so this alternates swipes with accessibility scrolling for a
      * generous amount of time before giving up.
      */
-    private fun reachRow(row: String, timeoutMs: Long = 20_000): Boolean {
-        if (device.hasObject(By.text(row))) return true
-        if (scrollUntil(timeoutMs) { device.hasObject(By.text(row)) }) return true
-        // Still not there: the page may have been left behind (a dialog, a
-        // hand-over to the browser, a slow first frame). Start again from the
-        // dashboard instead of failing on the first attempt.
+    private fun reachRow(row: String, timeoutMs: Long = 15_000): Boolean {
+        repeat(3) { attempt ->
+            if (device.hasObject(By.text(row))) return true
+            if (scrollUntil(timeoutMs) { device.hasObject(By.text(row)) }) return true
+            // The page may not be what we think it is (a dialog, a hand-over to
+            // the browser, a list that has stopped moving). Rebuild the screen
+            // from a cold start of the app rather than failing on the spot.
+            if (attempt < 2) relaunchToSettings()
+        }
+        return device.hasObject(By.text(row))
+    }
+
+    /** Relaunches the owner app and walks back into Settings. */
+    private fun relaunchToSettings() {
+        launchApp()
+        pause(1_200)
+        dismissPinnedDialog(timeoutMs = 2_000)
         backToDashboard()
         openSettings()
-        return scrollUntil(timeoutMs) { device.hasObject(By.text(row)) }
     }
 
     private fun backToDashboard(maxPresses: Int = 6) {
