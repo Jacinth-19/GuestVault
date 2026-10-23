@@ -46,6 +46,9 @@ keep_awake() {
   # keyguard clock instead of the app, and every tap after that lands on the
   # lock screen - which is what "the row is not in Settings (text=9:22)" meant.
   adb shell settings put system screen_off_timeout 2147483647 >/dev/null 2>&1 || true
+  # The key behind the developer option "Stay awake": AC | USB | Wireless.
+  # `svc power stayon true` writes the same thing but is reset by some images.
+  adb shell settings put global stay_on_while_plugged_in 7 >/dev/null 2>&1 || true
   adb shell svc power stayon true >/dev/null 2>&1 || true
   adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
   adb shell wm dismiss-keyguard >/dev/null 2>&1 || true

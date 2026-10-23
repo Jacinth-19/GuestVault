@@ -822,6 +822,14 @@ class StepPlanTest : StepHarness() {
 
         verify("7.6", "Cool-down doubles to 60 s (cap 15 min)") {
             waitOutCoolDown(maxSeconds = 90)
+            // Typing into a screen that is not the lock (a slept emulator, a
+            // lingering dialog) produces no lockout message at all, which reads
+            // like a broken counter. Get back to the keypad first.
+            if (!device.hasObject(By.desc("PIN key 1"))) {
+                wakeDevice()
+                if (device.hasObject(By.text("Return to Owner"))) tapText("Return to Owner")
+                waitForDesc("PIN key 1", 10_000)
+            }
             var attempts = 0
             var lastMessage = ""
             var seconds = 0
