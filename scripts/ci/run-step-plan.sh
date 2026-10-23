@@ -40,8 +40,23 @@ fail_setup() {
   exit 2
 }
 
+keep_awake() {
+  # The emulator still dozes off mid-run: `svc power stayon` only covers the
+  # "plugged in" case and a reboot resets it. A sleeping emulator shows its
+  # keyguard clock instead of the app, and every tap after that lands on the
+  # lock screen - which is what "the row is not in Settings (text=9:22)" meant.
+  adb shell settings put system screen_off_timeout 2147483647 >/dev/null 2>&1 || true
+  # The key behind the developer option "Stay awake": AC | USB | Wireless.
+  # `svc power stayon true` writes the same thing but is reset by some images.
+  adb shell settings put global stay_on_while_plugged_in 7 >/dev/null 2>&1 || true
+  adb shell svc power stayon true >/dev/null 2>&1 || true
+  adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+  adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
+}
+
 run_phase() {
   local name="$1" out status device summary
+  keep_awake
   device="$(adb get-state 2>&1 | tr -d '\r')"
   # `< /dev/null` matters: `adb shell` otherwise drains the stdin of the
   # enclosing `while read` loop and every phase after the first is skipped.
@@ -125,6 +140,7 @@ adb shell settings put global animator_duration_scale 0
 adb shell svc power stayon true
 adb shell wm dismiss-keyguard
 adb shell input keyevent KEYCODE_WAKEUP
+adb shell settings put system screen_off_timeout 2147483647
 
 echo "== install =="
 # A cold emulator can still be finishing its first boot when adb says it is
@@ -212,6 +228,7 @@ while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE <&3; do
     reboot)
       adb reboot || true
       wait_for_boot
+      keep_awake
       ;;
     airplane-on)
       adb shell cmd connectivity airplane-mode enable >/dev/null 2>&1 \
