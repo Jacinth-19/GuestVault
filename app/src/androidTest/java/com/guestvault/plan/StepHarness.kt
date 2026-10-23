@@ -644,24 +644,45 @@ abstract class StepHarness {
     }
 
     /** Scrolls the page down until [predicate] holds, alternating methods. */
+    /**
+     * Scrolls until [predicate] holds, rotating three ways of asking.
+     *
+     * One method can silently stop working: the accessibility action is a no-op
+     * on a list that is not the semantics scrollable, and an injected gesture is
+     * swallowed when it starts on a row that takes the drag itself (a switch, a
+     * channel with its own action). Trying all three in turn is what keeps a
+     * long Settings page from stalling half-way down.
+     */
     protected fun scrollUntil(timeoutMs: Long = 25_000, predicate: () -> Boolean): Boolean {
         val deadline = System.currentTimeMillis() + timeoutMs
         var round = 0
         while (System.currentTimeMillis() < deadline) {
             if (predicate()) return true
-            if (round % 2 == 0) {
-                scrollForward()
-            } else {
-                val x = device.displayWidth / 2
-                device.swipe(
-                    x, (device.displayHeight * 0.80f).toInt(),
-                    x, (device.displayHeight * 0.25f).toInt(), 16
-                )
+            when (round % 3) {
+                0 -> scrollForward()
+                1 -> {
+                    val x = device.displayWidth / 2
+                    device.swipe(
+                        x, (device.displayHeight * 0.80f).toInt(),
+                        x, (device.displayHeight * 0.25f).toInt(), 16
+                    )
+                }
+                // Injected by the system, so it cannot be intercepted by a
+                // Compose pointer handler on the row under the finger.
+                else -> systemSwipeUp()
             }
             round++
-            pause(450)
+            pause(400)
         }
         return predicate()
+    }
+
+    /** A scroll injected by `input`, independent of UiAutomator's gesture path. */
+    protected fun systemSwipeUp(fraction: Float = 0.55f) {
+        val x = (device.displayWidth * 0.5f).toInt()
+        val fromY = (device.displayHeight * 0.78f).toInt()
+        val toY = (fromY - device.displayHeight * fraction).toInt()
+        shell("input swipe $x $fromY $x $toY 220")
     }
 
     /** Every visible text on screen — never throws: a stale node must not cost a whole pass its verdicts. */

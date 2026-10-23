@@ -1884,14 +1884,18 @@ class StepPlanTest : StepHarness() {
      * generous amount of time before giving up.
      */
     private fun reachRow(row: String, timeoutMs: Long = 20_000): Boolean {
-        if (device.hasObject(By.text(row))) return true
-        if (scrollUntil(timeoutMs) { device.hasObject(By.text(row)) }) return true
-        // Still not there: the page may have been left behind (a dialog, a
-        // hand-over to the browser, a slow first frame). Start again from the
-        // dashboard instead of failing on the first attempt.
-        backToDashboard()
-        openSettings()
-        return scrollUntil(timeoutMs) { device.hasObject(By.text(row)) }
+        repeat(2) { attempt ->
+            if (device.hasObject(By.text(row))) return true
+            if (scrollUntil(timeoutMs) { device.hasObject(By.text(row)) }) return true
+            // Still not there: the page may have been left behind (a dialog, a
+            // hand-over to the browser, a half-painted list). Start again from
+            // the dashboard rather than failing on the first attempt.
+            if (attempt == 0) {
+                backToDashboard()
+                openSettings()
+            }
+        }
+        return device.hasObject(By.text(row))
     }
 
     private fun backToDashboard(maxPresses: Int = 6) {
