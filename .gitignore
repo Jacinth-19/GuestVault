@@ -29,3 +29,7 @@ upload-keystore*
 # Screenshots and the demo video are produced by the "Screenshots & Demo
 # Video" workflow and committed intentionally under docs/media.
 build/media/
+
+# Python bytecode from running the CI scripts locally.
+__pycache__/
+*.pyc

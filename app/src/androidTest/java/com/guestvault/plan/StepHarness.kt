@@ -9,7 +9,6 @@ import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
-import androidx.test.uiautomator.Until
 import java.io.File
 
 /**
@@ -294,7 +293,7 @@ abstract class StepHarness {
                     if (tryEnterPin(pinDigits)) {
                         // The wipe and the hand-over back to the owner take a
                         // moment; wait for the outcome instead of sampling.
-                        runCatching { device.wait(Until.hasObject(By.text("Start Guest Session")), 12_000) }
+                        runCatching { waitForSelector(By.text("Start Guest Session"), 12_000) }
                     }
                     pause(800)
                 }
@@ -371,7 +370,7 @@ abstract class StepHarness {
         }
         for (digit in digits) {
             val selector = By.desc("PIN key $digit")
-            val found = runCatching { device.wait(Until.hasObject(selector), 5_000) }.getOrDefault(false)
+            val found = runCatching { waitForSelector(selector, 5_000) }.getOrDefault(false)
             if (!found) return false
             runCatching { device.findObject(selector)!!.click() }
             pause(180)
@@ -388,7 +387,7 @@ abstract class StepHarness {
 
         // The lock screen renders its keypad before the stored guard has loaded;
         // taps during that window are dropped, which looked like a wrong PIN.
-        runCatching { device.wait(Until.hasObject(By.desc("PIN key 1")), 8_000) }
+        runCatching { waitForSelector(By.desc("PIN key 1"), 8_000) }
         pause(400)
 
         // While a cool-down is running the keypad ignores every tap; typing into
@@ -405,10 +404,10 @@ abstract class StepHarness {
 
         digits.forEach { digit ->
             val selector = By.desc("PIN key $digit")
-            var found = runCatching { device.wait(Until.hasObject(selector), 8_000) }.getOrDefault(false)
+            var found = runCatching { waitForSelector(selector, 8_000) }.getOrDefault(false)
             if (!found) {
                 pause(800)
-                found = runCatching { device.wait(Until.hasObject(selector), 6_000) }.getOrDefault(false)
+                found = runCatching { waitForSelector(selector, 6_000) }.getOrDefault(false)
             }
             if (!found) {
                 // The flow can move on mid-entry (the fourth digit submits, the
@@ -510,8 +509,33 @@ abstract class StepHarness {
         return false
     }
 
+    /**
+     * Waits for text, by polling rather than by listening.
+     *
+     * `UiDevice.wait(Until..., t)` only re-evaluates its condition when an
+     * accessibility event arrives, so when Compose stops emitting them the wait
+     * runs out its full timeout even though the text is on the screen. Step 9.1
+     * failed exactly that way — "old PIN was not accepted", with the next step's
+     * dump showing "Choose a new PIN" right there — and the four steps after it
+     * failed as a consequence, because the harness was still on the wrong screen.
+     * Polling asks the window itself, so a timeout now means "not there".
+     */
     protected fun waitFor(text: String, timeout: Long = 15_000): Boolean =
-        device.wait(Until.hasObject(By.text(text)), timeout)
+        pollUntil(timeout) { has(By.text(text)) }
+
+    /** [waitFor] for an arbitrary selector; see the note there. */
+    protected fun waitForSelector(selector: BySelector, timeout: Long = 15_000): Boolean =
+        pollUntil(timeout) { has(selector) }
+
+    /** [waitFor] for a plain string; see the note there. */
+    private fun pollUntil(timeout: Long, condition: () -> Boolean): Boolean {
+        val deadline = System.currentTimeMillis() + timeout
+        while (System.currentTimeMillis() < deadline) {
+            if (condition()) return true
+            Thread.sleep(200)
+        }
+        return condition()
+    }
 
     /**
      * Leaves the current screen, never failing on its own.
@@ -522,7 +546,7 @@ abstract class StepHarness {
      * The hardware key does the same thing, so fall back to it.
      */
     protected fun tapBack() {
-        if (device.wait(Until.hasObject(By.desc("Back")), 2_000)) {
+        if (waitForSelector(By.desc("Back"), 2_000)) {
             runCatching { device.findObject(By.desc("Back"))?.click() }
         } else {
             device.pressBack()
@@ -531,10 +555,10 @@ abstract class StepHarness {
     }
 
     protected fun waitForDesc(desc: String, timeout: Long = 15_000): Boolean =
-        device.wait(Until.hasObject(By.desc(desc)), timeout)
+        pollUntil(timeout) { has(By.desc(desc)) }
 
     protected fun waitForContains(text: String, timeout: Long = 15_000): Boolean =
-        device.wait(Until.hasObject(By.textContains(text)), timeout)
+        pollUntil(timeout) { has(By.textContains(text)) }
 
     protected fun assertWait(text: String, timeout: Long = 15_000) {
         expectTrue(waitFor(text, timeout), "\"$text\" never appeared")
