@@ -232,17 +232,24 @@ class ProSecurityPlanTest : StepHarness() {
             tapText("Clear")
             pause(600)
         }
+        // Count what is *ticked*, not what is listed. The picker always shows
+        // dozens of rows, so counting rows looked like a finished selection and
+        // Continue was tapped with nothing chosen — and because the button is
+        // disabled until one app is picked, it did nothing at all and the whole
+        // pass sat on the picker.
         var guard = 0
-        while (appRows().size < 3 && guard < 24) {
+        while ((selectedApps() ?: 0) < 3 && guard < 24) {
             guard++
-            val row = appRows().getOrNull(guard - 1) ?: run {
+            val row = appRows().getOrNull(guard - 1)
+            if (row == null) {
+                val x = device.displayWidth / 2
                 device.swipe(
-                    device.displayWidth / 2, (device.displayHeight * 0.75f).toInt(),
-                    device.displayWidth / 2, (device.displayHeight * 0.45f).toInt(), 18
+                    x, (device.displayHeight * 0.75f).toInt(),
+                    x, (device.displayHeight * 0.45f).toInt(), 18
                 )
                 pause(500)
-                null
-            } ?: continue
+                continue
+            }
             runCatching { row.click() }
             pause(450)
             if (device.hasObject(By.text("Allow anyway"))) {
@@ -250,11 +257,16 @@ class ProSecurityPlanTest : StepHarness() {
                 pause(400)
             }
         }
-        expectTrue(appRows().size >= 3, "could not select three apps")
+        expectTrue(
+            (selectedApps() ?: 0) >= 3,
+            "only ${selectedApps() ?: 0} apps were selected (counter: ${selectionCounter() ?: "none"})"
+        )
+        hideKeyboard()
         tapText("Continue")
         expectTrue(
             waitFor("One last look before you hand over", 15_000),
-            "the confirm screen did not open"
+            "the confirm screen did not open (counter: ${selectionCounter() ?: "none"}; " +
+                "text=${visibleText().take(160)})"
         )
         tapText("Start Guest Mode")
         pause(1_500)
@@ -282,4 +294,22 @@ class ProSecurityPlanTest : StepHarness() {
     private fun appRows() = runCatching {
         device.findObjects(By.descContains("App row "))
     }.getOrDefault(emptyList())
+
+    /** The picker's own tally, e.g. "3 apps selected". */
+    private fun selectionCounter(): String? = runCatching {
+        device.findObjects(By.textContains("apps selected")).firstOrNull()?.text
+    }.getOrNull()
+
+    private fun selectedApps(): Int? =
+        Regex("(\\d+) apps selected").find(selectionCounter() ?: "")?.groupValues?.get(1)?.toIntOrNull()
+
+    /** The IME covers the picker's bottom bar, Continue included. */
+    private fun hideKeyboard() {
+        repeat(2) {
+            val shown = shell("dumpsys input_method").lineSequence().any { it.contains("mInputShown=true") }
+            if (!shown) return
+            device.pressBack()
+            pause(700)
+        }
+    }
 }
