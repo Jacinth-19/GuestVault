@@ -760,9 +760,25 @@ abstract class StepHarness {
         ) {
             return true
         }
-        return shell("dumpsys window policy").contains("showing=true") &&
-            shell("dumpsys window policy").contains("interactiveState=INTERACTIVE")
+        // `dumpsys window policy` is full of unrelated `showing=true` lines
+        // (every window that is visible has one), so matching the bare string
+        // reported a keyguard on an unlocked phone. That mattered: the caller
+        // then tried to swipe the keyguard away, and on gesture navigation a
+        // bottom-to-top swipe is the HOME gesture — so it backgrounded the app
+        // mid-step and left every later tap on the launcher. Only the keyguard
+        // delegate's own line counts.
+        val policy = shell("dumpsys window policy")
+        return policy.lineSequence().any { line ->
+            line.contains("KeyguardServiceDelegate") && line.contains("showing=true")
+        } && policy.contains("interactiveState=INTERACTIVE")
     }
+
+    /** True when this app owns the focused window. */
+    protected fun appForegrounded(): Boolean = runCatching {
+        shell("dumpsys window").lineSequence()
+            .firstOrNull { it.contains("mCurrentFocus") }
+            ?.contains(context.packageName) == true
+    }.getOrDefault(false)
 
     /**
      * The screen shows nothing but a clock ("4:49"), which is what a dozing
@@ -793,9 +809,19 @@ abstract class StepHarness {
         if (has(By.text("Start Guest Session")) || has(By.desc("PIN key 1"))) return
 
         runCatching { shell("input keyevent KEYCODE_WAKEUP") }
+        if (appForegrounded()) {
+            // The app is already in front: the screen is on and there is no
+            // keyguard to dismiss. Nothing to do — and nothing that could turn
+            // into a gesture.
+            return
+        }
         if (!keyguardShowing() && !clockOnlyScreen()) {
             runCatching { shell("wm dismiss-keyguard") }
-            pause(600)
+            // The app is behind something that is not a lock screen (a rogue
+            // HOME, the launcher's app drawer, another app the step left open).
+            // Bring it back rather than typing the PIN into whatever is there.
+            runCatching { shell("am start -n ${context.packageName}/.MainActivity") }
+            pause(1_200)
             return
         }
 
@@ -807,8 +833,11 @@ abstract class StepHarness {
             runCatching { shell("wm dismiss-keyguard") }
             if (attempt > 0) runCatching { shell("input keyevent 82") }  // MENU dismisses on AOSP
             if (attempt == 2) {
-                // Last resort: swipe the keyguard away from the bottom up.
-                runCatching { shell("input swipe 540 1800 540 600 200") }
+                // Last resort: swipe the keyguard away. It starts well above the
+                // bottom edge — a swipe that begins in the gesture-home zone is
+                // HOME on gesture navigation, which sent the app to the launcher
+                // and made the next step type its PIN into the app drawer.
+                runCatching { shell("input swipe 540 1500 540 700 220") }
             }
             pause(700)
             if (!keyguardShowing() && !clockOnlyScreen()) return
