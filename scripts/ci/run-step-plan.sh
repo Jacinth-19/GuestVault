@@ -13,12 +13,33 @@
 
 set -uo pipefail
 
-# The graded plan runs the free build: it is the listing that already ships,
-# and `pro` differs only by applicationId, BuildConfig.PRO and a string.
-APK="app/build/outputs/apk/free/debug/app-free-debug.apk"
-TEST_APK="app/build/outputs/apk/androidTest/free/debug/app-free-debug-androidTest.apk"
-PACKAGE="com.guestvault"
+# Which build is being graded.
+#
+# The free build carries passes 1-14: it is the listing that already ships, and
+# those steps must stay meaningful whatever the paid build grows. The paid build
+# gets its own emulator and its own pass (15), because a Pro-only feature cannot
+# be graded through a screen that is deliberately locked on the free build.
+VARIANT="${PLAN_VARIANT:-free}"
+case "$VARIANT" in
+  pro)
+    APK="app/build/outputs/apk/pro/debug/app-pro-debug.apk"
+    TEST_APK="app/build/outputs/apk/androidTest/pro/debug/app-pro-debug-androidTest.apk"
+    PACKAGE="com.guestvault.pro"
+    PLAN_CLASS="${PLAN_CLASS:-ProPlanTest}"
+    ;;
+  *)
+    APK="app/build/outputs/apk/free/debug/app-free-debug.apk"
+    TEST_APK="app/build/outputs/apk/androidTest/free/debug/app-free-debug-androidTest.apk"
+    PACKAGE="com.guestvault"
+    PLAN_CLASS="${PLAN_CLASS:-StepPlanTest}"
+    ;;
+esac
 RUNNER="${PACKAGE}.test/androidx.test.runner.AndroidJUnitRunner"
+# The Kotlin package of the plan classes, which is not the applicationId: the
+# paid build installs as com.guestvault.pro but its tests still live in
+# com.guestvault.plan. Getting this wrong is an INSTRUMENTATION_FAILED with
+# "class not found" and no verdicts.
+PLAN_PACKAGE="com.guestvault.plan"
 MANIFEST="${MANIFEST:-scripts/ci/step-plan.json}"
 PLAN_GROUP="${PLAN_GROUP:-}"
 RAW="build/step-results.jsonl"
@@ -68,7 +89,7 @@ run_phase() {
   # `< /dev/null` matters: `adb shell` otherwise drains the stdin of the
   # enclosing `while read` loop and every phase after the first is skipped.
   out="$(timeout "$PER_PASS_TIMEOUT" adb shell am instrument -w -r \
-    -e class "${PACKAGE}.plan.StepPlanTest#${name}" \
+    -e class "${PLAN_PACKAGE}.${PLAN_CLASS}#${name}" \
     "$RUNNER" < /dev/null 2>&1)"
   status=$?
   echo "$out" > "build/logcat/${name}.txt"
