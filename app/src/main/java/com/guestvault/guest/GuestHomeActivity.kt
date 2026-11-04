@@ -66,7 +66,8 @@ class GuestHomeActivity : FragmentActivity() {
                     viewModel = viewModel,
                     onLaunchApp = viewModel::launchApp,
                     onEndSession = viewModel::endSession,
-                    onReturnToOwner = ::returnToOwner
+                    onReturnToOwner = ::returnToOwner,
+                    onRecovered = ::recoveredWithEmergencyCode
                 )
             }
         }
@@ -104,8 +105,18 @@ class GuestHomeActivity : FragmentActivity() {
         // an explicit "Home and Recents are not blocked" banner.
     }
 
-    fun returnToOwner() {
-        Log.i(TAG, "returnToOwner")
+    fun returnToOwner() = leaveGuestMode(openPinReset = false)
+
+    /**
+     * The owner got back in with the emergency code, which means the PIN is
+     * known to be lost — not merely forgotten for a second. The dashboard would
+     * be a dead end (changing a PIN asks for the current one), so this lands
+     * straight on the new-PIN screen instead.
+     */
+    fun recoveredWithEmergencyCode() = leaveGuestMode(openPinReset = true)
+
+    private fun leaveGuestMode(openPinReset: Boolean) {
+        Log.i(TAG, "leaveGuestMode(openPinReset=$openPinReset)")
         if (returningToOwner) return
         returningToOwner = true
 
@@ -116,6 +127,7 @@ class GuestHomeActivity : FragmentActivity() {
 
         val intent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            if (openPinReset) putExtra(MainActivity.EXTRA_RESET_PIN, true)
         }
         startActivity(intent)
         finishAndRemoveTask()

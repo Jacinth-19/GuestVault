@@ -2,8 +2,10 @@ name: Manual Test Plan
 
 # Grades every numbered step of the manual plan on a real emulator.
 #
-# Passes 1-14 grade the free build. Pass 15 grades the paid build on its own
-# emulator, because the Pro-only screens are locked on the free one.
+# Passes 1-14 grade the free build. Passes 15 and 16 grade the paid build on
+# their own emulators, because the Pro-only screens are locked on the free one —
+# and 16 changes the owner PIN, so it must not share an emulator with anything
+# that expects the previous one.
 #
 # The plan is split into six groups, each on its own fresh emulator. A single
 # 25-minute emulator session degrades (the system server gets slower, screens
@@ -28,6 +30,10 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # Explicit `permissions:` sets every unlisted scope to none, so the report
+  # job's `gh run download` retry was refused with 403 and its "verdicts
+  # arrived" check failed on a run where all eight artifacts were present.
+  actions: read
 
 concurrency:
   group: step-plan-${{ github.ref }}
@@ -37,7 +43,11 @@ jobs:
   plan:
     name: Group ${{ matrix.group }} — ${{ matrix.label }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # 45 minutes was not enough for group 5, which reboots the emulator for pass
+    # 13 and then waits out a five-minute session; two runs were cancelled at the
+    # cap with their work complete but unrecorded. The per-phase budget below
+    # still stops a single wedged phase from using the whole allowance.
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -48,7 +58,8 @@ jobs:
           - { group: 4, label: 'Passes 8–9', variant: free }
           - { group: 5, label: 'Passes 10, 11, 13, 14', variant: free }
           - { group: 6, label: 'Pass 12 (two 5-minute waits)', variant: free }
-          - { group: 7, label: 'Pass 15 — the paid build', variant: pro }
+          - { group: 7, label: 'Pass 15 — the paid build', variant: pro, plan_class: ProPlanTest }
+          - { group: 8, label: 'Pass 16 — paid build security', variant: pro, plan_class: ProSecurityPlanTest }
 
     steps:
       - name: Checkout
@@ -107,7 +118,7 @@ jobs:
           # plan at all.
           script: |
             set +e
-            PLAN_GROUP=${{ matrix.group }} PLAN_VARIANT=${{ matrix.variant }} PER_PASS_TIMEOUT=1200 bash scripts/ci/run-step-plan.sh > step-plan.log 2>&1
+            PLAN_GROUP=${{ matrix.group }} PLAN_VARIANT=${{ matrix.variant }} PLAN_CLASS=${{ matrix.plan_class }} PER_PASS_TIMEOUT=900 bash scripts/ci/run-step-plan.sh > step-plan.log 2>&1
             status=$?
             echo "=== step-plan.log (tail) ==="
             tail -n 140 step-plan.log
@@ -135,6 +146,15 @@ jobs:
             build/logcat/*.txt
             build/logcat/*.logcat.txt
           if-no-files-found: warn
+
+      # The reliable copy. The artifact below stays for the logs, but a pass
+      # must not depend on blob storage being in a good mood.
+      - name: Post this group's verdicts
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 scripts/ci/post_verdicts.py --group "${{ matrix.group }}"
 
       - name: Report failure details
         if: failure() || success()
@@ -169,33 +189,28 @@ jobs:
           path: merged
           pattern: step-verdicts-*
 
-      - name: Merge the verdicts
+      # Comments first, artifacts second — one group has gone missing from the
+      # artifact download on three different runs, always a different group.
+      - name: Collect every group's verdicts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          mkdir -p build
-          : > build/step-results.jsonl
-          printf '| Phase | Exit | Device | Foreground window | Crash / error |\n| --- | --- | --- | --- | --- |\n' > build/phase-log.md
-          shopt -s nullglob
-          for f in merged/*/build/step-results.jsonl; do cat "$f" >> build/step-results.jsonl; done
-          for f in merged/*/build/phase-log.md; do tail -n +3 "$f" >> build/phase-log.md; done
+          python3 scripts/ci/fetch_verdicts.py \
+            --manifest scripts/ci/step-plan.json \
+            --artifacts merged \
+            --results build/step-results.jsonl \
+            --phases build/phase-log.md
           echo "verdict lines: $(wc -l < build/step-results.jsonl)"
 
-      - name: Every group must have reported something
+      # fetch_verdicts.py already fails, naming the group, when one produced
+      # nothing; this only catches a merge that wrote an empty file.
+      - name: The merged results are not empty
         run: |
-          missing=0
-          for dir in merged/*/; do
-            # Fall back to the results file itself, so an artifact from an older
-            # run (no counter) is still graded, not skipped.
-            count="$(cat "$dir/build/verdict-count.txt" 2>/dev/null || echo "")"
-            if [ -z "$count" ]; then
-              count="$(grep -c '^{' "$dir/build/step-results.jsonl" 2>/dev/null || echo 0)"
-            fi
-            echo "$(basename "$dir"): ${count} verdict(s)"
-            if [ "$count" -eq 0 ]; then
-              echo "::error::$(basename "$dir") produced no verdicts — that emulator run never executed the plan"
-              missing=1
-            fi
-          done
-          if [ "$missing" -eq 1 ]; then
+          lines="$(grep -c '^{' build/step-results.jsonl || true)"
+          echo "verdict lines: ${lines:-0}"
+          if [ "${lines:-0}" -eq 0 ]; then
+            echo "::error::no verdicts were merged at all"
             exit 1
           fi
 

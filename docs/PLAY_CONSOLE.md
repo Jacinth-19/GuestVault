@@ -90,7 +90,7 @@ are not applicable must still be *answered*, not skipped.
 | **Government app** | No |
 | **Financial features** | No |
 | **Health apps** | No |
-| **Photo and video permissions** | None declared |
+| **Photo and video permissions** | None declared — the free build declares no `CAMERA` permission at all |
 | **Advertising ID** | Not used |
 
 ### Foreground service declaration — required, manual review
@@ -136,13 +136,13 @@ icon 512×512 RGBA, feature graphic 1024×500 with no alpha, screenshots 1080×2
 
 **Testing → Internal testing → Create new release**
 
-1. Upload `GuestVault-1.4.0.aab` from
+1. Upload `GuestVault-1.5.0.aab` from
    [the latest release](https://github.com/Jacinth-19/GuestVault/releases) — under
    *Assets*, not the APKs.
 2. **Enrol in Play App Signing** when prompted (mandatory for bundles). Play generates
    the app signing key; your `upload-keystore.jks` only signs what you upload.
 3. Release notes: copy the 1.1.0 block from [`STORE_LISTING.md`](STORE_LISTING.md),
-   changing the version to 1.4.0.
+   changing the version to 1.5.0.
 4. Add yourself as an internal tester, roll out, install from the opt-in link.
 
 > **If the AAB is missing from the release**, the workflow detected that the upload
@@ -152,7 +152,7 @@ icon 512×512 RGBA, feature graphic 1024×500 with no alpha, screenshots 1080×2
 ### Verify the upload key actually signed it
 
 ```bash
-keytool -printcert -jarfile GuestVault-1.4.0.aab | head -3
+keytool -printcert -jarfile GuestVault-1.5.0.aab | head -3
 ```
 
 The `Owner:` line must **not** say `CN=Android Debug`. The release workflow also runs
@@ -162,7 +162,7 @@ this check and fails the build if it does.
 > (`[skip ci]` and friends), GitHub suppresses *every* workflow for it — the tag push
 > produces no run and no error. That is how the first `v1.1.1` attempt vanished. Tag a
 > commit with a normal message, or start the workflow by hand:
-> `gh workflow run release.yml -f version=1.4.0`. CI now runs
+> `gh workflow run release.yml -f version=1.5.0`. CI now runs
 > `scripts/ci/check_workflow_hygiene.py`, which fails if such a marker is ever committed.
 
 ---
@@ -219,10 +219,20 @@ claim literally true.
 4. **Enrol in Play App Signing** — Play issues a second, per-listing signing key. Upload
    keys can be shared; signing keys cannot.
 5. **App content:** every form is answered the same way as the free app — privacy policy
-   URL, data safety (no collection, no sharing), no ads, no special permissions. The
-   `specialUse` foreground-service declaration applies here too.
-6. **Listing copy:** lead with what the paid build adds (profiles, per-app time limits
-   and schedules today; themes and export next), and say the free app exists. Under-promise the roadmap: never list a
+   URL, data safety (no collection, no sharing), no ads. The `specialUse`
+   foreground-service declaration applies here too.
+
+   **One difference: this listing declares `CAMERA`.** Since 1.5.0 the paid build can
+   store one still frame after a failed unlock (`Intruder photo`). Answer **Photo and
+   video permissions → Camera → "Take pictures"**, and in Data safety keep *no data
+   collected, no data shared*: the frame is written to the app's private storage, is
+   never uploaded (the app has no `INTERNET` permission), and leaves only if the owner
+   exports or shares it themselves. The install-time `camera` feature is marked
+   `required="false"`, so the listing installs on devices without a camera, where the
+   switch reads *unavailable* instead of failing.
+6. **Listing copy:** lead with what the paid build adds — profiles, per-app and daily
+   time limits, schedules, an emergency unlock code, a six-digit PIN and the intruder
+   photo — and say the free app exists. Under-promise the roadmap: never list a
    feature the build in the store does not have.
 7. **Version codes are per listing**, so both can carry `versionCode 6` independently.
 
@@ -243,7 +253,7 @@ Copy this into an issue and tick as you go.
 - [ ] App content: privacy policy, app access, ads, content rating, target audience, data safety
 - [ ] Foreground service `specialUse` declared **with** a YouTube demo link
 - [ ] Store listing filled, all 8 screenshots uploaded
-- [ ] `GuestVault-1.4.0.aab` uploaded to Internal testing, Play App Signing enrolled
+- [ ] `GuestVault-1.5.0.aab` uploaded to Internal testing, Play App Signing enrolled
 - [ ] Release-signed verified with `keytool -printcert`
 - [ ] Closed testing live with 12+ testers → **14-day clock started**
 - [ ] Production rollout submitted

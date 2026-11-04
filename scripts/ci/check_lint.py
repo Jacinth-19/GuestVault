@@ -4,7 +4,7 @@
 The build file keeps `abortOnError = false` so a lint warning never blocks a
 hotfix build; this script is the explicit gate that still refuses *errors*.
 
-Usage: python3 scripts/ci/check_lint.py [path/to/lint-results-release.xml]
+Usage: python3 scripts/ci/check_lint.py [path/to/lint-results-freeRelease.xml]
 """
 
 from __future__ import annotations
@@ -13,7 +13,8 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 
-DEFAULT = "app/build/reports/lint-results-release.xml"
+# AGP names the report after the variant, not the build type.
+DEFAULT = "app/build/reports/lint-results-freeRelease.xml"
 
 
 def main(path: str) -> int:

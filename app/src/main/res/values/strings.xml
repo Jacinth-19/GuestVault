@@ -39,6 +39,7 @@
     <string name="notif_summary_reason_timer">timer ended</string>
     <string name="notif_summary_reason_wiped">cleared by owner</string>
     <string name="notif_summary_reason_recovered">recovered after restart</string>
+    <string name="notif_summary_reason_daily">daily limit reached</string>
 
     <!-- Security alerts -->
     <string name="notif_security_title">Failed unlock attempts</string>

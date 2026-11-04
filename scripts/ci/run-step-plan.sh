@@ -82,7 +82,7 @@ keep_awake() {
   adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
 }
 
-run_phase() {
+phase_once() {
   local name="$1" out status device summary
   keep_awake
   device="$(adb get-state 2>&1 | tr -d '\r')"
@@ -109,7 +109,10 @@ run_phase() {
   crash="$(adb shell logcat -d -b crash -t 120 2>/dev/null \
     | awk '/FATAL EXCEPTION/{flag=1; count=0} flag{print; count++} count>3{flag=0}' \
     | tr -d '\r' | tr '\n' ' ' | cut -c1-320)"
-  printf '| %s | %s | %s | %s | %s |\n' "$name" "$status" "$device" "${focus:-?}" "${summary:-${crash:-no error line}}" >> "$PHASES"
+  # A retried phase adds a second row; label it, or the table reads as if the
+  # same phase simply ran twice.
+  printf '| %s | %s | %s | %s | %s |\n' "${PHASE_LABEL:-$name}" "$status" "$device" \
+    "${focus:-?}" "${summary:-${crash:-no error line}}" >> "$PHASES"
   echo "$out" | tail -n 10
   # Pull before the next host action can wipe the app's data directory.
   pull_results
@@ -118,6 +121,45 @@ run_phase() {
 pull_results() {
   adb shell run-as "$PACKAGE" cat files/step-results.jsonl 2>/dev/null >> "$RAW" || true
   adb shell "cat /sdcard/Android/data/${PACKAGE}/files/step-results.jsonl" 2>/dev/null >> "$RAW" || true
+}
+
+# Verdict lines in the merged file, as a plain integer.
+#
+# `grep -c` prints 0 *and* exits 1 when nothing matches, so `$(grep -c ... || echo 0)`
+# produced the two-line string "0\n0" and every arithmetic test against it failed.
+verdict_lines() {
+  local n
+  n="$(grep -c '^{' "$RAW" 2>/dev/null || true)"
+  printf '%s' "${n:-0}"
+}
+
+# Runs a phase, and runs it once more if it failed *fast* without reporting.
+#
+# Two things went wrong in the same way: a phase that never started (a cold
+# emulator refusing the instrumentation, an `adb` hiccup) produced no verdicts,
+# and the group still exited 0, so the merged table graded the whole pass as
+# "never reported".
+#
+# The retry is deliberately narrow. A phase that ran for a long time and
+# reported nothing is wedged, not unlucky — retrying it doubles the group's
+# runtime, and one group already hit the job's 45-minute cap doing exactly that.
+# A minute is long enough to boot instrumentation and impossible to hit by a
+# phase that is making progress.
+FAST_FAILURE_LIMIT=180
+run_phase() {
+  local name="$1" before after started
+  before="$(verdict_lines)"
+  started=$SECONDS
+  phase_once "$name"
+  after="$(verdict_lines)"
+  if [ "$after" -gt "$before" ]; then return 0; fi
+  if [ $((SECONDS - started)) -ge "$FAST_FAILURE_LIMIT" ]; then
+    echo "::warning::phase $name produced no verdicts after $((SECONDS - started))s; not retrying a slow phase"
+    return 0
+  fi
+  echo "::warning::phase $name reported no verdicts in $((SECONDS - started))s; retrying once"
+  keep_awake
+  PHASE_LABEL="$name (retry)" phase_once "$name"
 }
 
 grant_notifications() {
@@ -314,11 +356,16 @@ fi
 
 echo "== verdicts =="
 cat "$RAW" || true
-VERDICT_COUNT="$(grep -c '^{' "$RAW" 2>/dev/null || echo 0)"
+VERDICT_COUNT="$(verdict_lines)"
 echo "verdict lines: $VERDICT_COUNT"
 printf '%s\n' "$VERDICT_COUNT" > build/verdict-count.txt
+# A group that produced nothing must be *red*, not merely annotated. An
+# `::error::` line does not fail a step, so a silent group used to upload an
+# empty verdict file, exit 0 and only show up in the merged report as "never
+# reported" — with no job to open and no log to read.
 if [ "$VERDICT_COUNT" -eq 0 ]; then
   echo "::error::this group produced no verdicts; the emulator phase never ran"
+  exit 1
 fi
 
 echo "== phases =="

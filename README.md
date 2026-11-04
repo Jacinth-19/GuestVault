@@ -373,12 +373,13 @@ Building the Play bundle:
 ## 🗺️ Roadmap
 
 - [x] Quick Settings tile to start a session
-- [ ] Website allow-list / built-in safe browser
-- [ ] Per-app and daily time budgets, plus schedules
-- [ ] Multiple named guest profiles ("Mum", "the kids")
-- [ ] Intruder photo after repeated failed unlocks
-- [ ] Optional 6-digit PIN
-- [ ] Emergency unlock code
+- [x] Multiple named guest profiles ("Mum", "the kids")
+- [x] Per-app and daily time budgets, plus schedules
+- [x] Optional 6-digit PIN
+- [x] Emergency unlock code
+- [x] Intruder photo after repeated failed unlocks
+- [ ] Website allow-list / built-in safe browser — **not planned**: a browser needs
+  `INTERNET`, and keeping that permission out of both builds is the product
 
 Ranked against the competition in [`docs/COMPETITORS.md`](docs/COMPETITORS.md).
 
@@ -401,6 +402,10 @@ honestly ship.
 | **Guest profiles** — save "Kids", "Work", "Stranger" and start in one tap | — | ✅ |
 | **Per-app time limits** — a budget per app, per session | — | ✅ |
 | **Schedules** — only allow guest mode between set hours and days | — | ✅ |
+| **Daily budgets** — a total for the whole day, not just one hand-over | — | ✅ |
+| **Emergency unlock code** — a long code kept off the phone | — | ✅ |
+| **Six-digit PIN** — 1,000,000 combinations instead of 10,000 | — | ✅ |
+| **Intruder photo** — one still frame after a failed unlock | — | ✅ |
 | Themes & branding | — | ⏳ next |
 | Export & import | — | ⏳ next |
 
@@ -427,6 +432,19 @@ When a budget runs out the guest is returned to the guest home and the tile is d
 marked *Time's up*; the app is not killed, so nothing in progress is lost. Budgets are
 in-memory only and reset with every session, so no record of what the guest used survives
 the hand-over.
+
+**Daily budgets** are the second kind of limit: per app is per hand-over, daily
+is across every session of one day. The number is derived, not ticked — the
+total of today's finished sessions plus the elapsed part of the running one — so
+it survives a process death or a reboot without a write per second, and a
+session that ends at 00:10 only charges ten minutes to the new day.
+
+**The emergency code** is eight symbols from an alphabet with no `I`, `O`, `0` or
+`1`, so it can be read off a piece of paper without ambiguity. It is checked by
+the same cool-down as the PIN — a recovery route with no rate limit would be the
+weakest point on the lock — and using it ends the session and goes straight to
+"choose a new PIN", because the old one is only stored as a hash and cannot be
+revealed.
 
 **Schedules** decide when guest mode may run at all. They are enforced in
 `SessionController.start` rather than in the UI, so the Quick Settings tile cannot bypass

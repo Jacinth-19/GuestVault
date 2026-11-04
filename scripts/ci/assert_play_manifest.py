@@ -7,6 +7,12 @@ asserts the shipping build only declares the permissions the listing documents:
     POST_NOTIFICATIONS, FOREGROUND_SERVICE, FOREGROUND_SERVICE_SPECIAL_USE,
     USE_BIOMETRIC, RECEIVE_BOOT_COMPLETED
 
+The paid build (`com.guestvault.pro`) adds one more, CAMERA, for the optional
+intruder photo — and only the paid build. The free build must not gain it: an
+extra declared permission changes the Play listing's permission summary and
+would quietly break the "we ask for almost nothing" promise. The variant is
+taken from the manifest path, which Gradle always names after the flavour.
+
 Crucially it also asserts that the Device Administration receiver
 (`BIND_DEVICE_ADMIN`) is gone: Play's Deceptive Device Settings policy forces a
 store-description disclosure and an in-app prompt for it, and the feature buys
@@ -24,6 +30,11 @@ REQUIRED = {
     "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
     "android.permission.USE_BIOMETRIC",
     "android.permission.RECEIVE_BOOT_COMPLETED",
+}
+
+# Documented for the paid listing only. Declared in app/src/pro/AndroidManifest.xml.
+PRO_ONLY = {
+    "android.permission.CAMERA",
 }
 
 FORBIDDEN = {
@@ -64,6 +75,8 @@ def permissions_from_xml(text: str) -> set[str]:
 
 
 def main(path: str) -> int:
+    # `.../merged_manifest/proRelease/AndroidManifest.xml` for the paid build.
+    is_pro = "pro" in path.lower() and "freerelease" not in path.lower()
     text = open(path, encoding="utf-8", errors="replace").read()
     declared = permissions_from_xml(text) if text.lstrip().startswith("<") else set(
         re.findall(r"android\.permission\.[A-Z0-9_]+", text)
@@ -75,6 +88,12 @@ def main(path: str) -> int:
         if permission in declared:
             failures.append(f"forbidden permission in the shipping manifest: {permission}")
 
+    for permission in sorted(PRO_ONLY):
+        if permission in declared and not is_pro:
+            failures.append(
+                f"{permission} belongs to the paid build only; the free manifest must not declare it"
+            )
+
     for permission in sorted(REQUIRED):
         if permission not in declared:
             failures.append(f"documented permission is missing: {permission}")
@@ -83,9 +102,12 @@ def main(path: str) -> int:
     if "device_admin" in text or "DeviceAdminReceiver" in text:
         failures.append("the manifest still references Device Administration")
 
+    print(f"Build: {'pro' if is_pro else 'free'}")
     print("Declared permissions:")
     for permission in sorted(declared):
-        marker = "forbidden" if permission in FORBIDDEN else "ok"
+        marker = "forbidden" if permission in FORBIDDEN else (
+            "pro-only" if permission in PRO_ONLY else "ok"
+        )
         print(f"  [{marker}] {permission}")
 
     if failures:
@@ -94,7 +116,10 @@ def main(path: str) -> int:
             print(f"  - {failure}")
         return 1
 
-    print("\nPlay manifest check passed: no Device Admin, no internet, no sensitive data.")
+    print(
+        "\nPlay manifest check passed: no Device Admin, no internet, no sensitive data"
+        + (", camera declared for the paid build only." if is_pro else ".")
+    )
     return 0
 
 

@@ -1,5 +1,5 @@
 {
-  "note": "One row per numbered step of the 15-pass manual plan. 'expect' is copied verbatim from the plan and is the acceptance criterion; 'mode': 'manual' marks a step that cannot be graded on an emulator (hardware, real biometric, vendor skin). 'run' is the host orchestration: instrumented phase, then host action, then the next phase.",
+  "note": "One row per numbered step of the 16-pass manual plan. 'expect' is copied verbatim from the plan and is the acceptance criterion; 'mode': 'manual' marks a step that cannot be graded on an emulator (hardware, real biometric, vendor skin). 'run' is the host orchestration: instrumented phase, then host action, then the next phase.",
   "passes": [
     {
       "pass": 1,
@@ -732,6 +732,47 @@
           "id": "15.6",
           "action": "Start a session, open that app, wait out the 5 minutes",
           "expect": "The tile said \"5 min left\" before the tap; the guest is returned to the guest home, the tile reads \"Time's up\", and tapping it does not reopen the app"
+        }
+      ]
+    },
+    {
+      "pass": 16,
+      "group": 8,
+      "title": "The paid build — emergency code, daily budget, six-digit PIN (10 min)",
+      "note": "Grades com.guestvault.pro in its own emulator: it changes the owner PIN to six digits and replaces the recovery code, which would invalidate any later pass expecting a four-digit PIN.",
+      "run": [
+        {
+          "test": "pass16",
+          "clear": true
+        }
+      ],
+      "steps": [
+        {
+          "id": "16.1",
+          "action": "Paid build → Settings → Emergency unlock code → Create a code",
+          "expect": "The real screen (not the free-build lock panel), an eight-symbol code shown once, and \"A code is saved\" after confirming it was written down"
+        },
+        {
+          "id": "16.2",
+          "action": "Settings → Time limits → Daily limit → Set → 30 min",
+          "expect": "Starts as \"No daily limit\"; after choosing 30 min it reads \"… used today of 30 min\" with a live \"… min left today\" caption"
+        },
+        {
+          "id": "16.3",
+          "action": "Settings → Change owner PIN → current PIN → 6 digits → enter twice",
+          "expect": "The six-digit option exists in the paid build, the PIN is saved, and the owner lock then draws six dots"
+        },
+        {
+          "id": "16.4",
+          "action": "Guest home → Return to Owner → Forgot PIN? → type the saved code → Unlock",
+          "expect": "The code ends the session and opens the new-PIN screen, never the dashboard"
+        },
+        {
+          "id": "16.5",
+          "action": "Settings → Intruder photo: switch it on, fail one unlock",
+          "mode": "manual",
+          "expect": "A still frame is stored in the app's private storage; nothing is uploaded",
+          "why": "the plan emulator boots with no cameras (-camera-back none -camera-front none), so capture cannot be graded in CI"
         }
       ]
     }

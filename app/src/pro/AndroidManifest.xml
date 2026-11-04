@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Permissions that only the paid build asks for.
+
+    The free build keeps its five-permission manifest (and its "no internet
+    permission" promise) byte-for-byte: the manifest merger never sees this file
+    for `free`. The paid build adds exactly one thing, the camera, because the
+    intruder-photo feature has to be able to see the person holding the phone.
+
+    It is a normal runtime permission: asked for once, from Settings, when the
+    owner switches the feature on — never at the lock screen, and never in the
+    background. `scripts/ci/assert_play_manifest.py` allows it for `pro` only.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- A camera is not required: the switch hides itself on a device without
+         one rather than making the app uninstallable. -->
+    <uses-feature
+        android:name="android.hardware.camera.front"
+        android:required="false" />
+</manifest>

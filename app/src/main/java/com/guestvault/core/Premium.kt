@@ -20,6 +20,21 @@ enum class PremiumFeature(val title: String, val blurb: String) {
         "Cap a single app inside a session, so an hour of hand-over is not an " +
             "hour of video — and choose the hours guest mode may run at all."
     ),
+    RECOVERY_CODE(
+        "Emergency unlock code",
+        "A long code you keep off the phone, so a forgotten PIN is an " +
+            "inconvenience rather than a reset."
+    ),
+    SIX_DIGIT_PIN(
+        "Six-digit PIN",
+        "Twice the digits: 1,000,000 combinations instead of 10,000, on the same " +
+            "keypad you already know."
+    ),
+    INTRUDER_PHOTO(
+        "Intruder photo",
+        "Photograph whoever is holding the phone after a failed unlock. Stored on " +
+            "this phone, never uploaded."
+    ),
     THEMES(
         "Themes & branding",
         "Choose the accent GuestVault uses, so a handed-over phone still looks " +

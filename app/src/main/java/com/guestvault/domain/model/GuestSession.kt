@@ -29,6 +29,7 @@ enum class EndReason(val label: String, val shortLabel: String) {
     OWNER_UNLOCK("Returned to owner", "Owner"),
     TIMER_EXPIRED("Timer expired", "Timer"),
     DATA_WIPED("Session & data cleared", "Cleared"),
+    DAILY_LIMIT("Daily limit reached", "Daily"),
     RECOVERED("Recovered after restart", "Recovered");
 
     companion object {

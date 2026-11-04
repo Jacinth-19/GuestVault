@@ -1,6 +1,8 @@
 package com.guestvault.ui.screens.settings
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.clickable
@@ -25,6 +27,8 @@ import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.NotificationsActive
@@ -37,6 +41,8 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.SettingsBrightness
 import androidx.compose.material.icons.rounded.Summarize
 import androidx.compose.material.icons.rounded.Timer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -49,7 +55,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +70,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.biometric.BiometricManager
 import com.guestvault.core.AppVersion
+import androidx.core.content.ContextCompat
 import com.guestvault.core.Premium
 import com.guestvault.core.PRIVACY_POLICY_URL
 import com.guestvault.core.Formatters
@@ -69,6 +78,7 @@ import com.guestvault.core.LegalText
 import com.guestvault.domain.model.OwnerSettings
 import com.guestvault.domain.model.ThemeMode
 import com.guestvault.domain.repository.PinRepository
+import com.guestvault.domain.repository.RecoveryCodeRepository
 import com.guestvault.domain.repository.SettingsRepository
 import com.guestvault.domain.usecase.ObserveSettingsUseCase
 import com.guestvault.ui.components.GuestVaultDivider
@@ -89,18 +99,27 @@ private val DURATION_OPTIONS = listOf(0, 5, 15, 30, 60)
 
 data class SettingsUiState(
     val settings: OwnerSettings = OwnerSettings(),
-    val pinSet: Boolean = false
+    val pinSet: Boolean = false,
+    /** Whether an emergency unlock code exists; drives the row's subtitle. */
+    val recoveryCodeSet: Boolean = false
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     observeSettings: ObserveSettingsUseCase,
     private val settingsRepository: SettingsRepository,
-    private val pinRepository: PinRepository
+    private val pinRepository: PinRepository,
+    private val recoveryCodeRepository: RecoveryCodeRepository
 ) : ViewModel() {
 
     val state: StateFlow<SettingsUiState> = observeSettings()
-        .map { SettingsUiState(settings = it, pinSet = pinRepository.isPinSet()) }
+        .map {
+            SettingsUiState(
+                settings = it,
+                pinSet = pinRepository.isPinSet(),
+                recoveryCodeSet = recoveryCodeRepository.hasCode()
+            )
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     fun setAutoWipe(enabled: Boolean) = viewModelScope.launch {
@@ -130,6 +149,10 @@ class SettingsViewModel @Inject constructor(
     fun setSessionSummary(enabled: Boolean) = viewModelScope.launch {
         settingsRepository.setNotifySessionSummary(enabled)
     }
+
+    fun setIntruderPhotos(enabled: Boolean) = viewModelScope.launch {
+        settingsRepository.setIntruderPhotosEnabled(enabled)
+    }
 }
 
 @Composable
@@ -142,6 +165,7 @@ fun SettingsRoute(
     onOpenPermissions: () -> Unit,
     onOpenProfiles: () -> Unit,
     onOpenTimeRules: () -> Unit,
+    onOpenRecoveryCode: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -155,6 +179,8 @@ fun SettingsRoute(
         onOpenPermissions = onOpenPermissions,
         onOpenProfiles = onOpenProfiles,
         onOpenTimeRules = onOpenTimeRules,
+        onOpenRecoveryCode = onOpenRecoveryCode,
+        onIntruderPhotosChange = viewModel::setIntruderPhotos,
         onAutoWipeChange = viewModel::setAutoWipe,
         onBiometricChange = viewModel::setBiometric,
         onLockTaskChange = viewModel::setLockTask,
@@ -176,6 +202,8 @@ fun SettingsScreen(
     onOpenPermissions: () -> Unit,
     onOpenProfiles: () -> Unit,
     onOpenTimeRules: () -> Unit,
+    onOpenRecoveryCode: () -> Unit,
+    onIntruderPhotosChange: (Boolean) -> Unit,
     onAutoWipeChange: (Boolean) -> Unit,
     onBiometricChange: (Boolean) -> Unit,
     onLockTaskChange: (Boolean) -> Unit,
@@ -190,6 +218,32 @@ fun SettingsScreen(
         BiometricManager.from(context)
             .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
             BiometricManager.BIOMETRIC_SUCCESS
+    }
+
+    // The camera is a runtime permission, so it is asked for exactly once —
+    // when the owner switches the feature on — and never at the lock screen.
+    var cameraGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val cameraAvailable = remember(context) {
+        context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) ||
+            context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT)
+    }
+    val cameraPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        cameraGranted = granted
+        onIntruderPhotosChange(granted)
+    }
+    val intruderSubtitle = when {
+        !cameraAvailable -> "This phone has no camera, so the feature is unavailable."
+        !cameraGranted -> "Allow camera access to use this. One still frame per failed unlock."
+        settings.intruderPhotosEnabled ->
+            "One photo is stored on this phone after each failed unlock. Never uploaded."
+        else -> "Off. Photos stay in this app's private storage and never leave the phone."
     }
 
     val openSystemNotificationSettings: () -> Unit = {
@@ -415,6 +469,46 @@ fun SettingsScreen(
                         trailingText = if (Premium.isPro) null else "Pro",
                         onClick = onOpenTimeRules
                     )
+                    GuestVaultDivider()
+                    SettingRow(
+                        icon = Icons.Rounded.Key,
+                        title = "Emergency unlock code",
+                        subtitle = when {
+                            !Premium.isPro -> "A one-time-saved code for a forgotten PIN — a Pro feature"
+                            state.recoveryCodeSet -> "Saved. Use it on the lock screen if the PIN is lost"
+                            else -> "Create a code you can use if you forget the PIN"
+                        },
+                        trailingText = when {
+                            !Premium.isPro -> "Pro"
+                            state.recoveryCodeSet -> "Set"
+                            else -> "Create"
+                        },
+                        onClick = onOpenRecoveryCode
+                    )
+                }
+            }
+
+            // Camera-bearing row is in its own group because it asks for a
+            // runtime permission, which is a bigger ask than a toggle.
+            if (Premium.isPro) {
+                item {
+                    SettingsGroup(title = "Intruder photo") {
+                        SettingSwitchRow(
+                            icon = Icons.Rounded.PhotoCamera,
+                            title = "Photograph failed unlocks",
+                            subtitle = intruderSubtitle,
+                            checked = settings.intruderPhotosEnabled,
+                            onCheckedChange = { wanted ->
+                                if (wanted && !cameraGranted) {
+                                    cameraPermission.launch(Manifest.permission.CAMERA)
+                                } else {
+                                    onIntruderPhotosChange(wanted)
+                                }
+                            },
+                            switchDescription = "Intruder photo toggle",
+                            enabled = cameraAvailable
+                        )
+                    }
                 }
             }
 

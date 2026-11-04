@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
@@ -46,7 +47,9 @@ import com.guestvault.core.PremiumFeature
 import com.guestvault.domain.model.AppCategory
 import com.guestvault.domain.model.GuestApp
 import com.guestvault.domain.model.GuestSchedule
+import com.guestvault.core.Formatters
 import com.guestvault.domain.policy.AppLimitPolicy
+import com.guestvault.domain.policy.DailyBudgetPolicy
 import com.guestvault.domain.policy.SchedulePolicy
 import com.guestvault.domain.repository.SettingsRepository
 import com.guestvault.domain.usecase.GetInstalledAppsUseCase
@@ -66,11 +69,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 private val LIMIT_CHOICES = listOf(0, 5, 15, 30, 60)
+private val DAILY_CHOICES = listOf(0, 30, 60, 120, 180)
 
 data class TimeRulesUiState(
     val apps: List<GuestApp> = emptyList(),
     val limits: Map<String, Int> = emptyMap(),
     val schedule: GuestSchedule = GuestSchedule(),
+    /** 0 means no daily budget. */
+    val dailyBudgetMinutes: Int = 0,
+    /** Guest time already spent today; only meaningful with a daily budget. */
+    val usedTodayMillis: Long = 0L,
     /** "Open now" / "Paused until 07:00 tomorrow" — computed once per screen entry. */
     val scheduleStatus: String = "",
     val loaded: Boolean = false
@@ -99,15 +107,32 @@ class TimeRulesViewModel @Inject constructor(
                 val apps = settings.allowedPackages
                     .map { pkg -> installed[pkg] ?: GuestApp(pkg, pkg, AppCategory.OTHER) }
                     .sortedBy { it.label.lowercase() }
+                val used = if (DailyBudgetPolicy.hasBudget(settings.dailyBudgetMinutes)) {
+                    runCatching {
+                        DailyBudgetPolicy.usedToday(
+                            base = settingsRepository.readDailyUsage(),
+                            sessionStartedAt = settings.activeSession?.startedAt,
+                            now = System.currentTimeMillis()
+                        )
+                    }.getOrDefault(0L)
+                } else {
+                    0L
+                }
                 _state.value = TimeRulesUiState(
                     apps = apps,
                     limits = settings.appLimits,
                     schedule = settings.schedule,
                     scheduleStatus = scheduleStatus(settings.schedule),
+                    dailyBudgetMinutes = settings.dailyBudgetMinutes,
+                    usedTodayMillis = used,
                     loaded = true
                 )
             }
         }
+    }
+
+    fun setDailyBudget(minutes: Int) = viewModelScope.launch {
+        settingsRepository.setDailyBudgetMinutes(minutes)
     }
 
     fun setLimit(packageName: String, minutes: Int) = viewModelScope.launch {
@@ -157,6 +182,7 @@ fun TimeRulesRoute(
         state = state,
         onBack = onBack,
         onLimitChange = viewModel::setLimit,
+        onDailyBudgetChange = viewModel::setDailyBudget,
         onScheduleEnabled = viewModel::setScheduleEnabled,
         onStartChange = viewModel::setScheduleStart,
         onEndChange = viewModel::setScheduleEnd,
@@ -169,6 +195,7 @@ fun TimeRulesScreen(
     state: TimeRulesUiState,
     onBack: () -> Unit,
     onLimitChange: (String, Int) -> Unit,
+    onDailyBudgetChange: (Int) -> Unit,
     onScheduleEnabled: (Boolean) -> Unit,
     onStartChange: (Int) -> Unit,
     onEndChange: (Int) -> Unit,
@@ -205,6 +232,14 @@ fun TimeRulesScreen(
                     text = "The clock starts when the guest opens the app and stops when " +
                         "they come back to GuestVault. Android does not let an ordinary " +
                         "app watch other apps, so this is the honest rule — not a guess."
+                )
+            }
+
+            item {
+                DailyBudgetCard(
+                    minutes = state.dailyBudgetMinutes,
+                    usedTodayMillis = state.usedTodayMillis,
+                    onChange = onDailyBudgetChange
                 )
             }
 
@@ -335,6 +370,104 @@ private fun AppLimitRow(app: GuestApp, minutes: Int, onClick: () -> Unit) {
                 }
             )
         }
+    }
+}
+
+/**
+ * The whole day's guest time, across every session.
+ *
+ * Separate from the per-app list on purpose: "an hour of phone a day" and
+ * "ten minutes of YouTube a hand-over" are different promises, and an owner who
+ * wants one should not have to configure the other.
+ */
+@Composable
+private fun DailyBudgetCard(
+    minutes: Int,
+    usedTodayMillis: Long,
+    onChange: (Int) -> Unit
+) {
+    var editing by remember { mutableStateOf(false) }
+    val usedLabel = Formatters.duration(usedTodayMillis.coerceAtLeast(0L))
+
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBadge(icon = Icons.Rounded.Today)
+                Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
+                    Text(
+                        text = "Daily limit",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (minutes > 0) {
+                            "$usedLabel used today of ${AppLimitPolicy.label(minutes)}"
+                        } else {
+                            "No daily limit — guest mode can run as long as you allow"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                TextButton(onClick = { editing = true }) {
+                    Text(if (minutes > 0) "Change" else "Set")
+                }
+            }
+            if (minutes > 0) {
+                Spacer(Modifier.height(8.dp))
+                val remaining = AppLimitPolicy.remainingMillis(minutes, usedTodayMillis)
+                Text(
+                    text = DailyBudgetPolicy.caption(minutes, usedTodayMillis)
+                        ?: DailyBudgetPolicy.END_MESSAGE,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (remaining <= 0L) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    }
+                )
+            }
+        }
+    }
+
+    if (editing) {
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text("Daily limit") },
+            text = {
+                Column {
+                    Text(
+                        text = "Total time a guest may use this phone in one day. It " +
+                            "resets at midnight and is counted across sessions.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        DAILY_CHOICES.forEach { choice ->
+                            FilterChip(
+                                selected = choice == minutes,
+                                onClick = {
+                                    editing = false
+                                    onChange(choice)
+                                },
+                                label = { Text(AppLimitPolicy.label(choice)) }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { editing = false }) { Text("Done") } }
+        )
     }
 }
 

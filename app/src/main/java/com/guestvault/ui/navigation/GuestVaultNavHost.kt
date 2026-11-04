@@ -20,9 +20,11 @@ import com.guestvault.ui.screens.dashboard.DashboardRoute
 import com.guestvault.ui.screens.history.HistoryRoute
 import com.guestvault.ui.screens.onboarding.OnboardingRoute
 import com.guestvault.ui.screens.permissions.PermissionsRoute
+import com.guestvault.ui.screens.pin.PinSetupMode
 import com.guestvault.ui.screens.pin.PinSetupRoute
 import com.guestvault.ui.screens.limits.TimeRulesRoute
 import com.guestvault.ui.screens.profiles.ProfilesRoute
+import com.guestvault.ui.screens.recovery.RecoveryCodeRoute
 import com.guestvault.ui.screens.selectapps.SelectAppsRoute
 import com.guestvault.ui.screens.settings.SettingsRoute
 import com.guestvault.ui.screens.splash.SplashRoute
@@ -31,6 +33,12 @@ import com.guestvault.ui.screens.splash.SplashRoute
 fun GuestVaultNavHost(
     quickStartRequest: Int = 0,
     historyRequest: Int = 0,
+    /**
+     * Incremented when the owner returned with the emergency code. The only
+     * thing that is true at that moment is that the PIN is lost, so the next
+     * screen is [Routes.pinSetup] in its reset mode.
+     */
+    pinResetRequest: Int = 0,
     /** Debug-only screenshot hook; see [com.guestvault.MainActivity]. */
     splashHoldMs: Int = 0,
     navController: NavHostController = rememberNavController()
@@ -74,18 +82,21 @@ fun GuestVaultNavHost(
                 }
             )
         ) { entry ->
-            val mode = entry.arguments?.getString("mode") ?: "setup"
+            val mode = entry.arguments?.getString("mode") ?: PinSetupMode.SETUP
             PinSetupRoute(
                 onDone = {
-                    if (mode == "change") {
+                    if (mode == PinSetupMode.CHANGE) {
                         navController.popBackStack()
                     } else {
                         navController.navigateClearingBackStack(Routes.DASHBOARD)
                     }
                 },
-                onBack = if (mode == "change") {
+                onBack = if (mode == PinSetupMode.CHANGE) {
                     { navController.popBackStack() }
                 } else {
+                    // Setup and reset cannot be abandoned: the first because
+                    // there is no PIN yet, the second because the old one is
+                    // gone.
                     null
                 }
             )
@@ -143,8 +154,13 @@ fun GuestVaultNavHost(
                 onOpenAbout = { navController.navigate(Routes.ABOUT) },
                 onOpenPermissions = { navController.navigate(Routes.PERMISSIONS) },
                 onOpenProfiles = { navController.navigate(Routes.PROFILES) },
-                onOpenTimeRules = { navController.navigate(Routes.TIME_RULES) }
+                onOpenTimeRules = { navController.navigate(Routes.TIME_RULES) },
+                onOpenRecoveryCode = { navController.navigate(Routes.RECOVERY_CODE) }
             )
+        }
+
+        composable(Routes.RECOVERY_CODE) {
+            RecoveryCodeRoute(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.TIME_RULES) {
@@ -183,6 +199,7 @@ fun GuestVaultNavHost(
     // splash, onboarding and PIN setup), so a cold start can never skip setup.
     var handledRequests by rememberSaveable { mutableIntStateOf(0) }
     var handledHistory by rememberSaveable { mutableIntStateOf(0) }
+    var handledReset by rememberSaveable { mutableIntStateOf(0) }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     LaunchedEffect(quickStartRequest, currentRoute) {
@@ -199,6 +216,15 @@ fun GuestVaultNavHost(
         if (historyRequest > handledHistory && currentRoute == Routes.DASHBOARD) {
             handledHistory = historyRequest
             navController.navigate(Routes.HISTORY) { launchSingleTop = true }
+        }
+    }
+
+    // After an emergency unlock the owner lands on the dashboard with no PIN
+    // they can remember, so the only useful next screen is "choose a new one".
+    LaunchedEffect(pinResetRequest, currentRoute) {
+        if (pinResetRequest > handledReset && currentRoute == Routes.DASHBOARD) {
+            handledReset = pinResetRequest
+            navController.navigate(Routes.pinSetup(mode = "reset")) { launchSingleTop = true }
         }
     }
 }
