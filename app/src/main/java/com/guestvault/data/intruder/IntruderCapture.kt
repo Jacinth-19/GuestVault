@@ -7,16 +7,17 @@ import android.content.pm.PackageManager
 import android.graphics.ImageFormat
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraAccessException
+import android.hardware.display.DisplayManager
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.media.ImageReader
-import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
+import android.view.Display
 import android.view.Surface
 import android.view.TextureView
 import androidx.core.content.ContextCompat
@@ -293,16 +294,28 @@ class IntruderCapture @Inject constructor(
         }
     }
 
+    /**
+     * The display's rotation, or 0 when it cannot be read.
+     *
+     * `Context.display` is the obvious call and the wrong one: it only works on
+     * a context created by a display (an Activity), and throws
+     * `UnsupportedOperationException` on the application context this class is
+     * given. That threw every time, was swallowed by the catch in [takeStill],
+     * and meant no photo was ever stored — on any device, not just CI. The
+     * DisplayManager answers the same question from any context.
+     */
     @Suppress("DEPRECATION")
     private fun displayRotationDegrees(): Int {
-        val rotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            context.display?.rotation ?: Surface.ROTATION_0
-        } else {
-            runCatching {
+        val rotation = runCatching {
+            (context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager)
+                ?.getDisplay(Display.DEFAULT_DISPLAY)
+                ?.rotation
+        }.getOrNull()
+            ?: runCatching {
                 (context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager)
                     .defaultDisplay.rotation
-            }.getOrDefault(Surface.ROTATION_0)
-        }
+            }.getOrNull()
+            ?: Surface.ROTATION_0
         return when (rotation) {
             Surface.ROTATION_90 -> 90
             Surface.ROTATION_180 -> 180
