@@ -12,8 +12,8 @@ set -uo pipefail
 # and pulling screenshots for every API level would triple the job time.
 SKIP_MEDIA_CAPTURE="${SKIP_MEDIA_CAPTURE:-0}"
 
-APK="app/build/outputs/apk/debug/app-debug.apk"
-TEST_APK="app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+APK="app/build/outputs/apk/free/debug/app-free-debug.apk"
+TEST_APK="app/build/outputs/apk/androidTest/free/debug/app-free-debug-androidTest.apk"
 PACKAGE="com.guestvault"
 RUNNER="${PACKAGE}.test/androidx.test.runner.AndroidJUnitRunner"
 

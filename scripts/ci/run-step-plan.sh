@@ -13,8 +13,10 @@
 
 set -uo pipefail
 
-APK="app/build/outputs/apk/debug/app-debug.apk"
-TEST_APK="app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+# The graded plan runs the free build: it is the listing that already ships,
+# and `pro` differs only by applicationId, BuildConfig.PRO and a string.
+APK="app/build/outputs/apk/free/debug/app-free-debug.apk"
+TEST_APK="app/build/outputs/apk/androidTest/free/debug/app-free-debug-androidTest.apk"
 PACKAGE="com.guestvault"
 RUNNER="${PACKAGE}.test/androidx.test.runner.AndroidJUnitRunner"
 MANIFEST="${MANIFEST:-scripts/ci/step-plan.json}"

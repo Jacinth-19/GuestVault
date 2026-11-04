@@ -79,7 +79,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-snapshot-save -memory 4096
           script: |
             set +e
-            export VERIFY_RELEASE_APK="app/build/outputs/apk/release/app-release.apk"
+            export VERIFY_RELEASE_APK="app/build/outputs/apk/free/release/app-free-release.apk"
             bash scripts/ci/emulator-walkthrough.sh > emulator.log 2>&1
             STATUS=$?
             if [ "$STATUS" -ne 0 ]; then

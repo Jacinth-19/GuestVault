@@ -70,8 +70,8 @@ jobs:
           gradle --no-daemon $TASKS 2>&1 | tee release-build.log
 
       - name: Verify the bundle is release-signed
-        if: env.SIGNED_FOR_PLAY == 'true' && hashFiles('app/build/outputs/bundle/release/app-release.aab') != ''
-        run: bash scripts/play/verify-signing.sh app/build/outputs/bundle/release/app-release.aab
+        if: env.SIGNED_FOR_PLAY == 'true' && hashFiles('app/build/outputs/bundle/freeRelease/app-free-release.aab') != ''
+        run: bash scripts/play/verify-signing.sh app/build/outputs/bundle/freeRelease/app-free-release.aab
 
       - name: Summarise signing
         if: always()
@@ -96,18 +96,24 @@ jobs:
           VERSION="${{ inputs.version || github.ref_name }}"
           VERSION="${VERSION#v}"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          cp app/build/outputs/apk/release/app-release.apk "release-assets/GuestVault-${VERSION}.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "release-assets/GuestVault-${VERSION}-debug.apk"
+          # Two listings, one codebase: `free` is the app already on Play, `pro`
+          # is the paid build. Both are signed with the same upload key.
+          cp app/build/outputs/apk/free/release/app-free-release.apk "release-assets/GuestVault-${VERSION}.apk"
+          cp app/build/outputs/apk/pro/release/app-pro-release.apk "release-assets/GuestVault-Pro-${VERSION}.apk"
+          cp app/build/outputs/apk/free/debug/app-free-debug.apk "release-assets/GuestVault-${VERSION}-debug.apk"
           # The bundle is what Google Play accepts; the APK is for sideloading.
-          AAB=app/build/outputs/bundle/release/app-release.aab
+          AAB=app/build/outputs/bundle/freeRelease/app-free-release.aab
+          PRO_AAB=app/build/outputs/bundle/proRelease/app-pro-release.aab
           if [ "${SIGNED_FOR_PLAY:-false}" = "true" ] && [ -f "$AAB" ]; then
             cp "$AAB" "release-assets/GuestVault-${VERSION}.aab"
-            echo "SIGNING_NOTE=Play bundle included — **release-signed** with the upload key." >> "$GITHUB_ENV"
+            [ -f "$PRO_AAB" ] && cp "$PRO_AAB" "release-assets/GuestVault-Pro-${VERSION}.aab"
+            echo "SIGNING_NOTE=Play bundles included (free + Pro) — **release-signed** with the upload key." >> "$GITHUB_ENV"
           else
             echo "SIGNING_NOTE=No Play bundle in this release: the upload key is not configured, and Google Play rejects debug-signed bundles. See \`docs/PLAY_CONSOLE.md\` → *Upload key*." >> "$GITHUB_ENV"
           fi
           ls -lh release-assets
-          echo "APK_SHA=$(sha256sum release-assets/GuestVault-*.apk | grep -v debug | awk '{print $1}')" >> "$GITHUB_ENV"
+          # Name the exact file: a glob would hash the Pro APK too.
+          echo "APK_SHA=$(sha256sum "release-assets/GuestVault-${VERSION}.apk" | awk '{print $1}')" >> "$GITHUB_ENV"
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2

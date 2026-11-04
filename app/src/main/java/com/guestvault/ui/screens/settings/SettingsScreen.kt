@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Pin
+import androidx.compose.material.icons.rounded.PersonOutline
 import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Shield
@@ -61,6 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.biometric.BiometricManager
 import com.guestvault.core.AppVersion
+import com.guestvault.core.Premium
 import com.guestvault.core.PRIVACY_POLICY_URL
 import com.guestvault.core.Formatters
 import com.guestvault.core.LegalText
@@ -138,6 +140,7 @@ fun SettingsRoute(
     onOpenHistory: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenPermissions: () -> Unit,
+    onOpenProfiles: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -149,6 +152,7 @@ fun SettingsRoute(
         onOpenHistory = onOpenHistory,
         onOpenAbout = onOpenAbout,
         onOpenPermissions = onOpenPermissions,
+        onOpenProfiles = onOpenProfiles,
         onAutoWipeChange = viewModel::setAutoWipe,
         onBiometricChange = viewModel::setBiometric,
         onLockTaskChange = viewModel::setLockTask,
@@ -168,6 +172,7 @@ fun SettingsScreen(
     onOpenHistory: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenPermissions: () -> Unit,
+    onOpenProfiles: () -> Unit,
     onAutoWipeChange: (Boolean) -> Unit,
     onBiometricChange: (Boolean) -> Unit,
     onLockTaskChange: (Boolean) -> Unit,
@@ -379,6 +384,22 @@ fun SettingsScreen(
                             )
                         }
                     }
+                }
+            }
+
+            item {
+                SettingsGroup(title = "GuestVault Pro") {
+                    SettingRow(
+                        icon = Icons.Rounded.PersonOutline,
+                        title = "Guest profiles",
+                        subtitle = if (Premium.isPro) {
+                            "Presets you can start in one tap"
+                        } else {
+                            "Kids, colleagues, strangers — a Pro feature"
+                        },
+                        trailingText = if (Premium.isPro) null else "Pro",
+                        onClick = onOpenProfiles
+                    )
                 }
             }
 
