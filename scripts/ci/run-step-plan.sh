@@ -189,8 +189,10 @@ echo "== phases =="; cat build/phases.tsv
 
 # FD 3, not stdin: adb commands inside the loop would otherwise consume the
 # phase list and silently end the plan after the first phase.
+PHASES_RUN=0
 while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE <&3; do
   [ -z "${TYPE:-}" ] && continue
+  PHASES_RUN=$((PHASES_RUN + 1))
 
   if [ "$TYPE" = "test" ]; then
     echo "== phase: $NAME (clear=$CLEAR grant=${GRANT:-1}) =="
@@ -271,8 +273,17 @@ while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE <&3; do
   esac
 done 3< build/phases.tsv
 
+# A file of blank lines is "non-empty" to `[ -s ]`, so the old guard passed
+# while the loop above skipped every row: the group then reported only its
+# pre-recorded manual verdicts, exited 0 and looked green. Count the phases the
+# loop actually executed, and fail loudly at zero.
+printf '%s\n' "$PHASES_RUN" > build/phase-count.txt
+if [ "$PHASES_RUN" -eq 0 ]; then
+  fail_setup "group '${PLAN_GROUP:-all}' executed 0 phases: build/phases.tsv is $(wc -c < build/phases.tsv) bytes with no phase rows"
+fi
+
 if [ ! -s "$RAW" ]; then
-  fail_setup "the plan ran but wrote no verdicts (phases: $(wc -l < build/phases.tsv))"
+  fail_setup "the plan ran but wrote no verdicts (phases run: $PHASES_RUN)"
 fi
 
 echo "== verdicts =="

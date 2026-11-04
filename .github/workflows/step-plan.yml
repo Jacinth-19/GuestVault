@@ -114,6 +114,7 @@ jobs:
             build/step-results.jsonl
             build/phase-log.md
             build/verdict-count.txt
+            build/phase-count.txt
             step-plan.log
             step-plan-build.log
             build/logcat/*.txt
@@ -127,11 +128,12 @@ jobs:
           GROUP: ${{ matrix.group }}
         run: |
           count="$(cat build/verdict-count.txt 2>/dev/null || echo 0)"
-          if [ "$count" -gt 0 ]; then
-            echo "group $GROUP reported $count verdicts"
+          phases="$(cat build/phase-count.txt 2>/dev/null || echo 0)"
+          if [ "$count" -gt 0 ] && [ "$phases" -gt 0 ]; then
+            echo "group $GROUP ran $phases phases and reported $count verdicts"
             exit 0
           fi
-          echo "::error::group $GROUP produced no verdicts"
+          echo "::error::group $GROUP ran $phases phases and produced $count verdicts"
           python3 scripts/ci/report_failure.py
 
   report:
