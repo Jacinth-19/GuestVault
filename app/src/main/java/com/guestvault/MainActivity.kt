@@ -38,6 +38,13 @@ class MainActivity : FragmentActivity() {
     private var historyRequest by mutableIntStateOf(0)
 
     /**
+     * Set when the owner came back with the emergency code: the wallet of
+     * knowledge is exactly "the PIN is lost", so the next screen is the one
+     * where a new one is chosen.
+     */
+    private var pinResetRequest by mutableIntStateOf(0)
+
+    /**
      * Screenshot hook: how long the brand splash should be held.
      *
      * Only honoured in a debug build, and only when the launcher passes
@@ -93,6 +100,7 @@ class MainActivity : FragmentActivity() {
                         GuestVaultNavHost(
                             quickStartRequest = quickStartRequest,
                             historyRequest = historyRequest,
+                            pinResetRequest = pinResetRequest,
                             splashHoldMs = splashHoldMs
                         )
                     }
@@ -124,6 +132,11 @@ class MainActivity : FragmentActivity() {
             historyRequest++
         }
 
+        if (intent.getBooleanExtra(EXTRA_RESET_PIN, false)) {
+            intent.removeExtra(EXTRA_RESET_PIN)
+            pinResetRequest++
+        }
+
         // Never in release: a shipped APK must not be able to sit on the splash
         // because someone crafted an intent.
         if (BuildConfig.DEBUG) {
@@ -148,6 +161,9 @@ class MainActivity : FragmentActivity() {
     companion object {
         const val EXTRA_QUICK_START_SESSION = "com.guestvault.extra.QUICK_START_SESSION"
         const val EXTRA_OPEN_HISTORY = "com.guestvault.extra.OPEN_HISTORY"
+
+        /** The emergency code was used; go straight to choosing a new PIN. */
+        const val EXTRA_RESET_PIN = "com.guestvault.extra.RESET_PIN"
 
         /** Debug-only: hold the splash so a screenshot can be taken. */
         const val EXTRA_SPLASH_HOLD_MS = "com.guestvault.extra.SPLASH_HOLD_MS"

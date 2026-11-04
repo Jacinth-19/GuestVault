@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.LocationOff
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.RestartAlt
@@ -97,9 +98,22 @@ fun PermissionsRoute(onBack: () -> Unit) {
             .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
             BiometricManager.BIOMETRIC_SUCCESS
 
+        val cameraDeclared = runCatching {
+            context.packageManager
+                .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
+                .requestedPermissions
+                ?.contains(Manifest.permission.CAMERA) == true
+        }.getOrDefault(false)
+
+        val cameraGranted = cameraDeclared &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+
         PermissionState(
             notificationsGranted = notificationsGranted,
             biometricReady = biometricReady,
+            cameraDeclared = cameraDeclared,
+            cameraGranted = cameraGranted,
             notificationsPermanentlyDenied = !notificationsGranted &&
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
             channels = GuestChannel.entries.map { channel ->
@@ -136,7 +150,15 @@ data class PermissionState(
     val notificationsGranted: Boolean,
     val biometricReady: Boolean,
     val notificationsPermanentlyDenied: Boolean,
-    val channels: List<ChannelStatus> = emptyList()
+    val channels: List<ChannelStatus> = emptyList(),
+    /**
+     * Only the paid build declares CAMERA, so the row is rendered only when the
+     * permission actually exists on this install. A free build that listed a
+     * permission it does not hold would be exactly the dishonesty this screen
+     * exists to avoid.
+     */
+    val cameraDeclared: Boolean = false,
+    val cameraGranted: Boolean = false
 )
 
 /** One notification channel as Android currently reports it. */
@@ -175,7 +197,13 @@ fun PermissionsScreen(
                     icon = Icons.Rounded.Public,
                     title = "No internet permission",
                     text = "GuestVault has no network access at all. Settings, the PIN hash " +
-                        "and session history stay on this device and cannot be uploaded."
+                        "and session history stay on this device and cannot be uploaded." +
+                        if (state.cameraDeclared) {
+                            " The camera is the only permission the paid build adds, and it " +
+                                "is used for one still frame per failed unlock."
+                        } else {
+                            ""
+                        }
                 )
             }
 
@@ -208,6 +236,22 @@ fun PermissionsScreen(
                         actionText = if (state.biometricReady) null else "Enroll",
                         onAction = onOpenBiometricSettings
                     )
+                    if (state.cameraDeclared) {
+                        GuestVaultDivider()
+                        PermissionRow(
+                            icon = Icons.Rounded.PhotoCamera,
+                            title = "Camera",
+                            subtitle = if (state.cameraGranted) {
+                                "Used only to photograph whoever is holding the phone " +
+                                    "after a failed unlock. Photos never leave this device."
+                            } else {
+                                "Not granted, so no photo is taken after a failed unlock. " +
+                                    "Turn it on in Settings → Intruder photo."
+                            },
+                            status = if (state.cameraGranted) "Granted" else "Not granted",
+                            granted = state.cameraGranted
+                        )
+                    }
                     GuestVaultDivider()
                     PermissionRow(
                         icon = Icons.Rounded.Timer,

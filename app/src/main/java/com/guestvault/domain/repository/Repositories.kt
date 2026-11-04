@@ -1,5 +1,6 @@
 package com.guestvault.domain.repository
 
+import com.guestvault.domain.model.DailyUsage
 import com.guestvault.domain.model.GuestApp
 import com.guestvault.domain.model.GuestSchedule
 import com.guestvault.domain.model.GuestSession
@@ -27,6 +28,19 @@ interface SettingsRepository {
     suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setAppLimits(limits: Map<String, Int>)
     suspend fun setSchedule(schedule: GuestSchedule)
+    suspend fun setDailyBudgetMinutes(minutes: Int)
+    suspend fun setPinDigits(digits: Int)
+    suspend fun setIntruderPhotosEnabled(enabled: Boolean)
+
+    /**
+     * Guest time recorded for one calendar day.
+     *
+     * Implementations keep a single day's total and drop anything older: the
+     * budget only ever asks about today, and storing a history of them would be
+     * a record of when the phone was lent out.
+     */
+    suspend fun readDailyUsage(): DailyUsage
+    suspend fun addDailyUsage(epochDay: Long, millis: Long)
     suspend fun setActiveSession(session: GuestSession?)
     suspend fun addSessionRecord(record: SessionRecord)
     suspend fun clearHistory()
@@ -37,7 +51,8 @@ interface SettingsRepository {
 }
 
 /**
- * Stores the 4-digit owner PIN.
+ * Stores the owner PIN — four digits by default, six when the owner chose the
+ * paid option.
  *
  * The raw PIN is never persisted: implementations must only store a slow,
  * salted hash (PBKDF2) inside an encrypted preference file.
@@ -47,6 +62,20 @@ interface PinRepository {
     fun setPin(pin: String)
     fun verifyPin(pin: String): Boolean
     fun clearPin()
+}
+
+/**
+ * The emergency unlock code.
+ *
+ * Separate from [PinRepository] because it has a different lifecycle: it is
+ * generated in the owner-only screens, shown exactly once, and can be replaced
+ * without touching the PIN. Like the PIN, only a salted hash is ever stored.
+ */
+interface RecoveryCodeRepository {
+    fun hasCode(): Boolean
+    fun setCode(code: String)
+    fun verifyCode(code: String): Boolean
+    fun clearCode()
 }
 
 /** The device's launchable apps, filtered for guest-mode use. */

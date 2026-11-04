@@ -8,6 +8,7 @@ import com.guestvault.domain.model.OwnerSettings
 import com.guestvault.domain.model.WipeResult
 import com.guestvault.domain.repository.AppCatalogRepository
 import com.guestvault.domain.repository.PinRepository
+import com.guestvault.domain.repository.RecoveryCodeRepository
 import com.guestvault.domain.repository.SettingsRepository
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -87,5 +88,17 @@ class VerifyPinUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(pin: String): Boolean = withContext(Dispatchers.Default) {
         pinRepository.verifyPin(pin)
+    }
+}
+
+/**
+ * Emergency-code verification, off the main thread for the same reason as
+ * [VerifyPinUseCase]: PBKDF2 is deliberately slow.
+ */
+class VerifyRecoveryCodeUseCase @Inject constructor(
+    private val recoveryCodeRepository: RecoveryCodeRepository
+) {
+    suspend operator fun invoke(code: String): Boolean = withContext(Dispatchers.Default) {
+        recoveryCodeRepository.verifyCode(code)
     }
 }

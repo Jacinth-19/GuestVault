@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.guestvault.domain.model.DailyUsage
 import com.guestvault.domain.model.EndReason
 import com.guestvault.domain.model.GuestSchedule
 import com.guestvault.domain.model.GuestSession
@@ -123,6 +124,59 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun setDailyBudgetMinutes(minutes: Int) {
+        context.settingsDataStore.edit { prefs ->
+            val clean = minutes.coerceAtLeast(0)
+            if (clean == 0) prefs.remove(Keys.DAILY_BUDGET_MINUTES)
+            else prefs[Keys.DAILY_BUDGET_MINUTES] = clean
+        }
+    }
+
+    /**
+     * Only 4 and 6 are real lengths. Anything else is written as 4 rather than
+     * rejected, because a lock with an impossible length would have to guess
+     * what to accept.
+     */
+    override suspend fun setPinDigits(digits: Int) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.PIN_DIGITS] = if (digits == 6) 6 else 4
+        }
+    }
+
+    override suspend fun setIntruderPhotosEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            if (enabled) prefs[Keys.INTRUDER_PHOTOS] = true
+            else prefs.remove(Keys.INTRUDER_PHOTOS)
+        }
+    }
+
+    override suspend fun readDailyUsage(): DailyUsage = runCatching {
+        val prefs = context.settingsDataStore.data.first()
+        DailyUsage(
+            epochDay = prefs[Keys.DAILY_USAGE_DAY] ?: Long.MIN_VALUE,
+            millis = prefs[Keys.DAILY_USAGE_MILLIS] ?: 0L
+        )
+    }.onFailure { Log.w(TAG, "Could not read daily usage", it) }
+        .getOrDefault(DailyUsage())
+
+    /**
+     * Adds [millis] to [epochDay].
+     *
+     * A session that ends after midnight only charges the minutes that fall
+     * after it, and a record from another day is replaced rather than added to:
+     * the previous day's total is no longer interesting to anybody.
+     */
+    override suspend fun addDailyUsage(epochDay: Long, millis: Long) {
+        if (millis <= 0L) return
+        context.settingsDataStore.edit { prefs ->
+            val storedDay = prefs[Keys.DAILY_USAGE_DAY] ?: Long.MIN_VALUE
+            val stored = prefs[Keys.DAILY_USAGE_MILLIS] ?: 0L
+            val total = if (storedDay == epochDay) stored + millis else millis
+            prefs[Keys.DAILY_USAGE_DAY] = epochDay
+            prefs[Keys.DAILY_USAGE_MILLIS] = total
+        }
+    }
+
     override suspend fun setActiveSession(session: GuestSession?) {
         context.settingsDataStore.edit { prefs ->
             if (session == null) {
@@ -202,6 +256,9 @@ class SettingsRepositoryImpl @Inject constructor(
             activeSession = session,
             history = decodeHistory(this[Keys.HISTORY]),
             appLimits = decodeLimits(this[Keys.APP_LIMITS]),
+            dailyBudgetMinutes = this[Keys.DAILY_BUDGET_MINUTES] ?: 0,
+            pinDigits = if (this[Keys.PIN_DIGITS] == 6) 6 else 4,
+            intruderPhotosEnabled = this[Keys.INTRUDER_PHOTOS] ?: false,
             schedule = GuestSchedule(
                 enabled = this[Keys.SCHEDULE_ENABLED] ?: false,
                 startMinuteOfDay = this[Keys.SCHEDULE_START] ?: (7 * 60),
@@ -278,6 +335,11 @@ class SettingsRepositoryImpl @Inject constructor(
         val SCHEDULE_START = intPreferencesKey("schedule_start_minute")
         val SCHEDULE_END = intPreferencesKey("schedule_end_minute")
         val SCHEDULE_DAYS = stringPreferencesKey("schedule_days")
+        val DAILY_BUDGET_MINUTES = intPreferencesKey("daily_budget_minutes")
+        val DAILY_USAGE_DAY = longPreferencesKey("daily_usage_day")
+        val DAILY_USAGE_MILLIS = longPreferencesKey("daily_usage_millis")
+        val PIN_DIGITS = intPreferencesKey("pin_digits")
+        val INTRUDER_PHOTOS = booleanPreferencesKey("intruder_photos_enabled")
         val HISTORY = stringPreferencesKey("session_history")
 
         val SESSION_STARTED_AT = longPreferencesKey("session_started_at")

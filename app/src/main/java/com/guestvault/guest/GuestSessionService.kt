@@ -14,6 +14,7 @@ import com.guestvault.core.notifications.TimerReminders
 import com.guestvault.data.session.AppUsageTracker
 import com.guestvault.data.session.SessionController
 import com.guestvault.domain.model.EndReason
+import com.guestvault.domain.policy.DailyBudgetPolicy
 import com.guestvault.domain.repository.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -114,6 +115,16 @@ class GuestSessionService : Service() {
                     val limits = runCatching {
                         settingsRepository.settings.first().appLimits
                     }.getOrDefault(emptyMap())
+                    // Also read once per session: the daily budget cannot change
+                    // while a guest is holding the phone.
+                    val dailyBudget = runCatching {
+                        settingsRepository.settings.first().dailyBudgetMinutes
+                    }.getOrDefault(0)
+                    var dailyBase = runCatching {
+                        settingsRepository.readDailyUsage()
+                    }.getOrDefault(
+                        com.guestvault.domain.model.DailyUsage()
+                    )
                     while (isActive) {
                         val remaining = session.remainingMillis()
                         val label = remaining?.let(Formatters::countdown)
@@ -159,6 +170,23 @@ class GuestSessionService : Service() {
                             if (spent != null) {
                                 Log.i(TAG, "Guest budget for $spent is exhausted")
                                 sessionController.openGuestUi()
+                            }
+                        }
+
+                        // Daily budget: unlike the per-app clocks this one is
+                        // derived from wall clock, so there is nothing to tick —
+                        // just ask the policy whether the day is spent.
+                        if (DailyBudgetPolicy.hasBudget(dailyBudget)) {
+                            val used = DailyBudgetPolicy.usedToday(
+                                base = dailyBase,
+                                sessionStartedAt = session.startedAt,
+                                now = System.currentTimeMillis()
+                            )
+                            if (DailyBudgetPolicy.isExhausted(dailyBudget, used)) {
+                                Log.i(TAG, "Guest daily budget reached")
+                                sessionController.end(EndReason.DAILY_LIMIT)
+                                stopSelf()
+                                return@collectLatest
                             }
                         }
 

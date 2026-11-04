@@ -11,6 +11,7 @@ object Routes {
     const val PERMISSIONS = "permissions"
     const val PROFILES = "profiles"
     const val TIME_RULES = "time_rules"
+    const val RECOVERY_CODE = "recovery_code"
 
     const val PIN_SETUP = "pin_setup?mode={mode}"
     const val SELECT_APPS = "select_apps?next={next}"

@@ -82,9 +82,14 @@ fun GuestHomeRoute(
     viewModel: GuestViewModel,
     onLaunchApp: (String) -> Unit,
     onEndSession: (EndReason) -> Unit,
-    onReturnToOwner: () -> Unit
+    onReturnToOwner: () -> Unit,
+    onRecovered: () -> Unit = onReturnToOwner
 ) {
     var showLock by rememberSaveable { mutableStateOf(startLocked) }
+    // Set the instant the emergency code is accepted, so the "session ended"
+    // effect below cannot race the recovery navigation and send the owner to
+    // the dashboard with no PIN.
+    var recovered by remember { mutableStateOf(false) }
     var lockHint by remember { mutableStateOf<String?>(null) }
     var pinned by remember { mutableStateOf(activity.isInLockTaskMode()) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -129,8 +134,8 @@ fun GuestHomeRoute(
     // launcher. Wait for the write to land before treating "no session" as the
     // end of one; the effect is keyed on the session, so the wait is cancelled
     // the instant it arrives.
-    LaunchedEffect(state.loaded, state.session) {
-        if (!state.loaded || state.session != null) return@LaunchedEffect
+    LaunchedEffect(state.loaded, state.session, recovered) {
+        if (!state.loaded || state.session != null || recovered) return@LaunchedEffect
         delay(2_000)
         onReturnToOwner()
     }
@@ -152,7 +157,11 @@ fun GuestHomeRoute(
                 showLock = false
                 lockHint = null
             },
-            onUnlocked = onReturnToOwner
+            onUnlocked = onReturnToOwner,
+            onRecovered = {
+                recovered = true
+                onRecovered()
+            }
         )
     } else {
         GuestHomeScreen(

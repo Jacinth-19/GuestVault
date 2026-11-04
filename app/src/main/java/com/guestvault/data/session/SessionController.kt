@@ -9,6 +9,7 @@ import com.guestvault.domain.model.EndReason
 import com.guestvault.domain.model.GuestSession
 import com.guestvault.domain.model.SessionRecord
 import com.guestvault.domain.model.WipeResult
+import com.guestvault.domain.policy.DailyBudgetPolicy
 import com.guestvault.domain.policy.SchedulePolicy
 import com.guestvault.domain.repository.SettingsRepository
 import com.guestvault.guest.GuestHomeActivity
@@ -53,6 +54,20 @@ class SessionController @Inject constructor(
         val current = settingsRepository.settings.first()
         val blocked = SchedulePolicy.closedMessage(current.schedule, ZonedDateTime.now())
         if (blocked != null) throw IllegalStateException(blocked)
+
+        // The daily budget is checked in the same place and for the same
+        // reason: the Quick Settings tile starts sessions too, and it must hit
+        // exactly the same wall as the dashboard button.
+        if (DailyBudgetPolicy.hasBudget(current.dailyBudgetMinutes)) {
+            val used = DailyBudgetPolicy.usedToday(
+                base = settingsRepository.readDailyUsage(),
+                sessionStartedAt = null,
+                now = System.currentTimeMillis()
+            )
+            if (DailyBudgetPolicy.isExhausted(current.dailyBudgetMinutes, used)) {
+                throw IllegalStateException(DailyBudgetPolicy.END_MESSAGE)
+            }
+        }
 
         val session = GuestSession(
             startedAt = System.currentTimeMillis(),
@@ -99,6 +114,7 @@ class SessionController @Inject constructor(
         )
         settingsRepository.addSessionRecord(record)
         settingsRepository.setActiveSession(null)
+        recordDailyUsage(current.startedAt, record.endedAt, settings.dailyBudgetMinutes)
         // Nothing about the guest's usage should outlive the session.
         usageTracker.startSession()
         GuestSessionService.stop(context)
@@ -116,6 +132,21 @@ class SessionController @Inject constructor(
         )
 
         wipeResult
+    }
+
+    /**
+     * Charges a finished session to today's budget.
+     *
+     * Nothing is written when no daily budget is set, so a build that never
+     * uses the feature does not grow a usage record it will never read.
+     */
+    private suspend fun recordDailyUsage(startedAt: Long, endedAt: Long, budgetMinutes: Int) {
+        if (!DailyBudgetPolicy.hasBudget(budgetMinutes)) return
+        val today = DailyBudgetPolicy.epochDay(endedAt)
+        val todayMillis = DailyBudgetPolicy.split(startedAt, endedAt)
+            .filter { (day, _) -> day == today }
+            .sumOf { (_, millis) -> millis }
+        if (todayMillis > 0L) settingsRepository.addDailyUsage(today, todayMillis)
     }
 
     /** Brings an already running session back to the foreground. */
