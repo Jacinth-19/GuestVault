@@ -30,6 +30,10 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # Explicit `permissions:` sets every unlisted scope to none, so the report
+  # job's `gh run download` retry was refused with 403 and its "verdicts
+  # arrived" check failed on a run where all eight artifacts were present.
+  actions: read
 
 concurrency:
   group: step-plan-${{ github.ref }}
@@ -206,7 +210,10 @@ jobs:
             exit 1
           fi
 
+      # Always: if one group's artifact is genuinely missing, the other passes
+      # still deserve a graded table.
       - name: Merge the verdicts
+        if: always()
         run: |
           mkdir -p build
           : > build/step-results.jsonl
