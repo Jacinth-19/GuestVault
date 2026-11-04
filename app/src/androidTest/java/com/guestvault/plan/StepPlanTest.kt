@@ -1929,10 +1929,30 @@ class StepPlanTest : StepHarness() {
         repeat(3) { attempt ->
             if (device.hasObject(By.text(row))) return true
             if (scrollUntil(timeoutMs) { device.hasObject(By.text(row)) }) return true
+            // Settings is long enough to wedge: on run 140089c step 9.8 gave up
+            // on "Time limits" while 9.9 and 9.10 — two rows further down —
+            // passed straight afterwards, so the list was fine a moment later.
+            // A fling covers more list per gesture than the slow drags, and
+            // checks the row after each one.
+            if (flingToRow(row)) return true
             // The page may not be what we think it is (a dialog, a hand-over to
             // the browser, a list that has stopped moving). Rebuild the screen
             // from a cold start of the app rather than failing on the spot.
             if (attempt < 2) relaunchToSettings()
+        }
+        return device.hasObject(By.text(row))
+    }
+
+    /** Fast, momentum-carrying swipes, checking for [row] after each. */
+    private fun flingToRow(row: String): Boolean {
+        val x = device.displayWidth / 2
+        repeat(4) {
+            if (device.hasObject(By.text(row))) return true
+            shell(
+                "input swipe $x ${(device.displayHeight * 0.85f).toInt()} " +
+                    "$x ${(device.displayHeight * 0.15f).toInt()} 60"
+            )
+            pause(500)
         }
         return device.hasObject(By.text(row))
     }

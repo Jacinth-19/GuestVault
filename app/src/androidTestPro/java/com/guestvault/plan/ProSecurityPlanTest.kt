@@ -1,10 +1,13 @@
 package com.guestvault.plan
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /**
  * Pass 16 — the paid build's second wave: emergency code, daily budget,
@@ -18,6 +21,9 @@ import org.junit.runner.RunWith
 class ProSecurityPlanTest : StepHarness() {
 
     private val sixDigits = listOf("1", "3", "5", "7", "9", "2")
+
+    /** Shares no digit in place with [sixDigits], so it cannot be a near miss. */
+    private val wrongPinSix = listOf("4", "6", "8", "1", "3", "5")
 
     /** Saved by 16.1, typed back in 16.4. */
     private var recoveryCode: String = ""
@@ -170,6 +176,90 @@ class ProSecurityPlanTest : StepHarness() {
             )
             note("Emergency code ended the session and opened the new-PIN screen")
         }
+
+        verify("16.5", "One still frame is stored on the phone, and nothing leaves it") {
+            // 16.4 ended the session with the emergency code, so the app is on a
+            // new-PIN screen and nothing else can be reached: the owner has no
+            // usable PIN yet. Set the six digits again before going anywhere.
+            expectTrue(
+                waitForAny("Create your owner PIN", "Choose a new PIN", timeout = 12_000) != null,
+                "no new-PIN screen after the emergency unlock (text=${visibleText().take(160)})"
+            )
+            // Pick six explicitly rather than trusting the loaded preference: the
+            // screen defaults to four until the stored length arrives, and typing
+            // before it does would submit a four-digit PIN.
+            tapChip("6 digits")
+            pause(600)
+            enterPin(sixDigits)
+            expectTrue(
+                waitFor("Confirm your PIN", 10_000),
+                "the six-digit entry did not reach the confirm step (text=${visibleText().take(160)})"
+            )
+            enterPin(sixDigits)
+            expectTrue(
+                waitFor("Start Guest Session", 15_000),
+                "the re-set PIN was not saved (text=${visibleText().take(160)})"
+            )
+
+            // Anything a previous attempt left behind would make the assertion
+            // below pass without the unlock in this step storing anything.
+            intruderFiles().forEach { runCatching { it.delete() } }
+
+            openSettings()
+            expectTrue(
+                scrollToText("Photograph failed unlocks", maxSwipes = 10),
+                "no intruder-photo row in the paid build (text=${visibleText().take(200)})"
+            )
+            tapDesc("Intruder photo toggle")
+            // First switch-on asks for CAMERA; a second run finds it granted and
+            // toggles straight away. Both end in the same subtitle.
+            allowCameraIfAsked()
+            expectTrue(
+                waitForContains("One photo is stored on this phone", 12_000),
+                "the feature did not switch on after the permission was granted " +
+                    "(text=${visibleText().take(220)})"
+            )
+
+            backToDashboard()
+            pickAppsAndStart()
+            openLock()
+            enterPin(wrongPinSix)
+            expectTrue(
+                waitForContains("Incorrect PIN", 12_000),
+                "the wrong PIN was not rejected (text=${visibleText().take(160)})"
+            )
+
+            val stored = waitForIntruderPhoto(30_000)
+            expectTrue(
+                stored != null,
+                "no still frame was written to app storage " +
+                    "(dir=${intruderFiles().map { it.name }}; log=${recentLog(6)})"
+            )
+            // A zero-byte file would prove the file plumbing and nothing else.
+            // A JPEG starts FF D8, so the first two bytes say a frame was encoded.
+            val header = stored!!.readBytes().take(2).map { it.toInt() and 0xFF }
+            expectTrue(
+                header == listOf(0xFF, 0xD8),
+                "the stored file is not a JPEG (${stored.length()} bytes, header=$header)"
+            )
+            note(
+                "Stored ${stored.name} (${stored.length()} bytes); " +
+                    "newest first: ${intruderFiles().take(4).map { it.name }}"
+            )
+
+            // "Nothing is uploaded" is not something this test can watch for; it
+            // is a permission the build does not hold. That is the stronger claim,
+            // and it is the one the store listing makes.
+            val requested = runCatching {
+                context.packageManager
+                    .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
+                    .requestedPermissions?.toList().orEmpty()
+            }.getOrDefault(emptyList())
+            expectTrue(
+                requested.none { it == Manifest.permission.INTERNET },
+                "the paid build declares INTERNET, so the photo could leave the phone"
+            )
+        }
     }
 
     // ------------------------------------------------------------- helpers
@@ -226,8 +316,19 @@ class ProSecurityPlanTest : StepHarness() {
 
     /** Dashboard → allowed apps → tick three → confirm, then start a session. */
     private fun pickAppsAndStart() {
-        tapText("Choose apps")
-        expectTrue(waitFor("Search apps", 20_000), "the app picker did not open")
+        // The card's action is "Choose apps" only while the allow-list is empty
+        // and "Manage" once it is not — and this helper is used twice, the second
+        // time with the three apps 16.3 already picked. Tapping the wrong label
+        // timed out on the dashboard and cost 16.5 its run.
+        if (device.hasObject(By.text("Choose apps"))) {
+            tapText("Choose apps")
+        } else {
+            tapText("Manage")
+        }
+        expectTrue(
+            waitFor("Search apps", 20_000),
+            "the app picker did not open (text=${visibleText().take(160)})"
+        )
         if (device.hasObject(By.text("Clear"))) {
             tapText("Clear")
             pause(600)
@@ -289,6 +390,59 @@ class ProSecurityPlanTest : StepHarness() {
             waitFor("Welcome to Guest Mode", 20_000),
             "the session did not start (screen: ${screen()}; text=${visibleText().take(200)})"
         )
+    }
+
+    /** Everything in the app's own intruder folder, newest first. */
+    private fun intruderFiles(): List<File> = runCatching {
+        File(context.filesDir, "intruder").listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".jpg") }
+            ?.sortedByDescending { it.lastModified() }
+            .orEmpty()
+    }.getOrDefault(emptyList())
+
+    /**
+     * Waits for a photo to land.
+     *
+     * The capture runs on Dispatchers.IO and opens a camera session, so the file
+     * appears a second or two after the wrong PIN — never instantly.
+     */
+    private fun waitForIntruderPhoto(timeoutMs: Long): File? {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            intruderFiles().firstOrNull { it.length() > 0 }?.let { return it }
+            Thread.sleep(400)
+        }
+        return intruderFiles().firstOrNull()?.takeIf { it.length() > 0 }
+    }
+
+    /**
+     * Accepts the CAMERA prompt if it appeared.
+     *
+     * The resource id has changed between releases and the buttons differ across
+     * API levels, so this tries the ids first and the visible labels second. It
+     * never fails: when the permission is already granted there is no dialog, and
+     * the caller's assertion on the subtitle is what decides the step.
+     */
+    private fun allowCameraIfAsked() {
+        val ids = listOf(
+            "com.android.permissioncontroller:id/permission_allow_button",
+            "com.android.permissioncontroller:id/permission_allow_foreground_only_button",
+            "com.android.permissioncontroller:id/permission_allow_one_time_button"
+        )
+        val labels = listOf("Allow", "While using the app", "Only this time")
+        repeat(8) {
+            val button = ids.firstNotNullOfOrNull { id ->
+                runCatching { device.findObject(By.res(id)) }.getOrNull()
+            } ?: labels.firstNotNullOfOrNull { label ->
+                runCatching { device.findObject(By.text(label)) }.getOrNull()
+            }
+            if (button != null) {
+                runCatching { button.click() }
+                pause(900)
+                return
+            }
+            pause(400)
+        }
     }
 
     private fun appRows() = runCatching {

@@ -223,13 +223,25 @@ claim literally true.
    foreground-service declaration applies here too.
 
    **One difference: this listing declares `CAMERA`.** Since 1.5.0 the paid build can
-   store one still frame after a failed unlock (`Intruder photo`). Answer **Photo and
-   video permissions → Camera → "Take pictures"**, and in Data safety keep *no data
-   collected, no data shared*: the frame is written to the app's private storage, is
-   never uploaded (the app has no `INTERNET` permission), and leaves only if the owner
-   exports or shares it themselves. The install-time `camera` feature is marked
-   `required="false"`, so the listing installs on devices without a camera, where the
-   switch reads *unavailable* instead of failing.
+   store one still frame after a failed unlock (`Intruder photo`). Three consequences,
+   and one thing that is *not* one:
+
+   - **App content → Photo and video permissions: nothing to do.** That section exists
+     for the *restricted* `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO` permissions, which
+     allow an app to read the whole camera roll. Neither build declares them — the paid
+     manifest adds `CAMERA` and nothing else. The section will not ask you for anything,
+     so do not go looking for a "Camera" option under it.
+   - **Data safety: still *no data collected, no data shared*.** Play defines "collect"
+     as transmitting data off the device, and this frame never leaves it: it is written
+     to `filesDir/intruder/`, the build has no `INTERNET` permission, `allowBackup` is
+     false, and there is no share or export path in the app at all.
+   - **Device filtering: handled in the manifest.** `uses-feature camera.front` is
+     `required="false"`, so the listing still installs on devices with no camera; there
+     the switch is disabled and explains why.
+   - **The privacy policy must disclose it** — it does, in section 3 (Camera) and
+     section 2 (the photos row). Both say paid-build-only and never uploaded. Keep those
+     two rows in step with the build; `docs/privacy.html` is the page linked from the
+     listing *and* from inside the app.
 6. **Listing copy:** lead with what the paid build adds — profiles, per-app and daily
    time limits, schedules, an emergency unlock code, a six-digit PIN and the intruder
    photo — and say the free app exists. Under-promise the roadmap: never list a

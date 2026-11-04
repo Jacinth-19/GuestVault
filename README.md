@@ -359,6 +359,10 @@ Building the Play bundle:
 ## 🔒 Privacy
 
 - **No internet permission.** GuestVault cannot upload anything, by construction.
+- **The paid build can photograph a failed unlock — only if you switch that on.** One
+  still frame per failed attempt, kept in app-private storage, newest eight only, deleted
+  when the feature is turned off. It cannot be uploaded: that build has no `INTERNET`
+  permission and no share or export path.
 - Settings and the PIN hash stay in app-private storage; `android:allowBackup="false"`.
 - Session history stores *when* a session ran, how many apps were allowed and *how it ended* —
   never what the guest opened or typed.
@@ -394,6 +398,16 @@ honestly ship.
 > step **9.7** asserts the Permissions screen still lists Internet under *"Never
 > requested"*. A paid download needs no billing library and no network permission, so the
 > zero-network promise survives — untouched, and still tested.
+
+**The paid build declares exactly one permission the free build does not: `CAMERA`.**
+It is asked for once, from Settings, only when the owner switches on *Intruder photo* —
+never at the lock screen and never in the background. The frame it produces is written to
+the app's private storage, the build still has no `INTERNET` permission, there is no share
+or export path, and `allowBackup` is false, so it cannot leave the phone. The install-time
+`camera.front` feature is `required="false"`: on a device without a camera the switch is
+disabled and says why. [`docs/privacy.html`](docs/privacy.html) discloses this in sections 2
+and 3, and `scripts/ci/assert_play_manifest.py` fails the build if `CAMERA` ever appears in
+the free manifest.
 
 | | Free | Pro |
 |---|---|---|

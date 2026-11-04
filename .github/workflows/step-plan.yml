@@ -59,7 +59,10 @@ jobs:
           - { group: 5, label: 'Passes 10, 11, 13, 14', variant: free }
           - { group: 6, label: 'Pass 12 (two 5-minute waits)', variant: free }
           - { group: 7, label: 'Pass 15 — the paid build', variant: pro, plan_class: ProPlanTest }
-          - { group: 8, label: 'Pass 16 — paid build security', variant: pro, plan_class: ProSecurityPlanTest }
+          # The only group that needs a camera: pass 16.5 grades the intruder
+          # photo, which cannot be taken without one. Scoping the flag here
+          # keeps the seven green groups booting exactly as they did.
+          - { group: 8, label: 'Pass 16 — paid build security', variant: pro, plan_class: ProSecurityPlanTest, camera: emulated }
 
     steps:
       - name: Checkout
@@ -111,7 +114,10 @@ jobs:
           profile: pixel_6
           avd-name: guestvault-plan
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-snapshot-save -memory 4096
+          # `matrix.camera` is set only for group 8; every other group gets the
+          # `none` it has always had. An unset matrix key expands to an empty
+          # string, hence the `|| 'none'`.
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back ${{ matrix.camera || 'none' }} -camera-front ${{ matrix.camera || 'none' }} -no-snapshot-save -memory 4096
           # One line, no backslash continuation: the emulator action rewrites
           # the script before running it, and a continued line came out as
           # `\ bash ...` - a command called " bash", which is exit 127 and no
@@ -170,6 +176,11 @@ jobs:
           fi
           echo "::error::group $GROUP ran $phases phases and produced $count verdicts"
           python3 scripts/ci/report_failure.py
+          # Reachable because the emulator step is `continue-on-error`, so a
+          # group whose device never came up used to stay green while
+          # contributing nothing — the merged table then blamed its steps, and
+          # the group that failed was the one job nobody looked at.
+          exit 1
 
   report:
     name: Verdict table
