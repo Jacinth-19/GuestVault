@@ -316,8 +316,19 @@ class ProSecurityPlanTest : StepHarness() {
 
     /** Dashboard → allowed apps → tick three → confirm, then start a session. */
     private fun pickAppsAndStart() {
-        tapText("Choose apps")
-        expectTrue(waitFor("Search apps", 20_000), "the app picker did not open")
+        // The card's action is "Choose apps" only while the allow-list is empty
+        // and "Manage" once it is not — and this helper is used twice, the second
+        // time with the three apps 16.3 already picked. Tapping the wrong label
+        // timed out on the dashboard and cost 16.5 its run.
+        if (device.hasObject(By.text("Choose apps"))) {
+            tapText("Choose apps")
+        } else {
+            tapText("Manage")
+        }
+        expectTrue(
+            waitFor("Search apps", 20_000),
+            "the app picker did not open (text=${visibleText().take(160)})"
+        )
         if (device.hasObject(By.text("Clear"))) {
             tapText("Clear")
             pause(600)
