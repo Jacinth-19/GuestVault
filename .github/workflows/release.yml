@@ -132,7 +132,8 @@ jobs:
             ### Install
             1. Download `GuestVault-${{ env.VERSION }}.apk` below.
             2. On the phone, allow installing from this source when prompted.
-            3. Open GuestVault, finish onboarding, and set a 4-digit owner PIN.
+            3. Open GuestVault, finish onboarding, and set an owner PIN (4 digits, or 6 in
+               the paid build).
             4. Pick the apps a guest may use → **Start Guest Session**.
 
             Requires **Android 10 (API 29) or newer**, targets Android 16 (API 36).
@@ -146,6 +147,14 @@ jobs:
             - Session history, dark mode, and an honest limitations page
             - Permissions & privacy screen and a Quick Settings tile
             - No `INTERNET` permission, no Device Administrator, no analytics
+
+            ### In the paid build (`GuestVault-Pro-<version>.apk`)
+            - Guest profiles, per-app budgets, daily budgets and schedules
+            - Emergency unlock code for a forgotten PIN, and an optional six-digit PIN
+            - Intruder photo: one still frame per failed unlock, stored on the phone only.
+              This is the only reason the paid build declares `CAMERA`, and the only
+              permission it adds; it still has no `INTERNET` permission, so nothing can
+              be uploaded
 
             Screenshots and the demo video are in [`docs/media`](https://github.com/${{ github.repository }}/tree/main/docs/media).
 

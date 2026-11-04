@@ -770,9 +770,7 @@
         {
           "id": "16.5",
           "action": "Settings → Intruder photo: switch it on, fail one unlock",
-          "mode": "manual",
-          "expect": "A still frame is stored in the app's private storage; nothing is uploaded",
-          "why": "the plan emulator boots with no cameras (-camera-back none -camera-front none), so capture cannot be graded in CI"
+          "expect": "A JPEG frame is stored in the app's private storage, and the build holds no INTERNET permission, so nothing can be uploaded"
         }
       ]
     }

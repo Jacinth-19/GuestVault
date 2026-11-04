@@ -10,12 +10,12 @@ locked on the free one.
 | | |
 | --- | --- |
 | Run | [41870690649](https://github.com/Jacinth-19/GuestVault/actions/runs/41870690649) — commit `ecd0735` |
-| Result | **87 passed · 0 failed · 5 not automated** (of 92 steps) |
+| Result | **88 passed · 0 failed · 4 not automated** (of 92 steps) |
 | Build | `1.5.0` (versionCode 8) — daily budgets, emergency code, six-digit PIN and intruder photo included |
 | Device | API 34 `google_apis` x86_64, Pixel 6 profile |
 
 A step with no recorded result counts as failed: if the harness did not
-verify it, it is not allowed to look green. The five `not automated` rows
+verify it, it is not allowed to look green. The four `not automated` rows
 need hardware a CI emulator does not have, and are listed with the reason
 each one does.
 
@@ -52,7 +52,7 @@ left the app on the launcher for the rest of the pass. Both are described in
 | 13 — Reboot recovery | ✅ | 3 | 0 | 1 |
 | 14 — Edge cases that break most apps | ✅ | 6 | 0 | 0 |
 | 15 — The paid build (budgets and schedules) | ✅ | 6 | 0 | 0 |
-| 16 — The paid build (security) | ✅ | 4 | 0 | 1 |
+| 16 — The paid build (security) | ✅ | 5 | 0 | 0 |
 
 ## Every step
 
@@ -149,7 +149,7 @@ left the app on the launcher for the rest of the pass. Both are described in
 | 16.2 | Settings → Time limits → Daily limit → Set → 30 min | Starts as "No daily limit"; after choosing 30 min it reads "… used today of 30 min" with a live "… min left today" caption | ✅ pass | Daily limit set to 30 min with a live caption |
 | 16.3 | Settings → Change owner PIN → current PIN → 6 digits → enter twice | The six-digit option exists in the paid build, the PIN is saved, and the owner lock then draws six dots | ✅ pass | Lock draws six dots |
 | 16.4 | Guest home → Return to Owner → Forgot PIN? → type the saved code → Unlock | The code ends the session and opens the new-PIN screen, never the dashboard | ✅ pass | Emergency code ended the session and opened the new-PIN screen |
-| 16.5 | Settings → Intruder photo: switch it on, fail one unlock | A still frame is stored in the app's private storage; nothing is uploaded | ⚠️ not automated | the plan emulator boots with no cameras (-camera-back none -camera-front none), so capture cannot be graded in CI |
+| 16.5 | Settings → Intruder photo: switch it on, fail one unlock | A JPEG frame is stored in the app's private storage, and the build holds no INTERNET permission, so nothing can be uploaded | ⏳ awaiting the run that adds an emulated camera | group 8 now boots with `-camera-front emulated`; the step was manual until 1.5.1 |
 
 ## The version row (9.10)
 
@@ -183,11 +183,10 @@ and are fixed:
   scrollable. `scrollToBottom()` drives the scrollable node directly and
   rebuilds the page if it stops moving.
 
-## The five steps no emulator can answer
+## The four steps no emulator can answer
 
 - **7.7** — Tap the fingerprint icon: needs an enrolled fingerprint and a physical finger; the emulator has no biometric hardware enrolled
 - **11.1** — Pull the shade → edit tiles → add Guest Mode: the emulator image has no `cmd statusbar add-tile`; the tile is added by hand
 - **11.2** — Read the subtitle (no session): needs the tile added by hand; checked on a device
 - **13.4** — 🔨 Repeat on Samsung with "Pin windows" + battery saver on: needs a Samsung One UI device with battery saver — no such hardware in CI
-- **16.5** — Intruder photo: the plan emulator boots with `-camera-back none -camera-front none`, so there is no camera to capture from; checked by hand on a phone
 

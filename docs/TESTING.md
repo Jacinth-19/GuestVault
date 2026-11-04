@@ -658,7 +658,9 @@ fresh install or be ready to set a new one.
    **Expect:** the session ends and the app opens *"Create your owner PIN"* —
    never the dashboard, because the old PIN is a hash and cannot be shown.
 8. **Intruder photo:** Settings → Intruder photo → switch on, and grant the
-   camera when asked. Lock the phone into Guest Mode, tap **Return to Owner**,
+   camera when asked. (CI now boots group 8 with an emulated camera and grades
+   the storage half of this as step 16.5; what a person still adds here is a
+   real lens and a real face.) Lock the phone into Guest Mode, tap **Return to Owner**,
    and enter a wrong PIN.
    **Expect:** one still frame is stored, in the app's private storage only.
    Repeat twelve times: only the newest eight files remain.

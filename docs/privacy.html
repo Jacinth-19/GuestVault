@@ -142,6 +142,16 @@
             <td>Created when a session starts and emptied on exit, so no guest leftovers remain.</td>
             <td>App-private files directory</td>
           </tr>
+          <tr>
+            <td>Intruder photos <em>(paid build only)</em></td>
+            <td>
+              Only if you turn the feature on: one still frame per failed unlock, so you
+              can see who tried. The newest 8 are kept and the rest are deleted. Every
+              photo is removed when you switch the feature off, clear them in Settings,
+              or uninstall the app.
+            </td>
+            <td>App-private files directory</td>
+          </tr>
         </tbody>
       </table>
       <p style="margin-top:14px;color:var(--muted);font-size:14px">
@@ -160,7 +170,8 @@
         <div class="pill no"><strong>Internet</strong><span>Not requested. No network access, no ads, no telemetry.</span></div>
         <div class="pill no"><strong>Location</strong><span>Not requested.</span></div>
         <div class="pill no"><strong>Contacts, SMS, call log</strong><span>Not requested.</span></div>
-        <div class="pill no"><strong>Photos, files, storage</strong><span>Not requested.</span></div>
+        <div class="pill yes"><strong>Camera <em>(paid build only)</em></strong><span>Only if you turn on Intruder photo. One still frame per failed unlock, kept in this app’s private storage. Never uploaded — the app has no network permission — and there is no share or export button that could send it anywhere.</span></div>
+        <div class="pill no"><strong>Photos, files, storage</strong><span>Not requested. GuestVault cannot see your camera roll or any other file on the phone.</span></div>
         <div class="pill no"><strong>Accessibility service</strong><span>Not requested and never will be.</span></div>
         <div class="pill no"><strong>Device administrator</strong><span>Not requested.</span></div>
         <div class="pill no"><strong>Usage access</strong><span>Not requested.</span></div>
