@@ -373,12 +373,13 @@ Building the Play bundle:
 ## 🗺️ Roadmap
 
 - [x] Quick Settings tile to start a session
-- [ ] Website allow-list / built-in safe browser
-- [ ] Per-app and daily time budgets, plus schedules
-- [ ] Multiple named guest profiles ("Mum", "the kids")
-- [ ] Intruder photo after repeated failed unlocks
-- [ ] Optional 6-digit PIN
-- [ ] Emergency unlock code
+- [x] Multiple named guest profiles ("Mum", "the kids")
+- [x] Per-app and daily time budgets, plus schedules
+- [x] Optional 6-digit PIN
+- [x] Emergency unlock code
+- [x] Intruder photo after repeated failed unlocks
+- [ ] Website allow-list / built-in safe browser — **not planned**: a browser needs
+  `INTERNET`, and keeping that permission out of both builds is the product
 
 Ranked against the competition in [`docs/COMPETITORS.md`](docs/COMPETITORS.md).
 

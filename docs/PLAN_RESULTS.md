@@ -1,22 +1,28 @@
-# The 15-pass plan — graded results
+# The 16-pass plan — graded results
 
 Every numbered step of the plan, run on real Android emulators (API 34,
-Pixel 6 profile) by `.github/workflows/step-plan.yml`. Seven fresh emulators per
+Pixel 6 profile) by `.github/workflows/step-plan.yml`. Eight fresh emulators per
 run, one per group of passes. Passes 1–14 grade the **free** build
-(`com.guestvault`); pass 15 grades the **paid** build (`com.guestvault.pro`),
-because the screens it exercises are deliberately locked on the free one.
+(`com.guestvault`); passes 15 and 16 grade the **paid** build
+(`com.guestvault.pro`), because the screens they exercise are deliberately
+locked on the free one.
 
 | | |
 | --- | --- |
-| Run | [41799345069](https://github.com/Jacinth-19/GuestVault/actions/runs/41799345069) — commit `759b15f` |
-| Result | **83 passed · 0 failed · 4 not automated** (of 87 steps) |
-| Build | `1.4.0` (versionCode 7) — per-app budgets and schedules included |
+| Run | [41819276649](https://github.com/Jacinth-19/GuestVault/actions/runs/41819276649) — commit `50791ee` |
+| Result | **87 passed · 0 failed · 5 not automated** (of 92 steps) |
+| Build | `1.5.0` (versionCode 8) — daily budgets, emergency code, six-digit PIN and intruder photo included |
 | Device | API 34 `google_apis` x86_64, Pixel 6 profile |
 
 A step with no recorded result counts as failed: if the harness did not
-verify it, it is not allowed to look green. The four `not automated` rows
+verify it, it is not allowed to look green. The five `not automated` rows
 need hardware a CI emulator does not have, and are listed with the reason
 each one does.
+
+The previous run of this plan — `1.4.0`, before pass 16 existed — scored
+83 of 87 with four failures, three of them pass 12's timed steps. Those steps
+pass here; a five-minute wait is the most timing-sensitive thing in the plan,
+and it is the first thing to re-read if a run goes red.
 
 ## Per pass
 
@@ -37,6 +43,7 @@ each one does.
 | 13 — Reboot recovery | ✅ | 3 | 0 | 1 |
 | 14 — Edge cases that break most apps | ✅ | 6 | 0 | 0 |
 | 15 — The paid build (budgets and schedules) | ✅ | 6 | 0 | 0 |
+| 16 — The paid build (security) | ✅ | 4 | 0 | 1 |
 
 ## Every step
 
@@ -129,6 +136,11 @@ each one does.
 | 15.4 | Dashboard → Start Guest Session → Start Guest Mode | Dashboard banner and the confirm screen both state the pause; no session starts | ✅ pass | met |
 | 15.5 | Turn the schedule back off, then budget the allowed app at 5 min | Subtitle returns to "No schedule"; the app row reads "5 min" and "Budgeted" | ✅ pass | met |
 | 15.6 | Start a session, open that app, wait out the 5 minutes | The tile said "5 min left" before the tap; the guest is returned to the guest home, the tile reads "Time's up", and tapping it does not reopen the app | ✅ pass | Guest was returned to the guest home after 5m; the tile reads "Time's up" |
+| 16.1 | Paid build → Settings → Emergency unlock code → Create a code | The real screen (not the free-build lock panel), an eight-symbol code shown once, and "A code is saved" after confirming it was written down | ✅ pass | Code shown: U4YM-3YWH |
+| 16.2 | Settings → Time limits → Daily limit → Set → 30 min | Starts as "No daily limit"; after choosing 30 min it reads "… used today of 30 min" with a live "… min left today" caption | ✅ pass | Daily limit set to 30 min with a live caption |
+| 16.3 | Settings → Change owner PIN → current PIN → 6 digits → enter twice | The six-digit option exists in the paid build, the PIN is saved, and the owner lock then draws six dots | ✅ pass | Lock draws six dots |
+| 16.4 | Guest home → Return to Owner → Forgot PIN? → type the saved code → Unlock | The code ends the session and opens the new-PIN screen, never the dashboard | ✅ pass | Emergency code ended the session and opened the new-PIN screen |
+| 16.5 | Settings → Intruder photo: switch it on, fail one unlock | A still frame is stored in the app's private storage; nothing is uploaded | ⚠️ not automated | the plan emulator boots with no cameras (-camera-back none -camera-front none), so capture cannot be graded in CI |
 
 ## The version row (9.10)
 
@@ -162,10 +174,11 @@ and are fixed:
   scrollable. `scrollToBottom()` drives the scrollable node directly and
   rebuilds the page if it stops moving.
 
-## The four steps no emulator can answer
+## The five steps no emulator can answer
 
 - **7.7** — Tap the fingerprint icon: needs an enrolled fingerprint and a physical finger; the emulator has no biometric hardware enrolled
 - **11.1** — Pull the shade → edit tiles → add Guest Mode: the emulator image has no `cmd statusbar add-tile`; the tile is added by hand
 - **11.2** — Read the subtitle (no session): needs the tile added by hand; checked on a device
 - **13.4** — 🔨 Repeat on Samsung with "Pin windows" + battery saver on: needs a Samsung One UI device with battery saver — no such hardware in CI
+- **16.5** — Intruder photo: the plan emulator boots with `-camera-back none -camera-front none`, so there is no camera to capture from; checked by hand on a phone
 
