@@ -24,6 +24,7 @@ import json
 import os
 import pathlib
 import sys
+import time
 import urllib.request
 
 MARKER_PREFIX = "<!-- plan-verdicts:"
@@ -54,11 +55,19 @@ def fetch_comments(repo: str, sha: str, token: str) -> list[dict]:
                 "Accept": "application/vnd.github+json",
             },
         )
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                batch = json.loads(response.read().decode())
-        except Exception as error:  # noqa: BLE001 - any failure means "no comments"
-            print(f"fetch_verdicts: listing comments failed: {error}")
+        batch = None
+        for attempt in range(1, 4):
+            try:
+                with urllib.request.urlopen(request, timeout=30) as response:
+                    batch = json.loads(response.read().decode())
+                break
+            except Exception as error:  # noqa: BLE001 - retried, then "no comments"
+                print(f"fetch_verdicts: listing comments failed "
+                      f"(attempt {attempt}): {error}")
+                time.sleep(5 * attempt)
+        if batch is None:
+            # The artifacts are still worth merging; the caller reports which
+            # group is missing by name.
             return bodies
         if not batch:
             break

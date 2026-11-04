@@ -29,6 +29,7 @@ import json
 import os
 import pathlib
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -90,15 +91,24 @@ def main() -> int:
         f"```json\n{json.dumps(payload)}\n```"
     )
 
-    try:
-        post(repo, sha, token, body)
-        lines = len([l for l in results.splitlines() if l.startswith("{")])
-        print(f"posted {lines} verdict(s) for group {args.group}")
-    except (urllib.error.URLError, RuntimeError, OSError) as error:
-        # The artifact is still uploaded, so this is a redundancy that failed,
-        # not the run: say so and let the report job fall back.
-        print(f"::warning::could not post group {args.group} verdicts: {error}")
-    return 0
+    lines = len([l for l in results.splitlines() if l.startswith("{")])
+    last = ""
+    for attempt in range(1, 4):
+        try:
+            post(repo, sha, token, body)
+            print(f"posted {lines} verdict(s) for group {args.group}")
+            return 0
+        except (urllib.error.URLError, RuntimeError, OSError) as error:
+            last = str(error)
+            print(f"::warning::post attempt {attempt} for group {args.group} failed: {error}")
+            time.sleep(5 * attempt)
+
+    # This used to be a warning and a zero exit. Group 2 then reported "success"
+    # while posting nothing, its artifact never arrived either, and the merged
+    # table graded passes 4 and 5 as "never reported" with every group job green.
+    # A group that cannot hand in its verdicts is a failed group.
+    print(f"::error::could not post group {args.group} verdicts: {last}")
+    return 1
 
 
 if __name__ == "__main__":
