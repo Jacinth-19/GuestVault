@@ -131,16 +131,30 @@ Suggested screenshot order (the files are already prefixed 01–08 in visual ord
 
 ## Release notes — 500 characters max
 
+Two listings, two stores' worth of copy. The free app gained nothing a guest can
+see in 1.4.0 — profiles, budgets and schedules are all in the paid app — so its
+notes say that rather than inventing changes.
+
+**Free (`com.guestvault`) — 1.4.0**
+
 ```
-GuestVault 1.1.0
-• Works with Android 16
-• New Permissions & privacy screen: see every permission, including the ones the
-  app never asks for
-• New Quick Settings tile to start a session
-• Stronger lock: wrong-PIN cool-down now survives restarts and doubles each round
-• Screenshots and screen recording are blocked during a session
-• A phone that restarts now closes and wipes a session left open
-• Removed the Device Administrator permission entirely
+GuestVault 1.4.0
+• Settings now points to GuestVault Pro, a separate paid app with guest
+  profiles, per-app time limits and schedules
+• Everything else is unchanged: no internet permission, no accounts, no ads,
+  and nothing is uploaded
+```
+
+**Pro (`com.guestvault.pro`) — 1.4.0**
+
+```
+GuestVault Pro 1.4.0
+• Guest profiles: save "Kids", "Work" or "Stranger" and start a session in one tap
+• Per-app time limits: give an app a budget per session; when it runs out the
+  guest is brought back to the guest home
+• Schedules: only allow guest mode between the hours and days you choose, with
+  a plain message when it is shut
+• No internet permission, no accounts, no ads
 ```
 
 ---
