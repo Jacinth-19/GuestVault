@@ -37,7 +37,10 @@ class ProPlanTest : StepHarness() {
     @Test
     fun pass15() {
         arrange { ensureOwnerHome() }
-        arrange { allowOneApp(search = "cam") }
+        // Clock, not Camera: the plan's emulator is started with
+        // `-camera-back none -camera-front none`, so the camera finishes on its
+        // own and the guest is back on the guest home before a budget can count.
+        arrange { allowOneApp(search = "clock") }
         arrange { backToDashboard() }
 
         verify("15.1", "The real screen: \"How a budget is counted\", a PER APP list naming the allowed app") {
@@ -184,12 +187,26 @@ class ProPlanTest : StepHarness() {
             // in front, which is the rule this step is grading.
             val tile = device.findObjects(By.descContains("Open ")).firstOrNull()
             expectTrue(tile != null, "no app tile on the guest home (text=${visibleText().take(200)})")
-            tile!!.click()
-            pause(3_000)
+            val tileLabel = runCatching { tile!!.contentDescription }.getOrNull() ?: "the tile"
+            tile.click()
+            // A cold first launch on a fresh emulator takes seconds, so this
+            // waits instead of sampling once.
             expectTrue(
-                !runCatching { device.hasObject(By.text("Welcome to Guest Mode")) }.getOrDefault(false),
-                "tapping the tile did not leave the guest home, so no budget could be counted"
+                waitGone("Welcome to Guest Mode", 30_000),
+                "tapping \"$tileLabel\" did not open the app, so no budget could be counted " +
+                    "(text=${visibleText().take(200)})"
             )
+            note("opened $tileLabel")
+
+            // An app that bounces straight back to the guest home never counts
+            // down. Say so in a minute rather than in seven.
+            pause(60_000)
+            if (runCatching { device.hasObject(By.text("Welcome to Guest Mode")) }.getOrDefault(false)) {
+                throw AssertionError(
+                    "$tileLabel closed immediately, so the budget could not be counted " +
+                        "(text=${visibleText().take(200)})"
+                )
+            }
 
             val deadline = System.currentTimeMillis() + (budgetMinutes + 2) * 60_000L
             var backHome = false
@@ -283,6 +300,16 @@ class ProPlanTest : StepHarness() {
             "the confirm screen did not open after choosing $allowedLabel"
         )
         expectTrue(allowedLabel.isNotEmpty(), "the chosen app has no label")
+    }
+
+    /** True once [text] is no longer on screen — a launch that never lands must not pass. */
+    private fun waitGone(text: String, timeoutMs: Long): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (!runCatching { device.hasObject(By.text(text)) }.getOrDefault(false)) return true
+            Thread.sleep(500)
+        }
+        return false
     }
 
     private fun appRows(): List<UiObject2> =
