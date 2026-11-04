@@ -101,10 +101,13 @@ jobs:
           avd-name: guestvault-plan
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none -no-snapshot-save -memory 4096
+          # One line, no backslash continuation: the emulator action rewrites
+          # the script before running it, and a continued line came out as
+          # `\ bash ...` - a command called " bash", which is exit 127 and no
+          # plan at all.
           script: |
             set +e
-            PLAN_GROUP=${{ matrix.group }} PLAN_VARIANT=${{ matrix.variant }} \
-              bash scripts/ci/run-step-plan.sh > step-plan.log 2>&1
+            PLAN_GROUP=${{ matrix.group }} PLAN_VARIANT=${{ matrix.variant }} PER_PASS_TIMEOUT=1200 bash scripts/ci/run-step-plan.sh > step-plan.log 2>&1
             status=$?
             echo "=== step-plan.log (tail) ==="
             tail -n 140 step-plan.log
