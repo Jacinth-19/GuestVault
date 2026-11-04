@@ -560,27 +560,21 @@ abstract class StepHarness {
 
     /** Swipes up until [text] is on screen (LazyColumn pages need this). */
     protected fun scrollToText(text: String, maxSwipes: Int = 5): Boolean {
-        repeat(maxSwipes) {
+        if (device.hasObject(By.text(text))) return true
+
+        // A few injected swipes first: cheapest, and enough for a short page.
+        repeat(maxSwipes.coerceAtMost(6)) {
             if (device.hasObject(By.text(text))) return true
-            val centerX = device.displayWidth / 2
-            device.swipe(
-                centerX,
-                (device.displayHeight * 0.78f).toInt(),
-                centerX,
-                (device.displayHeight * 0.30f).toInt(),
-                18
-            )
-            pause(500)
+            systemSwipeUp(0.5f)
+            pause(350)
         }
-        // Swipes can be swallowed by rows with their own gestures (a switch, a
-        // channel with an action). Accessibility scrolling goes straight to the
-        // list and is the fallback that reaches the end of a long Compose list.
-        repeat(6) {
-            if (device.hasObject(By.text(text))) return true
-            scrollForward()
-            pause(400)
-        }
-        return device.hasObject(By.text(text))
+
+        // Then drive the scrollable node itself. A plain gesture is swallowed by
+        // a row that handles drags, and the accessibility scroll action is a
+        // no-op once the list is not the semantics scrollable — this is the only
+        // route that survives both, and it is what keeps the "Honest limits"
+        // card on the session screen reachable (step 5.4 stalled here).
+        return scrollToBottom(maxSteps = 12) { device.hasObject(By.text(text)) }
     }
 
     /**
