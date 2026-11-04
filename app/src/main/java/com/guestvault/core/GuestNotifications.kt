@@ -292,6 +292,7 @@ object GuestNotifications {
         EndReason.TIMER_EXPIRED -> R.string.notif_summary_reason_timer
         EndReason.DATA_WIPED -> R.string.notif_summary_reason_wiped
         EndReason.RECOVERED -> R.string.notif_summary_reason_recovered
+        EndReason.DAILY_LIMIT -> R.string.notif_summary_reason_daily
     }
 
     private const val TAG = "GuestNotifications"
