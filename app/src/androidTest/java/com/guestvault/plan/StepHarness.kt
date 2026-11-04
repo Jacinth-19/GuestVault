@@ -508,6 +508,23 @@ abstract class StepHarness {
     protected fun waitFor(text: String, timeout: Long = 15_000): Boolean =
         device.wait(Until.hasObject(By.text(text)), timeout)
 
+    /**
+     * Leaves the current screen, never failing on its own.
+     *
+     * Back is a chevron with a content description, but the screen can change
+     * between the caller's `hasObject` check and the click — and then waiting
+     * 15 s for a button that just left is not a product failure, it is a race.
+     * The hardware key does the same thing, so fall back to it.
+     */
+    protected fun tapBack() {
+        if (device.wait(Until.hasObject(By.desc("Back")), 2_000)) {
+            runCatching { device.findObject(By.desc("Back"))?.click() }
+        } else {
+            device.pressBack()
+        }
+        pause(700)
+    }
+
     protected fun waitForDesc(desc: String, timeout: Long = 15_000): Boolean =
         device.wait(Until.hasObject(By.desc(desc)), timeout)
 
