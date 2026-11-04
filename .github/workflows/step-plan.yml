@@ -70,7 +70,7 @@ jobs:
       - name: Build app and test APKs
         run: |
           set -o pipefail
-          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee step-plan-build.log
+          gradle --no-daemon :app:assembleFreeDebug :app:assembleFreeDebugAndroidTest 2>&1 | tee step-plan-build.log
 
       - name: Enable KVM
         run: |

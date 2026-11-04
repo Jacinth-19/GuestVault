@@ -98,7 +98,7 @@ jobs:
           UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
         run: |
           set -o pipefail
-          gradle --no-daemon :app:bundleRelease 2>&1 | tee play-build.log
+          gradle --no-daemon :app:bundleFreeRelease :app:bundleProRelease 2>&1 | tee play-build.log
 
       - name: Verify the bundle is release-signed
         if: env.SIGNED_FOR_PLAY == 'true'
@@ -119,14 +119,14 @@ jobs:
       - name: Lint the release variant
         run: |
           set -o pipefail
-          gradle --no-daemon :app:lintRelease 2>&1 | tee -a play-build.log
+          gradle --no-daemon :app:lintFreeRelease 2>&1 | tee -a play-build.log
 
       # `lint { abortOnError = false }` keeps warnings out of the way of hotfix
       # builds; this step is the explicit gate that still refuses real errors.
       - name: Fail on lint errors
         run: |
           set -o pipefail
-          python3 scripts/ci/check_lint.py app/build/reports/lint-results-release.xml \
+          python3 scripts/ci/check_lint.py app/build/reports/lint-results-freeRelease.xml \
             2>&1 | tee -a play-build.log
 
       - name: Upload release bundle
@@ -134,7 +134,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: guestvault-release-bundle
-          path: app/build/outputs/bundle/freeRelease/*.aab
+          path: app/build/outputs/bundle/**/*.aab
           if-no-files-found: warn
 
       - name: Upload lint report
@@ -227,7 +227,7 @@ jobs:
       - name: Build debug + test APKs
         run: |
           set -o pipefail
-          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee -a matrix-build.log
+          gradle --no-daemon :app:assembleFreeDebug :app:assembleFreeDebugAndroidTest 2>&1 | tee -a matrix-build.log
 
       - name: Enable KVM
         run: |

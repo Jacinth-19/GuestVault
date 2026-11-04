@@ -62,10 +62,10 @@ jobs:
         run: |
           set -o pipefail
           if [ "${SIGNED_FOR_PLAY:-false}" = "true" ]; then
-            TASKS=":app:assembleRelease :app:assembleDebug :app:bundleRelease"
+            TASKS=":app:assembleFreeRelease :app:assembleProRelease :app:assembleFreeDebug :app:bundleFreeRelease :app:bundleProRelease"
           else
             echo "::notice::Building without the upload key — APKs only, no Play bundle."
-            TASKS=":app:assembleRelease :app:assembleDebug"
+            TASKS=":app:assembleFreeRelease :app:assembleProRelease :app:assembleFreeDebug"
           fi
           gradle --no-daemon $TASKS 2>&1 | tee release-build.log
 
