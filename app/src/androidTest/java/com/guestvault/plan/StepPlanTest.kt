@@ -133,22 +133,40 @@ class StepPlanTest : StepHarness() {
         ensurePinSetup()
 
         verify("2.2", "Dots empty correctly") {
-            val empty = screenshot()
-            expectTrue(empty != null, "could not capture the PIN screen")
-            enterPin(listOf("4", "7"))
-            val filled = screenshot()
-            expectTrue(empty != null && filled != null, "could not capture the dots")
-            expectTrue(difference(empty!!, filled!!) > 0.002, "typing two digits changed nothing on screen")
-            tapDesc("Delete digit")
-            pause(300)
-            tapDesc("Delete digit")
-            pause(500)
-            val cleared = screenshot()
-            expectTrue(cleared != null, "could not capture the cleared dots")
-            expectTrue(
-                difference(cleared!!, empty) < 0.002,
-                "after two backspaces the screen does not match the empty state (${"%.4f".format(difference(cleared, empty))})"
-            )
+            // Read the dots, do not measure them. This step used to compare
+            // screenshots, sampling a 24x24 grid: two filled dots cover so few
+            // sample points that the difference can round to zero and the step
+            // fails while the screen is perfectly correct. The dots row already
+            // publishes "N of 4 PIN digits entered", which is exact.
+            expectTrue(dotCount() == 0, "the PIN screen does not start empty (dots: ${dotCount()})")
+            try {
+                enterPin(listOf("4", "7"))
+                expectTrue(
+                    waitForDotCount(2, 5_000),
+                    "typing two digits did not fill two dots (dots: ${dotCount()}, " +
+                        "text=${visibleText().take(120)})"
+                )
+                tapDesc("Delete digit")
+                pause(300)
+                tapDesc("Delete digit")
+                pause(500)
+                expectTrue(
+                    waitForDotCount(0, 4_000),
+                    "after two backspaces the dots did not empty (dots: ${dotCount()})"
+                )
+            } finally {
+                // Whatever happened above, the next steps type into this screen:
+                // leftovers turn 2.1's four digits into a six-digit entry and the
+                // whole pass drifts. This is a cleanup, not an assertion.
+                // A while loop, not `repeat`: `return@repeat` only skips one
+                // iteration, so the old idiom kept tapping a cleared keypad.
+                var guard = 0
+                while (guard < 6 && (dotCount() ?: 0) > 0) {
+                    guard++
+                    runCatching { device.findObject(By.desc("Delete digit"))?.click() }
+                    pause(220)
+                }
+            }
         }
 
         verify("2.1", "Dots fill, keyboard auto-advances on the 4th digit") {
@@ -2094,6 +2112,29 @@ class StepPlanTest : StepHarness() {
             }
         }
         return bad
+    }
+
+    /**
+     * How many PIN dots are filled, read from the dots row's description.
+     *
+     * Returns null when no dots row is on screen, so "0" never means "wrong
+     * screen" here.
+     */
+    private fun dotCount(): Int? = runCatching {
+        device.findObjects(By.descContains("PIN digits entered"))
+            .firstNotNullOfOrNull { node ->
+                Regex("(\\d+) of \\d+ PIN digits entered").find(node.contentDescription ?: "")
+                    ?.groupValues?.get(1)?.toIntOrNull()
+            }
+    }.getOrNull()
+
+    private fun waitForDotCount(expected: Int, timeout: Long): Boolean {
+        val deadline = System.currentTimeMillis() + timeout
+        while (System.currentTimeMillis() < deadline) {
+            if (dotCount() == expected) return true
+            Thread.sleep(150)
+        }
+        return dotCount() == expected
     }
 
     private fun screenshot(): Bitmap? {
