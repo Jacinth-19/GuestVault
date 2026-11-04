@@ -82,7 +82,7 @@ keep_awake() {
   adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
 }
 
-run_phase() {
+phase_once() {
   local name="$1" out status device summary
   keep_awake
   device="$(adb get-state 2>&1 | tr -d '\r')"
@@ -118,6 +118,41 @@ run_phase() {
 pull_results() {
   adb shell run-as "$PACKAGE" cat files/step-results.jsonl 2>/dev/null >> "$RAW" || true
   adb shell "cat /sdcard/Android/data/${PACKAGE}/files/step-results.jsonl" 2>/dev/null >> "$RAW" || true
+}
+
+# Verdict lines in the merged file, as a plain integer.
+#
+# `grep -c` prints 0 *and* exits 1 when nothing matches, so `$(grep -c ... || echo 0)`
+# produced the two-line string "0\n0" and every arithmetic test against it failed.
+verdict_lines() {
+  local n
+  n="$(grep -c '^{' "$RAW" 2>/dev/null || true)"
+  printf '%s' "${n:-0}"
+}
+
+# Runs a phase, and runs it once more if it reported nothing at all.
+#
+# One phase in the whole plan — pass 12, the two five-minute waits — went green
+# and produced no verdicts on some runs and no failures on others, in the same
+# build. The group then looked successful while its three steps were graded as
+# "never reported". A single retry costs nothing when things work (the counter
+# moved, so there is no retry) and turns that flake into a real result. The
+# elapsed-time guard stops a phase that is genuinely wedged from consuming the
+# job's whole budget twice.
+run_phase() {
+  local name="$1" before after started
+  before="$(verdict_lines)"
+  started=$SECONDS
+  phase_once "$name"
+  after="$(verdict_lines)"
+  if [ "$after" -gt "$before" ]; then return 0; fi
+  if [ $((SECONDS - started)) -ge $((PER_PASS_TIMEOUT / 2)) ]; then
+    echo "::warning::phase $name reported no verdicts and used most of its timeout; not retrying"
+    return 0
+  fi
+  echo "::warning::phase $name reported no verdicts in $((SECONDS - started))s; retrying once"
+  keep_awake
+  phase_once "$name"
 }
 
 grant_notifications() {
@@ -314,11 +349,16 @@ fi
 
 echo "== verdicts =="
 cat "$RAW" || true
-VERDICT_COUNT="$(grep -c '^{' "$RAW" 2>/dev/null || echo 0)"
+VERDICT_COUNT="$(verdict_lines)"
 echo "verdict lines: $VERDICT_COUNT"
 printf '%s\n' "$VERDICT_COUNT" > build/verdict-count.txt
+# A group that produced nothing must be *red*, not merely annotated. An
+# `::error::` line does not fail a step, so a silent group used to upload an
+# empty verdict file, exit 0 and only show up in the merged report as "never
+# reported" — with no job to open and no log to read.
 if [ "$VERDICT_COUNT" -eq 0 ]; then
   echo "::error::this group produced no verdicts; the emulator phase never ran"
+  exit 1
 fi
 
 echo "== phases =="
