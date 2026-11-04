@@ -109,7 +109,10 @@ phase_once() {
   crash="$(adb shell logcat -d -b crash -t 120 2>/dev/null \
     | awk '/FATAL EXCEPTION/{flag=1; count=0} flag{print; count++} count>3{flag=0}' \
     | tr -d '\r' | tr '\n' ' ' | cut -c1-320)"
-  printf '| %s | %s | %s | %s | %s |\n' "$name" "$status" "$device" "${focus:-?}" "${summary:-${crash:-no error line}}" >> "$PHASES"
+  # A retried phase adds a second row; label it, or the table reads as if the
+  # same phase simply ran twice.
+  printf '| %s | %s | %s | %s | %s |\n' "${PHASE_LABEL:-$name}" "$status" "$device" \
+    "${focus:-?}" "${summary:-${crash:-no error line}}" >> "$PHASES"
   echo "$out" | tail -n 10
   # Pull before the next host action can wipe the app's data directory.
   pull_results
@@ -152,7 +155,7 @@ run_phase() {
   fi
   echo "::warning::phase $name reported no verdicts in $((SECONDS - started))s; retrying once"
   keep_awake
-  phase_once "$name"
+  PHASE_LABEL="$name (retry)" phase_once "$name"
 }
 
 grant_notifications() {

@@ -172,6 +172,40 @@ jobs:
           path: merged
           pattern: step-verdicts-*
 
+      # `download-artifact` with `continue-on-error` skips a failed download
+      # silently, and the merge below only walks the directories that exist — so
+      # one group vanishing from blob storage graded its whole pass as "never
+      # reported" while every group job was green. Fetch any that are missing
+      # again, and fail with the group's name if they still do not arrive.
+      - name: Every group's verdicts arrived
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          GROUPS="$(python3 -c "import json; m = json.load(open('scripts/ci/step-plan.json')); print(' '.join(str(g) for g in sorted({p['group'] for p in m['passes']})))")"
+          echo "groups in the plan: $GROUPS"
+          missing=""
+          for g in $GROUPS; do
+            dir="merged/step-verdicts-$g"
+            for attempt in 1 2 3; do
+              if [ -s "$dir/build/step-results.jsonl" ] ||
+                 [ -s "$dir/build/phase-log.md" ]; then
+                break
+              fi
+              echo "group $g: artifact missing (attempt $attempt), fetching again"
+              gh run download "$RUN_ID" -n "step-verdicts-$g" -D "$dir" 2>&1 | tail -2 || true
+              sleep 10
+            done
+            if [ ! -d "$dir" ]; then
+              missing="$missing $g"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::no artifact arrived for group(s):$missing — their passes cannot be graded"
+            exit 1
+          fi
+
       - name: Merge the verdicts
         run: |
           mkdir -p build
