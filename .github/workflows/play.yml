@@ -151,14 +151,26 @@ jobs:
       # build output directly avoids depending on aapt2 or a second APK build.
       - name: Assert the shipping manifest is Play-safe
         run: |
-          MANIFEST=$(find app/build/intermediates -path '*release*' -name AndroidManifest.xml \
-            -newer app/build.gradle.kts 2>/dev/null | grep -i merge | head -1)
-          if [ -z "$MANIFEST" ]; then
-            MANIFEST=$(find app/build/intermediates -path '*release*' -name AndroidManifest.xml | grep -i merge | head -1)
+          # Both flavours ship, and both merged manifests must stay clean. The
+          # path is matched case-insensitively on purpose: a flavour writes
+          # `freeRelease`/`proRelease`, and a case-sensitive `*release*` glob
+          # finds neither, which once left $MANIFEST empty and made the guard
+          # fail on `cp ""`.
+          MANIFESTS=$(find app/build/intermediates -path '*merged_manifest*' \
+            -name AndroidManifest.xml 2>/dev/null | grep -iE 'freerelease|prorelease' || true)
+          if [ -z "$MANIFESTS" ]; then
+            MANIFESTS=$(find app/build/intermediates -name AndroidManifest.xml 2>/dev/null \
+              | grep -i merge | grep -i release || true)
           fi
-          echo "merged manifest: $MANIFEST"
-          cp "$MANIFEST" permissions-manifest.xml
-          python3 scripts/ci/assert_play_manifest.py permissions-manifest.xml
+          if [ -z "$MANIFESTS" ]; then
+            echo "::error::no merged release manifest under app/build/intermediates"
+            find app/build/intermediates -name AndroidManifest.xml | head -20 || true
+            exit 1
+          fi
+          for MANIFEST in $MANIFESTS; do
+            echo "merged manifest: $MANIFEST"
+            python3 scripts/ci/assert_play_manifest.py "$MANIFEST" || exit 1
+          done
 
       - name: Dump packaging metadata
         if: always()
