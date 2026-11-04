@@ -143,6 +143,15 @@ jobs:
             build/logcat/*.logcat.txt
           if-no-files-found: warn
 
+      # The reliable copy. The artifact below stays for the logs, but a pass
+      # must not depend on blob storage being in a good mood.
+      - name: Post this group's verdicts
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 scripts/ci/post_verdicts.py --group "${{ matrix.group }}"
+
       - name: Report failure details
         if: failure() || success()
         env:
@@ -176,70 +185,28 @@ jobs:
           path: merged
           pattern: step-verdicts-*
 
-      # `download-artifact` with `continue-on-error` skips a failed download
-      # silently, and the merge below only walks the directories that exist — so
-      # one group vanishing from blob storage graded its whole pass as "never
-      # reported" while every group job was green. Fetch any that are missing
-      # again, and fail with the group's name if they still do not arrive.
-      - name: Every group's verdicts arrived
+      # Comments first, artifacts second — one group has gone missing from the
+      # artifact download on three different runs, always a different group.
+      - name: Collect every group's verdicts
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.run_id }}
+          PLAN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          set -uo pipefail
-          GROUPS="$(python3 -c "import json; m = json.load(open('scripts/ci/step-plan.json')); print(' '.join(str(g) for g in sorted({p['group'] for p in m['passes']})))")"
-          echo "groups in the plan: $GROUPS"
-          missing=""
-          for g in $GROUPS; do
-            dir="merged/step-verdicts-$g"
-            for attempt in 1 2 3; do
-              if [ -s "$dir/build/step-results.jsonl" ] ||
-                 [ -s "$dir/build/phase-log.md" ]; then
-                break
-              fi
-              echo "group $g: artifact missing (attempt $attempt), fetching again"
-              gh run download "$RUN_ID" -n "step-verdicts-$g" -D "$dir" 2>&1 | tail -2 || true
-              sleep 10
-            done
-            if [ ! -d "$dir" ]; then
-              missing="$missing $g"
-            fi
-          done
-          if [ -n "$missing" ]; then
-            echo "::error::no artifact arrived for group(s):$missing — their passes cannot be graded"
-            exit 1
-          fi
-
-      # Always: if one group's artifact is genuinely missing, the other passes
-      # still deserve a graded table.
-      - name: Merge the verdicts
-        if: always()
-        run: |
-          mkdir -p build
-          : > build/step-results.jsonl
-          printf '| Phase | Exit | Device | Foreground window | Crash / error |\n| --- | --- | --- | --- | --- |\n' > build/phase-log.md
-          shopt -s nullglob
-          for f in merged/*/build/step-results.jsonl; do cat "$f" >> build/step-results.jsonl; done
-          for f in merged/*/build/phase-log.md; do tail -n +3 "$f" >> build/phase-log.md; done
+          python3 scripts/ci/fetch_verdicts.py \
+            --manifest scripts/ci/step-plan.json \
+            --artifacts merged \
+            --results build/step-results.jsonl \
+            --phases build/phase-log.md
           echo "verdict lines: $(wc -l < build/step-results.jsonl)"
 
-      - name: Every group must have reported something
+      # fetch_verdicts.py already fails, naming the group, when one produced
+      # nothing; this only catches a merge that wrote an empty file.
+      - name: The merged results are not empty
         run: |
-          missing=0
-          for dir in merged/*/; do
-            # Fall back to the results file itself, so an artifact from an older
-            # run (no counter) is still graded, not skipped.
-            count="$(cat "$dir/build/verdict-count.txt" 2>/dev/null || echo "")"
-            if [ -z "$count" ]; then
-              count="$(grep -c '^{' "$dir/build/step-results.jsonl" 2>/dev/null || echo 0)"
-            fi
-            echo "$(basename "$dir"): ${count} verdict(s)"
-            if [ "$count" -eq 0 ]; then
-              echo "::error::$(basename "$dir") produced no verdicts — that emulator run never executed the plan"
-              missing=1
-            fi
-          done
-          if [ "$missing" -eq 1 ]; then
+          lines="$(grep -c '^{' build/step-results.jsonl || true)"
+          echo "verdict lines: ${lines:-0}"
+          if [ "${lines:-0}" -eq 0 ]; then
+            echo "::error::no verdicts were merged at all"
             exit 1
           fi
 
