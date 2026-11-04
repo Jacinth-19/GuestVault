@@ -5,7 +5,7 @@ has never seen the code can pick up a phone and verify every promise the app
 makes. It has three parts:
 
 1. [Automated coverage](#part-1--automated-coverage) — what CI proves on every push.
-2. [Manual test plan](#part-2--manual-test-plan) — 19 passes, screen by screen,
+2. [Manual test plan](#part-2--manual-test-plan) — 20 passes, screen by screen,
    including the notification system, the brute-force lock and the paid build.
 3. [Play Store submission checks](#part-3--play-store-submission-checks) — the
    things that only fail at review time.
@@ -95,6 +95,9 @@ are unsupported — which is fine, because the generator does not emit them.
 | Schedules | `SchedulePolicyTest` | A window is open exactly between its edges, a 22:00 → 07:00 window belongs to the evening's day, start == end means all day, and "opens again at" skips the days that are switched off. |
 | App budgets | `AppLimitPolicyTest` | Remaining time never goes negative, the caption reads "12 min left" then "Time's up", and 0 minutes renders no caption at all. |
 | Budget counting | `AppUsageTrackerTest` | The clock pauses while the guest is on the guest home, a budget is reported exactly once, and a new session starts from zero. |
+| Daily budgets | `DailyBudgetPolicyTest` | Today's total is yesterday's record ignored, a session that began before midnight is charged only from midnight, and a backwards clock cannot produce a negative total. |
+| Emergency code | `RecoveryCodeTest` | Codes are eight unambiguous symbols, typing `abcd-efgh` with a stray space still verifies, and `O`/`0` can never become a valid symbol. |
+| Intruder photo | `IntruderPolicyTest` | A photo is taken only when every condition holds, and the store keeps the newest eight and deletes the rest. |
 
 ### What the instrumented walkthrough covers (`GuestVaultFlowTest`)
 
@@ -118,7 +121,7 @@ Runs on an emulator in the **Screenshots & Demo Video** workflow and produces
 | `android.yml` | push to `main` or `arena/**`, PR, manual | Lint, unit tests, debug APK artifact. The fast gate. |
 | `media.yml` | push to `main`, PR to `main`, manual | Emulator walkthrough, screenshots, demo video; commits refreshed media on `main`. |
 | `play.yml` | push to `main` or `arena/**`, manual | Release AAB + Play-safe manifest assertions + a **four-API emulator matrix** (29, 34, 35, 36) running the same walkthrough. |
-| `step-plan.yml` | push to `main`, PR, manual | The graded plan: 15 passes over seven emulators, one verdict per numbered step, posted as a sticky PR comment. Passes 1–14 grade the free build and pass 15 grades the paid one. |
+| `step-plan.yml` | push to `main`, PR, manual | The graded plan: 16 passes over eight emulators, one verdict per numbered step, posted as a sticky PR comment. Passes 1–14 grade the free build; 15 and 16 grade the paid one. |
 | `release.yml` | `v*` tag, manual | Signed AAB/APK attached to a GitHub release. |
 | `pages.yml` | manual | Publishes the privacy policy to GitHub Pages. |
 
@@ -130,14 +133,14 @@ service, and it cannot show the "Pin GuestVault to this screen?" OEM dialog.
 
 ## Part 2 — Manual test plan
 
-Nineteen passes. Each one states the setup, the steps and the expected result.
+Twenty passes. Each one states the setup, the steps and the expected result.
 Work through them in order on a fresh install first, then repeat the ones marked
 **⚠︎ OEM** on a Samsung device.
 
 Passes 1–18 run on the free build (`com.guestvault`), which is what ships on Play.
-Pass 19 runs on the paid build (`com.guestvault.pro`): its two features are
+Passes 19 and 20 run on the paid build (`com.guestvault.pro`): their features are
 deliberately locked on the free build, so there is nothing to test there.
-`step-plan.yml` grades passes 1–15 on emulators; 16–19 are the ones a person
+`step-plan.yml` grades passes 1–16 on emulators; 17–20 are the ones a person
 does by hand.
 
 ### Pass 1 — First install and the splash
@@ -601,6 +604,47 @@ fresh PIN.
 8. Rotate the phone on the Time limits screen: the chips and steppers keep their
    values. Kill the app and reopen it: the limits and the schedule are still set
    (they are stored), while usage has been forgotten (it is not).
+
+### Pass 20 — The paid build: emergency code, daily budget, six-digit PIN, intruder photo
+
+Install `com.guestvault.pro`. This pass changes the owner PIN, so do it on a
+fresh install or be ready to set a new one.
+
+1. **Settings → Emergency unlock code → Create a code.**
+   **Expect:** the real screen (not the free-build lock panel), then an
+   eight-symbol code in the form `ABCD-EFGH` — no `I`, `O`, `0` or `1` anywhere.
+   Nothing is saved yet. Write it down, tap **I've written it down**, and the
+   screen switches to *"A code is saved"*. Kill the app and reopen it: the row
+   still says *Set*, and the code is never shown again.
+2. **Settings → Time limits → Daily limit → Set → 30 min.**
+   **Expect:** it starts as *"No daily limit"*; after choosing 30 min the card
+   reads *"… used today of 30 min"* with a live *"30 min left today"* caption.
+3. **Start a session, use some time, end it.** Reopen Time limits.
+   **Expect:** "used today" grew by the length of the session, and the leftover
+   caption shrank. Then set the phone's date forward one day:
+   **Expect:** the total is back to zero, because the budget is per calendar day.
+4. **Settings → Change owner PIN → current PIN → 6 digits → enter six twice.**
+   **Expect:** the *6 digits* chip exists, the new PIN saves, and the owner lock
+   screen now draws **six** dots. A four-digit entry must not unlock it.
+5. **Guest home → Return to Owner.** **Expect:** *"Forgot PIN? Use your emergency
+   code"* appears (it does not when no code is saved).
+6. Tap it, type a **wrong** code five times.
+   **Expect:** the same 30-second cool-down as the PIN, doubling each round —
+   the code is not a way around the brute-force limit.
+7. Wait out the cool-down, then type the **correct** code.
+   **Expect:** the session ends and the app opens *"Create your owner PIN"* —
+   never the dashboard, because the old PIN is a hash and cannot be shown.
+8. **Intruder photo:** Settings → Intruder photo → switch on, and grant the
+   camera when asked. Lock the phone into Guest Mode, tap **Return to Owner**,
+   and enter a wrong PIN.
+   **Expect:** one still frame is stored, in the app's private storage only.
+   Repeat twelve times: only the newest eight files remain.
+   Free build: the switch and the whole row do not exist, and the manifest
+   declares no `CAMERA` permission (Settings → Permissions & privacy has no
+   camera row).
+9. **Free build, same phone:** open Settings → Emergency unlock code and
+   Time limits. **Expect:** both show the locked panel that says this is the free
+   build, with nothing to buy inside the app.
 
 ---
 

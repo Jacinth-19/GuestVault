@@ -137,15 +137,19 @@ jobs:
           path: app/build/outputs/bundle/**/*.aab
           if-no-files-found: warn
 
+      # AGP names the report after the *variant* (`lint-results-freeRelease.xml`),
+      # so the old glob matched nothing and a failed lint gate uploaded no report
+      # — leaving the one artefact that explains the failure unreachable, because
+      # job logs live on a storage host this project cannot always read.
       - name: Upload lint report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: guestvault-lint-release
           path: |
-            app/build/reports/lint-results-release.html
-            app/build/reports/lint-results-release.xml
-          if-no-files-found: ignore
+            app/build/reports/lint-results-*.html
+            app/build/reports/lint-results-*.xml
+          if-no-files-found: warn
 
       # Checks the *merged* release manifest, which is what ships. Parsing the
       # build output directly avoids depending on aapt2 or a second APK build.

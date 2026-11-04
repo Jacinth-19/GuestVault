@@ -1,6 +1,7 @@
 package com.guestvault.data.intruder
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
@@ -111,8 +112,20 @@ class IntruderCapture @Inject constructor(
      * Blocking, and always called from a worker thread. The [latch] has a hard
      * timeout because a wedged camera driver must not leave a thread parked
      * forever on a device that is about to be handed back to its owner.
+     *
+     * Lint's MissingPermission check cannot see through [permissionGranted], so
+     * the grant is re-read immediately before the camera is opened — which is
+     * also the only place the state can still change — and the check is
+     * suppressed with that guard as the justification.
      */
+    @SuppressLint("MissingPermission")
     private fun takeStill(target: File): Boolean {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.d(TAG, "Camera permission went away before the capture")
+            return false
+        }
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager ?: return false
         val cameraId = frontCameraId(manager) ?: return false
 
