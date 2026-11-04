@@ -397,7 +397,8 @@ honestly ship.
 | Allow-list, PIN/biometric exit, screen pinning, timer, history | ✅ | ✅ |
 | Notification channels, Quick Settings tile, permissions screen | ✅ | ✅ |
 | **Guest profiles** — save "Kids", "Work", "Stranger" and start in one tap | — | ✅ |
-| Per-app time limits and schedules | — | ⏳ next |
+| **Per-app time limits** — a budget per app, per session | — | ✅ |
+| **Schedules** — only allow guest mode between set hours and days | — | ✅ |
 | Themes & branding | — | ⏳ next |
 | Export & import | — | ⏳ next |
 
@@ -416,6 +417,19 @@ A profile is a **snapshot**: saving one copies the allow-list, the timer and the
 screen-pinning choice at that moment, so "Kids" still means "Kids" next week. Profiles
 live in their own DataStore file, so the free build's settings — the file every graded
 test step reads — stay byte-for-byte what they were.
+
+**Time limits** are honest about what Android allows. An ordinary app cannot see which
+other app is in front — that needs `PACKAGE_USAGE_STATS`, which this app forbids — so the
+clock starts when the guest opens an app and stops when they come back to GuestVault.
+When a budget runs out the guest is returned to the guest home and the tile is dimmed and
+marked *Time's up*; the app is not killed, so nothing in progress is lost. Budgets are
+in-memory only and reset with every session, so no record of what the guest used survives
+the hand-over.
+
+**Schedules** decide when guest mode may run at all. They are enforced in
+`SessionController.start` rather than in the UI, so the Quick Settings tile cannot bypass
+them, and a window that crosses midnight (22:00 → 07:00) stays open into the next
+morning.
 
 ## 🏪 Google Play readiness
 

@@ -221,8 +221,8 @@ claim literally true.
 5. **App content:** every form is answered the same way as the free app — privacy policy
    URL, data safety (no collection, no sharing), no ads, no special permissions. The
    `specialUse` foreground-service declaration applies here too.
-6. **Listing copy:** lead with what the paid build adds (profiles today; limits, themes
-   and export next), and say the free app exists. Under-promise the roadmap: never list a
+6. **Listing copy:** lead with what the paid build adds (profiles, per-app time limits
+   and schedules today; themes and export next), and say the free app exists. Under-promise the roadmap: never list a
    feature the build in the store does not have.
 7. **Version codes are per listing**, so both can carry `versionCode 6` independently.
 

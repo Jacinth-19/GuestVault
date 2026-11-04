@@ -29,13 +29,13 @@ import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsNone
-import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.PersonOutline
+import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material.icons.rounded.Summarize
 import androidx.compose.material.icons.rounded.SettingsBrightness
+import androidx.compose.material.icons.rounded.Summarize
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -141,6 +141,7 @@ fun SettingsRoute(
     onOpenAbout: () -> Unit,
     onOpenPermissions: () -> Unit,
     onOpenProfiles: () -> Unit,
+    onOpenTimeRules: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -153,6 +154,7 @@ fun SettingsRoute(
         onOpenAbout = onOpenAbout,
         onOpenPermissions = onOpenPermissions,
         onOpenProfiles = onOpenProfiles,
+        onOpenTimeRules = onOpenTimeRules,
         onAutoWipeChange = viewModel::setAutoWipe,
         onBiometricChange = viewModel::setBiometric,
         onLockTaskChange = viewModel::setLockTask,
@@ -173,6 +175,7 @@ fun SettingsScreen(
     onOpenAbout: () -> Unit,
     onOpenPermissions: () -> Unit,
     onOpenProfiles: () -> Unit,
+    onOpenTimeRules: () -> Unit,
     onAutoWipeChange: (Boolean) -> Unit,
     onBiometricChange: (Boolean) -> Unit,
     onLockTaskChange: (Boolean) -> Unit,
@@ -399,6 +402,18 @@ fun SettingsScreen(
                         },
                         trailingText = if (Premium.isPro) null else "Pro",
                         onClick = onOpenProfiles
+                    )
+                    GuestVaultDivider()
+                    SettingRow(
+                        icon = Icons.Rounded.Timer,
+                        title = "Time limits",
+                        subtitle = if (Premium.isPro) {
+                            "Per-app budgets, and when guests may run"
+                        } else {
+                            "Per-app budgets and schedules — a Pro feature"
+                        },
+                        trailingText = if (Premium.isPro) null else "Pro",
+                        onClick = onOpenTimeRules
                     )
                 }
             }

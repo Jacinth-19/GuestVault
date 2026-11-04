@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import com.guestvault.core.Formatters
 import com.guestvault.core.GuestNotifications
 import com.guestvault.core.notifications.TimerReminders
+import com.guestvault.data.session.AppUsageTracker
 import com.guestvault.data.session.SessionController
 import com.guestvault.domain.model.EndReason
 import com.guestvault.domain.repository.SettingsRepository
@@ -46,6 +47,9 @@ class GuestSessionService : Service() {
 
     @Inject
     lateinit var sessionController: SessionController
+
+    @Inject
+    lateinit var usageTracker: AppUsageTracker
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var observeJob: Job? = null
@@ -104,6 +108,12 @@ class GuestSessionService : Service() {
 
                     var lastLabel: String? = null
                     val notified = mutableSetOf<Int>()
+                    // Read once per session: the limits cannot change while a
+                    // guest is holding the phone, because they are only editable
+                    // behind the owner lock.
+                    val limits = runCatching {
+                        settingsRepository.settings.first().appLimits
+                    }.getOrDefault(emptyMap())
                     while (isActive) {
                         val remaining = session.remainingMillis()
                         val label = remaining?.let(Formatters::countdown)
@@ -137,6 +147,18 @@ class GuestSessionService : Service() {
                                         due
                                     )
                                 }
+                            }
+                        }
+
+                        // Per-app budgets. When one runs out, put the guest back
+                        // on the guest home with the tile marked "Time's up" —
+                        // the app is not killed, so nothing they were doing is
+                        // lost, but they cannot open it again this session.
+                        if (limits.isNotEmpty()) {
+                            val spent = usageTracker.tick(limits)
+                            if (spent != null) {
+                                Log.i(TAG, "Guest budget for $spent is exhausted")
+                                sessionController.openGuestUi()
                             }
                         }
 
