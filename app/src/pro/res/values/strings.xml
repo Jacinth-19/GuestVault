@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The paid build is a separate listing, so it needs a separate name in the
+    launcher and in Settings. Everything else is identical to the free app: the
+    same package namespace, the same manifest, the same (absent) network
+    permission. Only the applicationId differs, which is what makes it a
+    distinct product on Google Play.
+-->
+<resources>
+    <string name="app_name">GuestVault Pro</string>
+</resources>

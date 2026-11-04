@@ -380,6 +380,43 @@ Building the Play bundle:
 
 Ranked against the competition in [`docs/COMPETITORS.md`](docs/COMPETITORS.md).
 
+## 💎 GuestVault Pro
+
+A second, **paid** app from the same codebase — and the only premium model this app can
+honestly ship.
+
+> **Why not an in-app purchase?** Play Billing requires `android.permission.INTERNET`.
+> GuestVault forbids that permission in code
+> ([`scripts/ci/assert_play_manifest.py`](scripts/ci/assert_play_manifest.py)) and plan
+> step **9.7** asserts the Permissions screen still lists Internet under *"Never
+> requested"*. A paid download needs no billing library and no network permission, so the
+> zero-network promise survives — untouched, and still tested.
+
+| | Free | Pro |
+|---|---|---|
+| Allow-list, PIN/biometric exit, screen pinning, timer, history | ✅ | ✅ |
+| Notification channels, Quick Settings tile, permissions screen | ✅ | ✅ |
+| **Guest profiles** — save "Kids", "Work", "Stranger" and start in one tap | — | ✅ |
+| Per-app time limits and schedules | — | ⏳ next |
+| Themes & branding | — | ⏳ next |
+| Export & import | — | ⏳ next |
+
+Both builds are produced from one codebase by two Gradle flavours:
+
+```bash
+./gradlew :app:assembleFreeDebug   # com.guestvault      — the app already on Play
+./gradlew :app:assembleProDebug    # com.guestvault.pro  — the paid listing
+```
+
+`BuildConfig.PRO` is compiled per flavour, so the free APK cannot be talked into a
+premium feature at runtime: there is no licence flag to flip, no receipt to forge and no
+server to ask — which is the point, because there is no network to ask over.
+
+A profile is a **snapshot**: saving one copies the allow-list, the timer and the
+screen-pinning choice at that moment, so "Kids" still means "Kids" next week. Profiles
+live in their own DataStore file, so the free build's settings — the file every graded
+test step reads — stay byte-for-byte what they were.
+
 ## 🏪 Google Play readiness
 
 > **Status: signed, published, graded 77/77 — ready to upload. One human step remains.**

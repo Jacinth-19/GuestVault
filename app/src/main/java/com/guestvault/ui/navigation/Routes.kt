@@ -9,6 +9,7 @@ object Routes {
     const val HISTORY = "history"
     const val ABOUT = "about"
     const val PERMISSIONS = "permissions"
+    const val PROFILES = "profiles"
 
     const val PIN_SETUP = "pin_setup?mode={mode}"
     const val SELECT_APPS = "select_apps?next={next}"

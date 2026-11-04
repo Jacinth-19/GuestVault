@@ -13,8 +13,10 @@
 
 set -uo pipefail
 
-APK="app/build/outputs/apk/debug/app-debug.apk"
-TEST_APK="app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+# The graded plan runs the free build: it is the listing that already ships,
+# and `pro` differs only by applicationId, BuildConfig.PRO and a string.
+APK="app/build/outputs/apk/free/debug/app-free-debug.apk"
+TEST_APK="app/build/outputs/apk/androidTest/free/debug/app-free-debug-androidTest.apk"
 PACKAGE="com.guestvault"
 RUNNER="${PACKAGE}.test/androidx.test.runner.AndroidJUnitRunner"
 MANIFEST="${MANIFEST:-scripts/ci/step-plan.json}"
@@ -45,11 +47,16 @@ keep_awake() {
   # "plugged in" case and a reboot resets it. A sleeping emulator shows its
   # keyguard clock instead of the app, and every tap after that lands on the
   # lock screen - which is what "the row is not in Settings (text=9:22)" meant.
-  adb shell settings put system screen_off_timeout 2147483647 >/dev/null 2>&1 || true
+  adb shell settings put system screen_off_timeout -1 >/dev/null 2>&1 || true
   # The key behind the developer option "Stay awake": AC | USB | Wireless.
   # `svc power stayon true` writes the same thing but is reset by some images.
   adb shell settings put global stay_on_while_plugged_in 7 >/dev/null 2>&1 || true
   adb shell svc power stayon true >/dev/null 2>&1 || true
+  # Turn the keyguard off altogether. Waking the device is not enough: on these
+  # images the lock screen comes back between phases and then every tap lands on
+  # its clock, which is how steps failed with "text=4:00" and as "the row is not
+  # in Settings". The AVD has no device PIN, so this is safe.
+  adb shell locksettings set-disabled true >/dev/null 2>&1 || true
   adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
   adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
 }
@@ -187,8 +194,10 @@ echo "== phases =="; cat build/phases.tsv
 
 # FD 3, not stdin: adb commands inside the loop would otherwise consume the
 # phase list and silently end the plan after the first phase.
+PHASES_RUN=0
 while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE <&3; do
   [ -z "${TYPE:-}" ] && continue
+  PHASES_RUN=$((PHASES_RUN + 1))
 
   if [ "$TYPE" = "test" ]; then
     echo "== phase: $NAME (clear=$CLEAR grant=${GRANT:-1}) =="
@@ -269,8 +278,17 @@ while IFS=$'\t' read -r TYPE NAME CLEAR GRANT VALUE <&3; do
   esac
 done 3< build/phases.tsv
 
+# A file of blank lines is "non-empty" to `[ -s ]`, so the old guard passed
+# while the loop above skipped every row: the group then reported only its
+# pre-recorded manual verdicts, exited 0 and looked green. Count the phases the
+# loop actually executed, and fail loudly at zero.
+printf '%s\n' "$PHASES_RUN" > build/phase-count.txt
+if [ "$PHASES_RUN" -eq 0 ]; then
+  fail_setup "group '${PLAN_GROUP:-all}' executed 0 phases: build/phases.tsv is $(wc -c < build/phases.tsv) bytes with no phase rows"
+fi
+
 if [ ! -s "$RAW" ]; then
-  fail_setup "the plan ran but wrote no verdicts (phases: $(wc -l < build/phases.tsv))"
+  fail_setup "the plan ran but wrote no verdicts (phases run: $PHASES_RUN)"
 fi
 
 echo "== verdicts =="

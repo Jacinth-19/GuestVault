@@ -73,19 +73,19 @@ jobs:
       - name: Run unit tests
         run: |
           set -o pipefail
-          gradle --no-daemon :app:testDebugUnitTest 2>&1 | tee -a build.log
+          gradle --no-daemon :app:testFreeDebugUnitTest :app:testProDebugUnitTest 2>&1 | tee -a build.log
 
       - name: Run lint
         run: |
           set -o pipefail
-          gradle --no-daemon :app:lintDebug 2>&1 | tee -a build.log
+          gradle --no-daemon :app:lintFreeDebug 2>&1 | tee -a build.log
 
       - name: Upload debug APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: guestvault-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/**/*.apk
           if-no-files-found: warn
 
       - name: Upload Gradle wrapper

@@ -10,7 +10,7 @@
 
 set -uo pipefail
 
-ARTIFACT="${1:-app/build/outputs/bundle/release/app-release.aab}"
+ARTIFACT="${1:-app/build/outputs/bundle/freeRelease/app-free-release.aab}"
 
 if [ ! -f "$ARTIFACT" ]; then
   echo "::error::No artifact at $ARTIFACT"

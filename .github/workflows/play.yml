@@ -98,11 +98,11 @@ jobs:
           UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
         run: |
           set -o pipefail
-          gradle --no-daemon :app:bundleRelease 2>&1 | tee play-build.log
+          gradle --no-daemon :app:bundleFreeRelease :app:bundleProRelease 2>&1 | tee play-build.log
 
       - name: Verify the bundle is release-signed
         if: env.SIGNED_FOR_PLAY == 'true'
-        run: bash scripts/play/verify-signing.sh app/build/outputs/bundle/release/app-release.aab
+        run: bash scripts/play/verify-signing.sh app/build/outputs/bundle/freeRelease/app-free-release.aab
 
       - name: Withhold a debug-signed bundle
         if: env.SIGNED_FOR_PLAY != 'true'
@@ -113,20 +113,20 @@ jobs:
           echo "and Google Play would reject it. It has been deleted so it cannot be uploaded by mistake." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Create the key once with \`bash scripts/play/create-upload-key.sh\` — see docs/PLAY_CONSOLE.md." >> "$GITHUB_STEP_SUMMARY"
-          rm -f app/build/outputs/bundle/release/*.aab
+          rm -f app/build/outputs/bundle/freeRelease/*.aab
           echo "::warning::Bundle is debug-signed and was withheld. Run scripts/play/create-upload-key.sh to enable Play uploads."
 
       - name: Lint the release variant
         run: |
           set -o pipefail
-          gradle --no-daemon :app:lintRelease 2>&1 | tee -a play-build.log
+          gradle --no-daemon :app:lintFreeRelease 2>&1 | tee -a play-build.log
 
       # `lint { abortOnError = false }` keeps warnings out of the way of hotfix
       # builds; this step is the explicit gate that still refuses real errors.
       - name: Fail on lint errors
         run: |
           set -o pipefail
-          python3 scripts/ci/check_lint.py app/build/reports/lint-results-release.xml \
+          python3 scripts/ci/check_lint.py app/build/reports/lint-results-freeRelease.xml \
             2>&1 | tee -a play-build.log
 
       - name: Upload release bundle
@@ -134,7 +134,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: guestvault-release-bundle
-          path: app/build/outputs/bundle/release/*.aab
+          path: app/build/outputs/bundle/**/*.aab
           if-no-files-found: warn
 
       - name: Upload lint report
@@ -151,20 +151,32 @@ jobs:
       # build output directly avoids depending on aapt2 or a second APK build.
       - name: Assert the shipping manifest is Play-safe
         run: |
-          MANIFEST=$(find app/build/intermediates -path '*release*' -name AndroidManifest.xml \
-            -newer app/build.gradle.kts 2>/dev/null | grep -i merge | head -1)
-          if [ -z "$MANIFEST" ]; then
-            MANIFEST=$(find app/build/intermediates -path '*release*' -name AndroidManifest.xml | grep -i merge | head -1)
+          # Both flavours ship, and both merged manifests must stay clean. The
+          # path is matched case-insensitively on purpose: a flavour writes
+          # `freeRelease`/`proRelease`, and a case-sensitive `*release*` glob
+          # finds neither, which once left $MANIFEST empty and made the guard
+          # fail on `cp ""`.
+          MANIFESTS=$(find app/build/intermediates -path '*merged_manifest*' \
+            -name AndroidManifest.xml 2>/dev/null | grep -iE 'freerelease|prorelease' || true)
+          if [ -z "$MANIFESTS" ]; then
+            MANIFESTS=$(find app/build/intermediates -name AndroidManifest.xml 2>/dev/null \
+              | grep -i merge | grep -i release || true)
           fi
-          echo "merged manifest: $MANIFEST"
-          cp "$MANIFEST" permissions-manifest.xml
-          python3 scripts/ci/assert_play_manifest.py permissions-manifest.xml
+          if [ -z "$MANIFESTS" ]; then
+            echo "::error::no merged release manifest under app/build/intermediates"
+            find app/build/intermediates -name AndroidManifest.xml | head -20 || true
+            exit 1
+          fi
+          for MANIFEST in $MANIFESTS; do
+            echo "merged manifest: $MANIFEST"
+            python3 scripts/ci/assert_play_manifest.py "$MANIFEST" || exit 1
+          done
 
       - name: Dump packaging metadata
         if: always()
         run: |
-          ls -la app/build/outputs/bundle/release/ || true
-          unzip -l app/build/outputs/bundle/release/*.aab | head -20 || true
+          ls -la app/build/outputs/bundle/freeRelease/ || true
+          unzip -l app/build/outputs/bundle/freeRelease/*.aab | head -20 || true
 
       - name: Validate store graphics
         run: |
@@ -227,7 +239,7 @@ jobs:
       - name: Build debug + test APKs
         run: |
           set -o pipefail
-          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee -a matrix-build.log
+          gradle --no-daemon :app:assembleFreeDebug :app:assembleFreeDebugAndroidTest 2>&1 | tee -a matrix-build.log
 
       - name: Enable KVM
         run: |

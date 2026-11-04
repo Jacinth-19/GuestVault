@@ -21,6 +21,7 @@ import com.guestvault.ui.screens.history.HistoryRoute
 import com.guestvault.ui.screens.onboarding.OnboardingRoute
 import com.guestvault.ui.screens.permissions.PermissionsRoute
 import com.guestvault.ui.screens.pin.PinSetupRoute
+import com.guestvault.ui.screens.profiles.ProfilesRoute
 import com.guestvault.ui.screens.selectapps.SelectAppsRoute
 import com.guestvault.ui.screens.settings.SettingsRoute
 import com.guestvault.ui.screens.splash.SplashRoute
@@ -139,7 +140,8 @@ fun GuestVaultNavHost(
                 onManageApps = { navController.navigate(Routes.selectApps(next = "back")) },
                 onOpenHistory = { navController.navigate(Routes.HISTORY) },
                 onOpenAbout = { navController.navigate(Routes.ABOUT) },
-                onOpenPermissions = { navController.navigate(Routes.PERMISSIONS) }
+                onOpenPermissions = { navController.navigate(Routes.PERMISSIONS) },
+                onOpenProfiles = { navController.navigate(Routes.PROFILES) }
             )
         }
 
@@ -149,6 +151,20 @@ fun GuestVaultNavHost(
 
         composable(Routes.HISTORY) {
             HistoryRoute(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.PROFILES) {
+            ProfilesRoute(
+                onBack = { navController.popBackStack() },
+                // A profile has been written into the allow-list and the timer;
+                // session setup then shows exactly what will be handed over.
+                onSessionSetup = {
+                    if (!navController.popBackStack(Routes.DASHBOARD, inclusive = false)) {
+                        navController.popBackStack()
+                    }
+                    navController.navigate(Routes.CONFIRM_SESSION) { launchSingleTop = true }
+                }
+            )
         }
 
         composable(Routes.ABOUT) {

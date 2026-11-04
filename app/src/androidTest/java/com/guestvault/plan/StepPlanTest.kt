@@ -1934,8 +1934,7 @@ class StepPlanTest : StepHarness() {
             if (device.hasObject(By.text("Start Guest Session"))) return
             dismissPinnedDialog(timeoutMs = 1_000)
             if (device.hasObject(By.desc("Back"))) {
-                tapDesc("Back")
-                pause(800)
+                tapBack()
             } else {
                 // Not inside a nested screen. A bare Back from the dashboard
                 // leaves the app (and a second one opens the app drawer), so

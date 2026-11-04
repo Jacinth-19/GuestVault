@@ -204,6 +204,34 @@ with what the app already says about itself:
 
 ---
 
+## Phase 7 — The Pro listing (paid app)
+
+GuestVault Pro is a **separate listing**, not an in-app purchase. It is a paid download,
+which is why it needs no billing library and keeps the app's "no INTERNET permission"
+claim literally true.
+
+1. **Create app →** name `GuestVault Pro`, default language, *App*, **Free or paid: Paid**
+   (price is fixed at creation; it can be changed later but never to free-to-paid).
+2. **Package name:** `com.guestvault.pro` — this is the only code difference from the free
+   build, plus a name string and `BuildConfig.PRO`.
+3. **Upload `GuestVault-Pro-<version>.aab`** from the same GitHub release. It is signed
+   with the same upload key, so the same `UPLOAD_*` secrets sign both listings.
+4. **Enrol in Play App Signing** — Play issues a second, per-listing signing key. Upload
+   keys can be shared; signing keys cannot.
+5. **App content:** every form is answered the same way as the free app — privacy policy
+   URL, data safety (no collection, no sharing), no ads, no special permissions. The
+   `specialUse` foreground-service declaration applies here too.
+6. **Listing copy:** lead with what the paid build adds (profiles today; limits, themes
+   and export next), and say the free app exists. Under-promise the roadmap: never list a
+   feature the build in the store does not have.
+7. **Version codes are per listing**, so both can carry `versionCode 6` independently.
+
+> **Do not** put a "buy Pro" button inside the free app that opens a `market://` link
+> *and* claim the app cannot reach the network. Opening the Play Store is handled by the
+> Store app, not by GuestVault — but the sentence, not the mechanism, is what a reviewer
+> checks. If a link is added later, the permissions screen and this document must say so
+> in the same commit.
+
 ## Checklist
 
 Copy this into an issue and tick as you go.

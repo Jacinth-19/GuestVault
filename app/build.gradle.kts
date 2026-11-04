@@ -14,8 +14,8 @@ android {
         applicationId = "com.guestvault"
         minSdk = 29
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.2.1"
+        versionCode = 6
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -38,6 +38,30 @@ android {
                 keyAlias = System.getenv("UPLOAD_KEY_ALIAS")
                 keyPassword = System.getenv("UPLOAD_KEY_PASSWORD")
             }
+        }
+    }
+
+    // Two listings, one codebase.
+    //
+    // `free` is the app that is already on Play. `pro` is a *separate paid
+    // listing*: a paid app needs no billing library, and this app must never
+    // gain the INTERNET permission (`scripts/ci/assert_play_manifest.py`
+    // enforces that), so selling it as a paid download is the only model that
+    // keeps the zero-network promise intact.
+    //
+    // `BuildConfig.PRO` is compiled per flavor. There is no licence flag to
+    // flip and no server to ask, because there is no network to ask over.
+    flavorDimensions += "tier"
+    productFlavors {
+        create("free") {
+            dimension = "tier"
+            applicationId = "com.guestvault"
+            buildConfigField("boolean", "PRO", "false")
+        }
+        create("pro") {
+            dimension = "tier"
+            applicationId = "com.guestvault.pro"
+            buildConfigField("boolean", "PRO", "true")
         }
     }
 
