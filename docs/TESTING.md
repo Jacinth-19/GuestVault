@@ -129,6 +129,29 @@ The emulator job is not a substitute for a real Samsung. It proves the flow and
 the screenshots; it cannot prove that One UI will not kill the foreground
 service, and it cannot show the "Pin GuestVault to this screen?" OEM dialog.
 
+#### When the plan goes red, suspect the harness second
+
+Two of the harness's own faults were read as product bugs for several runs, so
+they are written down here:
+
+- **`UiDevice.wait(Until…)` is event-driven.** It re-evaluates its condition
+  only when an accessibility event arrives, so a quiet Compose frame runs out
+  the whole timeout with the text already on screen. Step 9.1 failed as "old PIN
+  was not accepted" while the next step's dump showed "Choose a new PIN". Every
+  wait in `StepHarness` polls instead.
+- **`dumpsys window policy` prints `showing=true` for every visible window.**
+  Matching that string reported a keyguard on an unlocked phone, so the
+  wake-up path finished with a bottom-to-top swipe — the HOME gesture — and
+  left the app on the launcher for the rest of the pass. Only the keyguard
+  delegate's own line counts now.
+
+A phase that produces no verdicts at all is retried once, but only if it failed
+in under three minutes: a phase that ran long and recorded nothing is wedged,
+and retrying it doubles the group's runtime. Verdicts travel as a commit comment
+as well as an artifact — the artifact download has silently dropped one group
+per run, a different group each time — and `fetch_verdicts.py` names any group
+that arrived by neither route instead of grading its pass as "never reported".
+
 ---
 
 ## Part 2 — Manual test plan

@@ -9,7 +9,7 @@ locked on the free one.
 
 | | |
 | --- | --- |
-| Run | [41819276649](https://github.com/Jacinth-19/GuestVault/actions/runs/41819276649) — commit `50791ee` |
+| Run | [41870690649](https://github.com/Jacinth-19/GuestVault/actions/runs/41870690649) — commit `ecd0735` |
 | Result | **87 passed · 0 failed · 5 not automated** (of 92 steps) |
 | Build | `1.5.0` (versionCode 8) — daily budgets, emergency code, six-digit PIN and intruder photo included |
 | Device | API 34 `google_apis` x86_64, Pixel 6 profile |
@@ -23,6 +23,15 @@ The previous run of this plan — `1.4.0`, before pass 16 existed — scored
 83 of 87 with four failures, three of them pass 12's timed steps. Those steps
 pass here; a five-minute wait is the most timing-sensitive thing in the plan,
 and it is the first thing to re-read if a run goes red.
+
+Getting from 84 to 87 was not a product change: the harness had two faults of
+its own. `UiDevice.wait(Until...)` only re-checks when an accessibility event
+arrives, so a quiet Compose frame timed out on text that was already on screen
+(step 9.1, and the four steps behind it); and `keyguardShowing()` matched a bare
+`showing=true` that `dumpsys window policy` prints for every visible window, so
+the "wake up" path finished with a bottom-to-top swipe — the HOME gesture — and
+left the app on the launcher for the rest of the pass. Both are described in
+`docs/TESTING.md`.
 
 ## Per pass
 
