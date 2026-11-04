@@ -185,9 +185,10 @@ class ProPlanTest : StepHarness() {
             // Open the budgeted app the way a guest would: tap its tile. The app
             // itself does not matter — the clock runs while the guest home is not
             // in front, which is the rule this step is grading.
-            val tile = device.findObjects(By.descContains("Open ")).firstOrNull()
-            expectTrue(tile != null, "no app tile on the guest home (text=${visibleText().take(200)})")
-            val tileLabel = runCatching { tile!!.contentDescription }.getOrNull() ?: "the tile"
+            val found = device.findObjects(By.descContains("Open ")).firstOrNull()
+            expectTrue(found != null, "no app tile on the guest home (text=${visibleText().take(200)})")
+            val tile = found!!
+            val tileLabel = runCatching { tile.contentDescription }.getOrNull() ?: "the tile"
             tile.click()
             // A cold first launch on a fresh emulator takes seconds, so this
             // waits instead of sampling once.
