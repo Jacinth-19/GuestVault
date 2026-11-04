@@ -18,7 +18,7 @@ enum class PremiumFeature(val title: String, val blurb: String) {
     PER_APP_LIMITS(
         "Per-app time limits",
         "Cap a single app inside a session, so an hour of hand-over is not an " +
-            "hour of video."
+            "hour of video — and choose the hours guest mode may run at all."
     ),
     THEMES(
         "Themes & branding",

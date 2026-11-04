@@ -25,6 +25,14 @@ data class OwnerSettings(
      */
     val notifySessionSummary: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    /**
+     * Per-app budgets for the guest session, in minutes. A package that is
+     * absent has no limit; 0 is treated the same way, matching every other
+     * duration in the app.
+     */
+    val appLimits: Map<String, Int> = emptyMap(),
+    /** When guest mode may run at all. Disabled by default. */
+    val schedule: GuestSchedule = GuestSchedule(),
     val activeSession: GuestSession? = null,
     val history: List<SessionRecord> = emptyList()
 ) {

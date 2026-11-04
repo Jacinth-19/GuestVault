@@ -5,8 +5,8 @@ has never seen the code can pick up a phone and verify every promise the app
 makes. It has three parts:
 
 1. [Automated coverage](#part-1--automated-coverage) — what CI proves on every push.
-2. [Manual test plan](#part-2--manual-test-plan) — 18 passes, screen by screen,
-   including the notification system and the brute-force lock.
+2. [Manual test plan](#part-2--manual-test-plan) — 19 passes, screen by screen,
+   including the notification system, the brute-force lock and the paid build.
 3. [Play Store submission checks](#part-3--play-store-submission-checks) — the
    things that only fail at review time.
 
@@ -92,6 +92,9 @@ are unsupported — which is fine, because the generator does not emit them.
 | Formatting | `FormattersTest` | Countdown, duration and day labels stay stable. |
 | Version display | `AppVersionTest` | `AppVersion.display` never contains a build-type suffix and always equals `VERSION_NAME.substringBefore('-')`, so the splash pill, footer, About page and Settings row cannot disagree. |
 | Splash progress | `SplashSweepTest` | The ping-pong sweep starts and ends on the track, mirrors itself, never overhangs the track at any phase, and leaves a visible highlight when the clock is frozen (animations off). |
+| Schedules | `SchedulePolicyTest` | A window is open exactly between its edges, a 22:00 → 07:00 window belongs to the evening's day, start == end means all day, and "opens again at" skips the days that are switched off. |
+| App budgets | `AppLimitPolicyTest` | Remaining time never goes negative, the caption reads "12 min left" then "Time's up", and 0 minutes renders no caption at all. |
+| Budget counting | `AppUsageTrackerTest` | The clock pauses while the guest is on the guest home, a budget is reported exactly once, and a new session starts from zero. |
 
 ### What the instrumented walkthrough covers (`GuestVaultFlowTest`)
 
@@ -115,6 +118,7 @@ Runs on an emulator in the **Screenshots & Demo Video** workflow and produces
 | `android.yml` | push to `main` or `arena/**`, PR, manual | Lint, unit tests, debug APK artifact. The fast gate. |
 | `media.yml` | push to `main`, PR to `main`, manual | Emulator walkthrough, screenshots, demo video; commits refreshed media on `main`. |
 | `play.yml` | push to `main` or `arena/**`, manual | Release AAB + Play-safe manifest assertions + a **four-API emulator matrix** (29, 34, 35, 36) running the same walkthrough. |
+| `step-plan.yml` | push to `main`, PR, manual | The graded plan: 15 passes over seven emulators, one verdict per numbered step, posted as a sticky PR comment. Passes 1–14 grade the free build and pass 15 grades the paid one. |
 | `release.yml` | `v*` tag, manual | Signed AAB/APK attached to a GitHub release. |
 | `pages.yml` | manual | Publishes the privacy policy to GitHub Pages. |
 
@@ -126,9 +130,15 @@ service, and it cannot show the "Pin GuestVault to this screen?" OEM dialog.
 
 ## Part 2 — Manual test plan
 
-Eighteen passes. Each one states the setup, the steps and the expected result.
+Nineteen passes. Each one states the setup, the steps and the expected result.
 Work through them in order on a fresh install first, then repeat the ones marked
 **⚠︎ OEM** on a Samsung device.
+
+Passes 1–18 run on the free build (`com.guestvault`), which is what ships on Play.
+Pass 19 runs on the paid build (`com.guestvault.pro`): its two features are
+deliberately locked on the free build, so there is nothing to test there.
+`step-plan.yml` grades passes 1–15 on emulators; 16–19 are the ones a person
+does by hand.
 
 ### Pass 1 — First install and the splash
 
@@ -560,6 +570,37 @@ Work down every row.
    onboarding illustrations. R8 keeps the Lottie and Compose model classes; if a
    rule is missing, this is where it shows up.
 3. Confirm screenshots of the guest home are blocked (`FLAG_SECURE`).
+
+### Pass 19 — The paid build: budgets and schedules
+
+Install `com.guestvault.pro` (the `proDebug` or release build of the `pro`
+flavour). It installs beside the free app; nothing is shared, so start from a
+fresh PIN.
+
+1. **Settings → Time limits** opens the real screen: "How a budget is counted",
+   a **PER APP** list with one row per allowed app reading *No limit*, and a
+   **SCHEDULE** switch reading *No schedule — guest mode can start at any time*.
+   On the free build the same row opens a locked panel instead; that is the gate
+   working, not a bug.
+2. Tap an app, pick **5 min**. The row now reads *Budgeted* and *5 min*.
+3. Turn the schedule on. A window appears (07:00 – 22:00 by default) with ±30
+   minute steppers and day chips.
+4. **Untick today**, leaving the other six days on.
+   **Expect:** the subtitle names the pause and the next opening — for example
+   *"Guest mode is paused until 07:00 tomorrow."* Not a bare "not now".
+5. Back to the dashboard. **Expect:** a "Guest mode is scheduled" banner with the
+   same sentence. Tap **Start Guest Session → Start Guest Mode**.
+   **Expect:** the confirm screen shows the sentence in red, and no session
+   starts. The Quick Settings tile must refuse in exactly the same way.
+6. Turn the schedule back off, start a 30-minute session and open the budgeted
+   app. **Expect:** its tile said *"5 min left"*, and after five minutes away the
+   guest is returned to the guest home with the tile dimmed and marked
+   *Time's up*. Tapping it does nothing — no relaunch, no crash.
+7. Let the session run to its end and confirm the history shows it as a normal
+   session with no usage data in it: budgets are memory-only.
+8. Rotate the phone on the Time limits screen: the chips and steppers keep their
+   values. Kill the app and reopen it: the limits and the schedule are still set
+   (they are stored), while usage has been forgotten (it is not).
 
 ---
 

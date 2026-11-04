@@ -248,12 +248,14 @@ androidx.security (encrypted prefs) · BiometricPrompt · coroutines/Flow · min
   The same test captures every screenshot in this README, and the flow is recorded to
   `docs/media/walkthrough.mp4`. It runs against a real emulator on every push.
 
-Everything above is written up as an **18-pass manual test plan** — every screen, every toggle,
-the notification channels, brute force, reboot recovery, reduced motion (`ui/Motion.kt`) and the
-Play Store submission checks: **[docs/TESTING.md](docs/TESTING.md)**.
+Everything above is written up as a **19-pass manual test plan** — every screen, every toggle,
+the notification channels, brute force, reboot recovery, reduced motion (`ui/Motion.kt`), the
+paid build's budgets and schedules, and the Play Store submission checks:
+**[docs/TESTING.md](docs/TESTING.md)**.
 
-The 14-pass acceptance plan, graded on real emulators by CI with a verdict for
-every numbered step: **[docs/PLAN_RESULTS.md](docs/PLAN_RESULTS.md)**.
+The 15-pass acceptance plan, graded on real emulators by CI with a verdict for
+every numbered step — passes 1–14 on the free build, pass 15 on the paid one:
+**[docs/PLAN_RESULTS.md](docs/PLAN_RESULTS.md)**.
 
 Run them yourself:
 
@@ -397,7 +399,8 @@ honestly ship.
 | Allow-list, PIN/biometric exit, screen pinning, timer, history | ✅ | ✅ |
 | Notification channels, Quick Settings tile, permissions screen | ✅ | ✅ |
 | **Guest profiles** — save "Kids", "Work", "Stranger" and start in one tap | — | ✅ |
-| Per-app time limits and schedules | — | ⏳ next |
+| **Per-app time limits** — a budget per app, per session | — | ✅ |
+| **Schedules** — only allow guest mode between set hours and days | — | ✅ |
 | Themes & branding | — | ⏳ next |
 | Export & import | — | ⏳ next |
 
@@ -417,15 +420,27 @@ screen-pinning choice at that moment, so "Kids" still means "Kids" next week. Pr
 live in their own DataStore file, so the free build's settings — the file every graded
 test step reads — stay byte-for-byte what they were.
 
+**Time limits** are honest about what Android allows. An ordinary app cannot see which
+other app is in front — that needs `PACKAGE_USAGE_STATS`, which this app forbids — so the
+clock starts when the guest opens an app and stops when they come back to GuestVault.
+When a budget runs out the guest is returned to the guest home and the tile is dimmed and
+marked *Time's up*; the app is not killed, so nothing in progress is lost. Budgets are
+in-memory only and reset with every session, so no record of what the guest used survives
+the hand-over.
+
+**Schedules** decide when guest mode may run at all. They are enforced in
+`SessionController.start` rather than in the UI, so the Quick Settings tile cannot bypass
+them, and a window that crosses midnight (22:00 → 07:00) stays open into the next
+morning.
+
 ## 🏪 Google Play readiness
 
-> **Status: signed, published, graded 77/77 — ready to upload. One human step remains.**
+> **Status: signed and graded 83/83 — ready to upload. One human step remains.**
 >
 > ✅ **Upload key created** — the four `UPLOAD_*` secrets are set and
->    [`v1.2.1`](https://github.com/Jacinth-19/GuestVault/releases/tag/v1.2.1) ships the
->    current **release-signed** `GuestVault-1.2.1.aab`, built from the commit that passes
->    all 77 executable steps of the 14-pass plan — see
->    [`docs/PLAN_RESULTS.md`](docs/PLAN_RESULTS.md).
+>    [`v1.2.1`](https://github.com/Jacinth-19/GuestVault/releases/tag/v1.2.1) is the last
+>    tagged, release-signed bundle. The current tree passes all **83** executable steps
+>    of the 15-pass plan — see [`docs/PLAN_RESULTS.md`](docs/PLAN_RESULTS.md).
 >    Back up `~/upload-keystore.jks` **and** its `.credentials.txt`; neither can be committed.
 >
 > ⏳ **Play developer account** — not created yet, and it gates everything else. Start at

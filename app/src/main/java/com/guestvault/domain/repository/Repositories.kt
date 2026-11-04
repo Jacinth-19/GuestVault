@@ -1,6 +1,7 @@
 package com.guestvault.domain.repository
 
 import com.guestvault.domain.model.GuestApp
+import com.guestvault.domain.model.GuestSchedule
 import com.guestvault.domain.model.GuestSession
 import com.guestvault.domain.model.OwnerSettings
 import com.guestvault.domain.model.SessionRecord
@@ -24,6 +25,8 @@ interface SettingsRepository {
     suspend fun setNotifyTimerAlerts(enabled: Boolean)
     suspend fun setNotifySessionSummary(enabled: Boolean)
     suspend fun setThemeMode(mode: ThemeMode)
+    suspend fun setAppLimits(limits: Map<String, Int>)
+    suspend fun setSchedule(schedule: GuestSchedule)
     suspend fun setActiveSession(session: GuestSession?)
     suspend fun addSessionRecord(record: SessionRecord)
     suspend fun clearHistory()

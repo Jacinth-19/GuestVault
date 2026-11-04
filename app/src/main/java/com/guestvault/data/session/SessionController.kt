@@ -9,11 +9,13 @@ import com.guestvault.domain.model.EndReason
 import com.guestvault.domain.model.GuestSession
 import com.guestvault.domain.model.SessionRecord
 import com.guestvault.domain.model.WipeResult
+import com.guestvault.domain.policy.SchedulePolicy
 import com.guestvault.domain.repository.SettingsRepository
 import com.guestvault.guest.GuestHomeActivity
 import com.guestvault.guest.GuestSessionService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import java.time.ZonedDateTime
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -30,7 +32,8 @@ import kotlinx.coroutines.sync.withLock
 class SessionController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
-    private val wiper: GuestDataWiper
+    private val wiper: GuestDataWiper,
+    private val usageTracker: AppUsageTracker
 ) {
 
     /** Serialises start/end so double taps or timer races cannot end twice. */
@@ -44,6 +47,13 @@ class SessionController @Inject constructor(
     ): GuestSession = mutex.withLock {
         require(packages.isNotEmpty()) { "Select at least one app first" }
 
+        // The schedule is enforced here, not in the UI, so the Quick Settings
+        // tile and any future caller cannot start a session the owner's own
+        // rules forbid.
+        val current = settingsRepository.settings.first()
+        val blocked = SchedulePolicy.closedMessage(current.schedule, ZonedDateTime.now())
+        if (blocked != null) throw IllegalStateException(blocked)
+
         val session = GuestSession(
             startedAt = System.currentTimeMillis(),
             packages = packages,
@@ -53,6 +63,8 @@ class SessionController @Inject constructor(
         )
 
         wiper.prepareGuestWorkspace()
+        // A new session starts with a clean clock: budgets are per hand-over.
+        usageTracker.startSession()
         // Persist first: if anything below fails, recovery still knows a guest
         // session is supposed to be active.
         settingsRepository.setActiveSession(session)
@@ -87,6 +99,8 @@ class SessionController @Inject constructor(
         )
         settingsRepository.addSessionRecord(record)
         settingsRepository.setActiveSession(null)
+        // Nothing about the guest's usage should outlive the session.
+        usageTracker.startSession()
         GuestSessionService.stop(context)
 
         // The session is over, so nothing about it should still be in the shade:

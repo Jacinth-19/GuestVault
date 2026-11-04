@@ -381,6 +381,11 @@ abstract class StepHarness {
     }
 
     protected fun enterPin(digits: List<String>) {
+        // A sleeping device shows its keyguard clock, and every tap then lands
+        // on the lock screen: steps failed with "old PIN was not accepted
+        // (screen: 4:49)". Dismiss it before looking for the keypad.
+        wakeDevice()
+
         // The lock screen renders its keypad before the stored guard has loaded;
         // taps during that window are dropped, which looked like a wrong PIN.
         runCatching { device.wait(Until.hasObject(By.desc("PIN key 1")), 8_000) }
@@ -741,11 +746,74 @@ abstract class StepHarness {
      * after that lands on the lock screen. That is what "the row is not in
      * Settings (text=9:22)" actually meant on runs 39917817868 and 39930421320.
      */
+    /**
+     * True when the system keyguard is up.
+     *
+     * `dumpsys window` reports the lockscreen state; the policy dump covers the
+     * images that do not print the `mShowingLockscreen` field.
+     */
+    protected fun keyguardShowing(): Boolean {
+        val window = shell("dumpsys window")
+        if (window.contains("mDreamingLockscreen=true") ||
+            window.contains("mShowingLockscreen=true") ||
+            window.contains("mKeyguardShowing=true")
+        ) {
+            return true
+        }
+        return shell("dumpsys window policy").contains("showing=true") &&
+            shell("dumpsys window policy").contains("interactiveState=INTERACTIVE")
+    }
+
+    /**
+     * The screen shows nothing but a clock ("4:49"), which is what a dozing
+     * emulator looks like. Two full runs failed with that as the only evidence.
+     */
+    protected fun clockOnlyScreen(): Boolean {
+        val texts = runCatching {
+            device.findObjects(By.textContains(""))
+                .mapNotNull { node -> runCatching { node.text }.getOrNull() }
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+        }.getOrDefault(emptyList())
+        if (texts.isEmpty()) return false
+        val clock = Regex("^\\d{1,2}:\\d{2}(\\s*[APap][Mm])?$")
+        return texts.all { clock.matches(it) }
+    }
+
+    /**
+     * Wakes a dozing device and dismisses its keyguard.
+     *
+     * A sleeping emulator shows its lock-screen clock instead of the app, and
+     * then every tap lands on the lock screen — steps reported "the row is not
+     * in Settings (text=9:22)" for what was really a locked device. The plan
+     * runner also disables the keyguard before each phase; this is the belt to
+     * that pair of braces, for whatever the system re-enables behind us.
+     */
     protected fun wakeDevice() {
         if (has(By.text("Start Guest Session")) || has(By.desc("PIN key 1"))) return
-        shell("input keyevent KEYCODE_WAKEUP")
-        shell("wm dismiss-keyguard")
-        pause(600)
+
+        runCatching { shell("input keyevent KEYCODE_WAKEUP") }
+        if (!keyguardShowing() && !clockOnlyScreen()) {
+            runCatching { shell("wm dismiss-keyguard") }
+            pause(600)
+            return
+        }
+
+        // Locked for real: dismiss, then check again, because the keyguard can
+        // come back once while the screen settles. A plain loop, so this can
+        // actually stop early — `repeat { return@repeat }` never breaks.
+        var attempt = 0
+        while (attempt < 3) {
+            runCatching { shell("wm dismiss-keyguard") }
+            if (attempt > 0) runCatching { shell("input keyevent 82") }  // MENU dismisses on AOSP
+            if (attempt == 2) {
+                // Last resort: swipe the keyguard away from the bottom up.
+                runCatching { shell("input swipe 540 1800 540 600 200") }
+            }
+            pause(700)
+            if (!keyguardShowing() && !clockOnlyScreen()) return
+            attempt++
+        }
     }
 
     /** A scroll injected by `input`, independent of UiAutomator's gesture path. */

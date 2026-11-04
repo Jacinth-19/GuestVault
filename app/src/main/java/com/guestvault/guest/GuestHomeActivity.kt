@@ -13,9 +13,11 @@ import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.guestvault.BuildConfig
+import com.guestvault.data.session.AppUsageTracker
 import com.guestvault.MainActivity
 import com.guestvault.ui.theme.GuestVaultTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * The restricted "guest home". It is a normal activity, but it only composes
@@ -28,6 +30,9 @@ import dagger.hilt.android.AndroidEntryPoint
 class GuestHomeActivity : FragmentActivity() {
 
     private var returningToOwner = false
+
+    @Inject
+    lateinit var usageTracker: AppUsageTracker
 
     /** Set when a security or timer notification asked straight for the lock screen. */
     private var startLocked = false
@@ -125,4 +130,25 @@ class GuestHomeActivity : FragmentActivity() {
         /** Extra for notifications: open straight on the owner PIN pad. */
         const val EXTRA_OPEN_LOCK = "com.guestvault.extra.OPEN_LOCK"
     }
+    /**
+     * The guest is looking at GuestVault's own home, so no app budget is being
+     * spent. Leaving the activity (into a guest app) starts it again.
+     *
+     * This is the only honest way to time "time spent in another app" without
+     * `PACKAGE_USAGE_STATS`, which this app forbids.
+     */
+    override fun onResume() {
+        super.onResume()
+        usageTracker.pause()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // A lock screen or a system dialog also pauses us; resuming on the next
+        // onPause would double-count, so only the activity that is actually
+        // leaving restarts the clock.
+        if (!isFinishing && !returningToOwner) usageTracker.resume()
+    }
+
+
 }

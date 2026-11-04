@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Timer
@@ -62,6 +63,7 @@ import com.guestvault.core.Formatters
 import com.guestvault.data.session.SessionController
 import com.guestvault.domain.model.OwnerSettings
 import com.guestvault.domain.model.SessionRecord
+import com.guestvault.domain.policy.SchedulePolicy
 import com.guestvault.domain.usecase.ObserveSettingsUseCase
 import com.guestvault.ui.components.AppIcon
 import com.guestvault.ui.components.GuestVaultCard
@@ -74,6 +76,7 @@ import com.guestvault.ui.theme.HeroGradient
 import com.guestvault.ui.theme.Indigo300
 import com.guestvault.ui.theme.Indigo800
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.ZonedDateTime
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -155,6 +158,22 @@ fun DashboardScreen(
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Only present when the owner turned a schedule on and it is shut
+            // right now, so the default dashboard is untouched.
+            val scheduleClosed = SchedulePolicy.closedMessage(
+                settings.schedule,
+                ZonedDateTime.now()
+            )
+            if (scheduleClosed != null) {
+                item {
+                    InfoBanner(
+                        icon = Icons.Rounded.Schedule,
+                        title = "Guest mode is scheduled",
+                        text = scheduleClosed
+                    )
+                }
+            }
+
             if (settings.hasActiveSession) {
                 item {
                     InfoBanner(

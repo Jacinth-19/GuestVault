@@ -49,6 +49,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -58,6 +59,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -395,7 +397,15 @@ fun GuestHomeScreen(
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             items(state.apps, key = { it.packageName }) { app ->
-                                GuestAppTile(app = app, onClick = { onLaunchApp(app.packageName) })
+                                GuestAppTile(
+                                    app = app,
+                                    // Null unless this app has a budget, so a
+                                    // session without limits renders exactly as
+                                    // it always has.
+                                    caption = state.captionFor(app.packageName),
+                                    exhausted = state.isExhausted(app.packageName),
+                                    onClick = { onLaunchApp(app.packageName) }
+                                )
                             }
                         }
 
@@ -468,7 +478,15 @@ fun GuestHomeScreen(
 }
 
 @Composable
-private fun GuestAppTile(app: GuestApp, onClick: () -> Unit) {
+private fun GuestAppTile(
+    app: GuestApp,
+    caption: String? = null,
+    exhausted: Boolean = false,
+    onClick: () -> Unit
+) {
+    // An app that has used up its budget is dimmed and says so, rather than
+    // looking tappable and quietly refusing.
+    val alpha = if (exhausted) 0.35f else 1f
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -478,15 +496,35 @@ private fun GuestAppTile(app: GuestApp, onClick: () -> Unit) {
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        AppIcon(packageName = app.packageName, label = app.label, size = 54.dp)
+        AppIcon(
+            packageName = app.packageName,
+            label = app.label,
+            size = 54.dp,
+            modifier = Modifier.alpha(alpha)
+        )
         Spacer(Modifier.height(7.dp))
         Text(
             text = app.label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = alpha),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center
         )
+        if (caption != null) {
+            Text(
+                text = caption,
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = 9.sp,
+                color = if (exhausted) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }

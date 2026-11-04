@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.guestvault.domain.model.EndReason
+import com.guestvault.domain.model.GuestSchedule
 import com.guestvault.domain.model.GuestSession
 import com.guestvault.domain.model.OwnerSettings
 import com.guestvault.domain.model.SessionRecord
@@ -100,6 +101,28 @@ class SettingsRepositoryImpl @Inject constructor(
         context.settingsDataStore.edit { it[Keys.THEME_MODE] = mode.name }
     }
 
+    override suspend fun setAppLimits(limits: Map<String, Int>) {
+        context.settingsDataStore.edit { prefs ->
+            val cleaned = limits.filterValues { it > 0 }
+            if (cleaned.isEmpty()) {
+                prefs.remove(Keys.APP_LIMITS)
+            } else {
+                prefs[Keys.APP_LIMITS] = cleaned.entries
+                    .sortedBy { it.key }
+                    .joinToString("\n") { "${it.key}:${it.value}" }
+            }
+        }
+    }
+
+    override suspend fun setSchedule(schedule: GuestSchedule) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.SCHEDULE_ENABLED] = schedule.enabled
+            prefs[Keys.SCHEDULE_START] = schedule.startMinuteOfDay
+            prefs[Keys.SCHEDULE_END] = schedule.endMinuteOfDay
+            prefs[Keys.SCHEDULE_DAYS] = schedule.days.sorted().joinToString(",")
+        }
+    }
+
     override suspend fun setActiveSession(session: GuestSession?) {
         context.settingsDataStore.edit { prefs ->
             if (session == null) {
@@ -177,8 +200,39 @@ class SettingsRepositoryImpl @Inject constructor(
             themeMode = ThemeMode.entries.firstOrNull { it.name == this[Keys.THEME_MODE] }
                 ?: ThemeMode.SYSTEM,
             activeSession = session,
-            history = decodeHistory(this[Keys.HISTORY])
+            history = decodeHistory(this[Keys.HISTORY]),
+            appLimits = decodeLimits(this[Keys.APP_LIMITS]),
+            schedule = GuestSchedule(
+                enabled = this[Keys.SCHEDULE_ENABLED] ?: false,
+                startMinuteOfDay = this[Keys.SCHEDULE_START] ?: (7 * 60),
+                endMinuteOfDay = this[Keys.SCHEDULE_END] ?: (22 * 60),
+                days = decodeDays(this[Keys.SCHEDULE_DAYS])
+            )
         )
+    }
+
+    /** `pkg:minutes` per line; a malformed entry is skipped, never fatal. */
+    private fun decodeLimits(raw: String?): Map<String, Int> =
+        raw?.lineSequence()
+            ?.mapNotNull { line ->
+                val separator = line.lastIndexOf(':')
+                if (separator <= 0) return@mapNotNull null
+                val packageName = line.substring(0, separator).trim()
+                val minutes = line.substring(separator + 1).trim().toIntOrNull()
+                    ?: return@mapNotNull null
+                if (packageName.isEmpty() || minutes <= 0) null else packageName to minutes
+            }
+            ?.toMap()
+            .orEmpty()
+
+    private fun decodeDays(raw: String?): Set<Int> {
+        val days = raw?.split(",")
+            ?.mapNotNull { it.trim().toIntOrNull() }
+            ?.filter { it in 1..7 }
+            ?.toSet()
+            .orEmpty()
+        // A schedule with no parseable days would lock the owner out for ever.
+        return days.ifEmpty { GuestSchedule.DEFAULT_DAYS }
     }
 
     private fun decodePackages(raw: String?): Set<String> =
@@ -219,6 +273,11 @@ class SettingsRepositoryImpl @Inject constructor(
         val NOTIFY_TIMER_ALERTS = booleanPreferencesKey("notify_timer_alerts")
         val NOTIFY_SESSION_SUMMARY = booleanPreferencesKey("notify_session_summary")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val APP_LIMITS = stringPreferencesKey("app_limits")
+        val SCHEDULE_ENABLED = booleanPreferencesKey("schedule_enabled")
+        val SCHEDULE_START = intPreferencesKey("schedule_start_minute")
+        val SCHEDULE_END = intPreferencesKey("schedule_end_minute")
+        val SCHEDULE_DAYS = stringPreferencesKey("schedule_days")
         val HISTORY = stringPreferencesKey("session_history")
 
         val SESSION_STARTED_AT = longPreferencesKey("session_started_at")

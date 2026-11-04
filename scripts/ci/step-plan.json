@@ -1,5 +1,5 @@
 {
-  "note": "One row per numbered step of the 14-pass manual plan. 'expect' is copied verbatim from the plan and is the acceptance criterion; 'mode': 'manual' marks a step that cannot be graded on an emulator (hardware, real biometric, vendor skin). 'run' is the host orchestration: instrumented phase, then host action, then the next phase.",
+  "note": "One row per numbered step of the 15-pass manual plan. 'expect' is copied verbatim from the plan and is the acceptance criterion; 'mode': 'manual' marks a step that cannot be graded on an emulator (hardware, real biometric, vendor skin). 'run' is the host orchestration: instrumented phase, then host action, then the next phase.",
   "passes": [
     {
       "pass": 1,
@@ -690,6 +690,50 @@
         }
       ],
       "group": 5
+    },
+    {
+      "pass": 15,
+      "group": 7,
+      "title": "The paid build — budgets and schedules (10 min)",
+      "note": "Grades com.guestvault.pro. The free build shows a lock panel on this screen by design, so these steps cannot run there.",
+      "run": [
+        {
+          "test": "pass15",
+          "clear": true
+        }
+      ],
+      "steps": [
+        {
+          "id": "15.1",
+          "action": "Paid build → Settings → Time limits",
+          "expect": "The real screen: \"How a budget is counted\", a PER APP list naming the allowed app, and no free-build lock panel"
+        },
+        {
+          "id": "15.2",
+          "action": "Turn the schedule on",
+          "expect": "Subtitle stops saying \"No schedule\"; the window card (\"Guest mode opens at\") and the day chips appear"
+        },
+        {
+          "id": "15.3",
+          "action": "Untick today, leaving the other days on",
+          "expect": "The subtitle names the pause and when guest mode opens again"
+        },
+        {
+          "id": "15.4",
+          "action": "Dashboard → Start Guest Session → Start Guest Mode",
+          "expect": "Dashboard banner and the confirm screen both state the pause; no session starts"
+        },
+        {
+          "id": "15.5",
+          "action": "Turn the schedule back off, then budget the allowed app at 5 min",
+          "expect": "Subtitle returns to \"No schedule\"; the app row reads \"5 min\" and \"Budgeted\""
+        },
+        {
+          "id": "15.6",
+          "action": "Start a session, open that app, wait out the 5 minutes",
+          "expect": "The tile said \"5 min left\" before the tap; the guest is returned to the guest home, the tile reads \"Time's up\", and tapping it does not reopen the app"
+        }
+      ]
     }
   ]
 }

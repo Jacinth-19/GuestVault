@@ -21,6 +21,7 @@ import com.guestvault.ui.screens.history.HistoryRoute
 import com.guestvault.ui.screens.onboarding.OnboardingRoute
 import com.guestvault.ui.screens.permissions.PermissionsRoute
 import com.guestvault.ui.screens.pin.PinSetupRoute
+import com.guestvault.ui.screens.limits.TimeRulesRoute
 import com.guestvault.ui.screens.profiles.ProfilesRoute
 import com.guestvault.ui.screens.selectapps.SelectAppsRoute
 import com.guestvault.ui.screens.settings.SettingsRoute
@@ -141,8 +142,13 @@ fun GuestVaultNavHost(
                 onOpenHistory = { navController.navigate(Routes.HISTORY) },
                 onOpenAbout = { navController.navigate(Routes.ABOUT) },
                 onOpenPermissions = { navController.navigate(Routes.PERMISSIONS) },
-                onOpenProfiles = { navController.navigate(Routes.PROFILES) }
+                onOpenProfiles = { navController.navigate(Routes.PROFILES) },
+                onOpenTimeRules = { navController.navigate(Routes.TIME_RULES) }
             )
+        }
+
+        composable(Routes.TIME_RULES) {
+            TimeRulesRoute(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.PERMISSIONS) {
