@@ -9,9 +9,9 @@ locked on the free one.
 
 | | |
 | --- | --- |
-| Run | [41870690649](https://github.com/Jacinth-19/GuestVault/actions/runs/41870690649) — commit `ecd0735` |
+| Run | [41920324362](https://github.com/Jacinth-19/GuestVault/actions/runs/41920324362) — commit `bcc61c0` |
 | Result | **88 passed · 0 failed · 4 not automated** (of 92 steps) |
-| Build | `1.5.0` (versionCode 8) — daily budgets, emergency code, six-digit PIN and intruder photo included |
+| Build | `1.5.1` (versionCode 9) — daily budgets, emergency code, six-digit PIN and a working intruder photo |
 | Device | API 34 `google_apis` x86_64, Pixel 6 profile |
 
 A step with no recorded result counts as failed: if the harness did not
@@ -24,8 +24,17 @@ The previous run of this plan — `1.4.0`, before pass 16 existed — scored
 pass here; a five-minute wait is the most timing-sensitive thing in the plan,
 and it is the first thing to re-read if a run goes red.
 
-Getting from 84 to 87 was not a product change: the harness had two faults of
-its own. `UiDevice.wait(Until...)` only re-checks when an accessibility event
+Step 16.5 was the last manual Pro step and the reason it existed had nothing to
+do with the harness: the plan emulator was booted with no cameras. Group 8 now
+boots with an emulated one — every other group is untouched — and automating the
+step immediately found a real bug. The intruder photo had never worked, on any
+device: `displayRotationDegrees()` called `Context.display`, which throws on the
+application context it is given, so every capture threw and was swallowed by the
+catch that exists to make camera failures harmless. The step that could not run
+is what proved the feature did not.
+
+Getting from 84 to 87 was not a product change either: the harness had two
+faults of its own. `UiDevice.wait(Until...)` only re-checks when an accessibility event
 arrives, so a quiet Compose frame timed out on text that was already on screen
 (step 9.1, and the four steps behind it); and `keyguardShowing()` matched a bare
 `showing=true` that `dumpsys window policy` prints for every visible window, so
@@ -149,7 +158,7 @@ left the app on the launcher for the rest of the pass. Both are described in
 | 16.2 | Settings → Time limits → Daily limit → Set → 30 min | Starts as "No daily limit"; after choosing 30 min it reads "… used today of 30 min" with a live "… min left today" caption | ✅ pass | Daily limit set to 30 min with a live caption |
 | 16.3 | Settings → Change owner PIN → current PIN → 6 digits → enter twice | The six-digit option exists in the paid build, the PIN is saved, and the owner lock then draws six dots | ✅ pass | Lock draws six dots |
 | 16.4 | Guest home → Return to Owner → Forgot PIN? → type the saved code → Unlock | The code ends the session and opens the new-PIN screen, never the dashboard | ✅ pass | Emergency code ended the session and opened the new-PIN screen |
-| 16.5 | Settings → Intruder photo: switch it on, fail one unlock | A JPEG frame is stored in the app's private storage, and the build holds no INTERNET permission, so nothing can be uploaded | ⏳ awaiting the run that adds an emulated camera | group 8 now boots with `-camera-front emulated`; the step was manual until 1.5.1 |
+| 16.5 | Settings → Intruder photo: switch it on, fail one unlock | A JPEG frame is stored in the app's private storage, and the build holds no INTERNET permission, so nothing can be uploaded | ✅ pass | Stored `intruder-20261104-215928.jpg` (9,098 bytes) from an emulated camera on group 8 |
 
 ## The version row (9.10)
 
