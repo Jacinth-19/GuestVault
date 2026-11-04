@@ -1,14 +1,16 @@
-# The 14-pass plan — graded results
+# The 15-pass plan — graded results
 
-Every numbered step of the 14-pass manual plan, run on real Android
-emulators (API 34, Pixel 6 profile) by `.github/workflows/step-plan.yml`.
-Six fresh emulators per run, one per group of passes.
+Every numbered step of the plan, run on real Android emulators (API 34,
+Pixel 6 profile) by `.github/workflows/step-plan.yml`. Seven fresh emulators per
+run, one per group of passes. Passes 1–14 grade the **free** build
+(`com.guestvault`); pass 15 grades the **paid** build (`com.guestvault.pro`),
+because the screens it exercises are deliberately locked on the free one.
 
 | | |
 | --- | --- |
-| Run | [39938881339](https://github.com/Jacinth-19/GuestVault/actions/runs/39938881339) — commit `9ea0038` |
-| Result | **77 passed · 0 failed · 4 not automated** (of 81 steps) |
-| Build | `1.2.1` (versionCode 5) — the same app code as the published `v1.2.1` release |
+| Run | [41799345069](https://github.com/Jacinth-19/GuestVault/actions/runs/41799345069) — commit `759b15f` |
+| Result | **83 passed · 0 failed · 4 not automated** (of 87 steps) |
+| Build | `1.4.0` (versionCode 7) — per-app budgets and schedules included |
 | Device | API 34 `google_apis` x86_64, Pixel 6 profile |
 
 A step with no recorded result counts as failed: if the harness did not
@@ -34,6 +36,7 @@ each one does.
 | 12 — Timer expiry | ✅ | 3 | 0 | 0 |
 | 13 — Reboot recovery | ✅ | 3 | 0 | 1 |
 | 14 — Edge cases that break most apps | ✅ | 6 | 0 | 0 |
+| 15 — The paid build (budgets and schedules) | ✅ | 6 | 0 | 0 |
 
 ## Every step
 
@@ -120,6 +123,12 @@ each one does.
 | 14.4 | Airplane mode | Irrelevant — the app has no INTERNET permission at all | ✅ pass | met |
 | 14.5 | Kill the app from Recents mid-session, reopen | Guest mode is still active, not silently dropped | ✅ pass | met |
 | 14.6 | Uninstall | Everything goes; nothing was backed up (allowBackup=false) | ✅ pass | uninstall said 'Success'; package path '<empty>'; app data left: no; android:allowBackup="false" in the manifest |
+| 15.1 | Paid build → Settings → Time limits | The real screen: "How a budget is counted", a PER APP list naming the allowed app, and no free-build lock panel | ✅ pass | Paid build shows the real limits screen for Clock |
+| 15.2 | Turn the schedule on | Subtitle stops saying "No schedule"; the window card ("Guest mode opens at") and the day chips appear | ✅ pass | Window 07:00–22:00 exposed by default |
+| 15.3 | Untick today, leaving the other days on | The subtitle names the pause and when guest mode opens again | ✅ pass | Subtitle: Guest mode is paused until 07:00 tomorrow. |
+| 15.4 | Dashboard → Start Guest Session → Start Guest Mode | Dashboard banner and the confirm screen both state the pause; no session starts | ✅ pass | met |
+| 15.5 | Turn the schedule back off, then budget the allowed app at 5 min | Subtitle returns to "No schedule"; the app row reads "5 min" and "Budgeted" | ✅ pass | met |
+| 15.6 | Start a session, open that app, wait out the 5 minutes | The tile said "5 min left" before the tap; the guest is returned to the guest home, the tile reads "Time's up", and tapping it does not reopen the app | ✅ pass | Guest was returned to the guest home after 5m; the tile reads "Time's up" |
 
 ## The version row (9.10)
 

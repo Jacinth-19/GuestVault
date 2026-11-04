@@ -248,12 +248,14 @@ androidx.security (encrypted prefs) · BiometricPrompt · coroutines/Flow · min
   The same test captures every screenshot in this README, and the flow is recorded to
   `docs/media/walkthrough.mp4`. It runs against a real emulator on every push.
 
-Everything above is written up as an **18-pass manual test plan** — every screen, every toggle,
-the notification channels, brute force, reboot recovery, reduced motion (`ui/Motion.kt`) and the
-Play Store submission checks: **[docs/TESTING.md](docs/TESTING.md)**.
+Everything above is written up as a **19-pass manual test plan** — every screen, every toggle,
+the notification channels, brute force, reboot recovery, reduced motion (`ui/Motion.kt`), the
+paid build's budgets and schedules, and the Play Store submission checks:
+**[docs/TESTING.md](docs/TESTING.md)**.
 
-The 14-pass acceptance plan, graded on real emulators by CI with a verdict for
-every numbered step: **[docs/PLAN_RESULTS.md](docs/PLAN_RESULTS.md)**.
+The 15-pass acceptance plan, graded on real emulators by CI with a verdict for
+every numbered step — passes 1–14 on the free build, pass 15 on the paid one:
+**[docs/PLAN_RESULTS.md](docs/PLAN_RESULTS.md)**.
 
 Run them yourself:
 
@@ -433,13 +435,12 @@ morning.
 
 ## 🏪 Google Play readiness
 
-> **Status: signed, published, graded 77/77 — ready to upload. One human step remains.**
+> **Status: signed and graded 83/83 — ready to upload. One human step remains.**
 >
 > ✅ **Upload key created** — the four `UPLOAD_*` secrets are set and
->    [`v1.2.1`](https://github.com/Jacinth-19/GuestVault/releases/tag/v1.2.1) ships the
->    current **release-signed** `GuestVault-1.2.1.aab`, built from the commit that passes
->    all 77 executable steps of the 14-pass plan — see
->    [`docs/PLAN_RESULTS.md`](docs/PLAN_RESULTS.md).
+>    [`v1.2.1`](https://github.com/Jacinth-19/GuestVault/releases/tag/v1.2.1) is the last
+>    tagged, release-signed bundle. The current tree passes all **83** executable steps
+>    of the 15-pass plan — see [`docs/PLAN_RESULTS.md`](docs/PLAN_RESULTS.md).
 >    Back up `~/upload-keystore.jks` **and** its `.credentials.txt`; neither can be committed.
 >
 > ⏳ **Play developer account** — not created yet, and it gates everything else. Start at
