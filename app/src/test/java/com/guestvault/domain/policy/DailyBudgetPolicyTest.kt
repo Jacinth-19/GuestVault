@@ -47,7 +47,9 @@ class DailyBudgetPolicyTest {
         val now = at(10, 15, 0)
         val started = at(10, 14, 0)
 
-        assertEquals(60_000L, DailyBudgetPolicy.usedToday(DailyUsage(), started, now, zone))
+        // One hour, not one minute: this is the assertion that caught the
+        // minutes-versus-milliseconds mistake in the first version.
+        assertEquals(60 * 60_000L, DailyBudgetPolicy.usedToday(DailyUsage(), started, now, zone))
     }
 
     @Test
@@ -57,7 +59,9 @@ class DailyBudgetPolicyTest {
 
         val used = DailyBudgetPolicy.usedToday(DailyUsage(), startedYesterday, now, zone)
 
-        assertEquals(10_000L, used)
+        // 23:50 → 00:10 is twenty minutes of session, but only ten of them
+        // belong to today.
+        assertEquals(10 * 60_000L, used)
     }
 
     @Test
@@ -67,7 +71,8 @@ class DailyBudgetPolicyTest {
 
         val used = DailyBudgetPolicy.usedToday(base, at(10, 14, 0), now, zone)
 
-        assertEquals(6 * 60_000L, used)
+        // Five carried minutes plus the hour the guest has been in the app.
+        assertEquals(5 * 60_000L + 60 * 60_000L, used)
     }
 
     @Test
