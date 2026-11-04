@@ -152,9 +152,22 @@ class IntruderCapture @Inject constructor(
 
             // A preview surface is still required by most HALs even when the
             // frame is never shown: the sensor will not stream to a reader on
-            // its own. A 1×1 texture costs nothing and is never drawn.
+            // its own. It cannot be a 1×1 dummy though — a session is only
+            // configured for sizes the stream configuration map advertises, so
+            // a size nothing supports fails onConfigureFailed and no frame is
+            // ever produced. (That is exactly what happened on the emulator's
+            // emulated camera, and would have happened on real hardware too.)
+            val previewSize = stream
+                ?.getOutputSizes(SurfaceTexture::class.java)
+                ?.filter { it.width <= CAPTURE_WIDTH }
+                ?.maxByOrNull { it.width * it.height }
+                ?: stream?.getOutputSizes(SurfaceTexture::class.java)?.firstOrNull()
+            if (previewSize == null) {
+                Log.w(TAG, "The camera advertises no preview size")
+                return false
+            }
             val texture = SurfaceTexture(0)
-            texture.setDefaultBufferSize(1, 1)
+            texture.setDefaultBufferSize(previewSize.width, previewSize.height)
             preview = texture
             val junk = Surface(texture)
 
@@ -208,10 +221,19 @@ class IntruderCapture @Inject constructor(
                                     CaptureRequest.JPEG_ORIENTATION,
                                     jpegOrientation(characteristics)
                                 )
-                                set(
-                                    CaptureRequest.CONTROL_AF_MODE,
-                                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
-                                )
+                                // Only ask for autofocus where the camera has
+                                // it; setting an unsupported AF mode makes some
+                                // HALs reject the whole request, and a failed
+                                // unlock is not the place to find that out.
+                                val afModes = characteristics.get(
+                                    CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES
+                                )?.toList().orEmpty()
+                                if (afModes.contains(CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)) {
+                                    set(
+                                        CaptureRequest.CONTROL_AF_MODE,
+                                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
+                                    )
+                                }
                             }.build()
                             configured.capture(request, null, handler)
                         }.onFailure { Log.w(TAG, "Capture request failed", it) }

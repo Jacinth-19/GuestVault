@@ -176,6 +176,11 @@ jobs:
           fi
           echo "::error::group $GROUP ran $phases phases and produced $count verdicts"
           python3 scripts/ci/report_failure.py
+          # Reachable because the emulator step is `continue-on-error`, so a
+          # group whose device never came up used to stay green while
+          # contributing nothing — the merged table then blamed its steps, and
+          # the group that failed was the one job nobody looked at.
+          exit 1
 
   report:
     name: Verdict table

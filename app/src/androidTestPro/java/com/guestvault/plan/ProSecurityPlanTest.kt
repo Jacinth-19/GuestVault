@@ -233,7 +233,7 @@ class ProSecurityPlanTest : StepHarness() {
             expectTrue(
                 stored != null,
                 "no still frame was written to app storage " +
-                    "(dir=${intruderFiles().map { it.name }})"
+                    "(dir=${intruderFiles().map { it.name }}; log=${recentLog(6)})"
             )
             // A zero-byte file would prove the file plumbing and nothing else.
             // A JPEG starts FF D8, so the first two bytes say a frame was encoded.
