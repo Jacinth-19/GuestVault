@@ -133,15 +133,19 @@ verdict_lines() {
   printf '%s' "${n:-0}"
 }
 
-# Runs a phase, and runs it once more if it reported nothing at all.
+# Runs a phase, and runs it once more if it failed *fast* without reporting.
 #
-# One phase in the whole plan — pass 12, the two five-minute waits — went green
-# and produced no verdicts on some runs and no failures on others, in the same
-# build. The group then looked successful while its three steps were graded as
-# "never reported". A single retry costs nothing when things work (the counter
-# moved, so there is no retry) and turns that flake into a real result. The
-# elapsed-time guard stops a phase that is genuinely wedged from consuming the
-# job's whole budget twice.
+# Two things went wrong in the same way: a phase that never started (a cold
+# emulator refusing the instrumentation, an `adb` hiccup) produced no verdicts,
+# and the group still exited 0, so the merged table graded the whole pass as
+# "never reported".
+#
+# The retry is deliberately narrow. A phase that ran for a long time and
+# reported nothing is wedged, not unlucky — retrying it doubles the group's
+# runtime, and one group already hit the job's 45-minute cap doing exactly that.
+# A minute is long enough to boot instrumentation and impossible to hit by a
+# phase that is making progress.
+FAST_FAILURE_LIMIT=180
 run_phase() {
   local name="$1" before after started
   before="$(verdict_lines)"
@@ -149,8 +153,8 @@ run_phase() {
   phase_once "$name"
   after="$(verdict_lines)"
   if [ "$after" -gt "$before" ]; then return 0; fi
-  if [ $((SECONDS - started)) -ge $((PER_PASS_TIMEOUT / 2)) ]; then
-    echo "::warning::phase $name reported no verdicts and used most of its timeout; not retrying"
+  if [ $((SECONDS - started)) -ge "$FAST_FAILURE_LIMIT" ]; then
+    echo "::warning::phase $name produced no verdicts after $((SECONDS - started))s; not retrying a slow phase"
     return 0
   fi
   echo "::warning::phase $name reported no verdicts in $((SECONDS - started))s; retrying once"
