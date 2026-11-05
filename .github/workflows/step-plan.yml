@@ -46,37 +46,49 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Turns the dispatch input into the matrix itself.
+  #
+  # The obvious shape — a job-level `if` comparing inputs.groups with
+  # matrix.group — is rejected outright: `matrix` is not among the contexts
+  # available to jobs.<job_id>.if, because that condition is evaluated before the
+  # matrix is expanded. GitHub then treats the file as invalid and every run
+  # appears as a zero-job failure with no log to read, which is exactly how this
+  # was found.
+  select:
+    name: Select groups
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      include: ${{ steps.pick.outputs.include }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pick the groups
+        id: pick
+        env:
+          # Empty on a push or a pull request, which means "all".
+          WANTED: ${{ inputs.groups || 'all' }}
+        run: python3 scripts/ci/select_groups.py --wanted "$WANTED" | tee -a "$GITHUB_OUTPUT"
+
   plan:
     name: Group ${{ matrix.group }} — ${{ matrix.label }}
+    needs: select
     runs-on: ubuntu-latest
     # 45 minutes was not enough for group 5, which reboots the emulator for pass
     # 13 and then waits out a five-minute session; two runs were cancelled at the
     # cap with their work complete but unrecorded. The per-phase budget below
     # still stops a single wedged phase from using the whole allowance.
     timeout-minutes: 75
-    # A manual dispatch may name a subset. "7,8" runs only the two paid-build
-    # groups — the whole Pro surface — in about fifteen minutes instead of
-    # waiting out the eight-group matrix. Every other event runs everything.
-    if: >-
-      github.event_name != 'workflow_dispatch' ||
-      inputs.groups == '' ||
-      inputs.groups == 'all' ||
-      contains(format(',{0},', replace(inputs.groups, ' ', '')), format(',{0},', matrix.group))
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { group: 1, label: 'Passes 1–3', variant: free }
-          - { group: 2, label: 'Passes 4–5', variant: free }
-          - { group: 3, label: 'Passes 6–7', variant: free }
-          - { group: 4, label: 'Passes 8–9', variant: free }
-          - { group: 5, label: 'Passes 10, 11, 13, 14', variant: free }
-          - { group: 6, label: 'Pass 12 (two 5-minute waits)', variant: free }
-          - { group: 7, label: 'Pass 15 — the paid build', variant: pro, plan_class: ProPlanTest }
-          # The only group that needs a camera: pass 16.5 grades the intruder
-          # photo, which cannot be taken without one. Scoping the flag here
-          # keeps the seven green groups booting exactly as they did.
-          - { group: 8, label: 'Pass 16 — paid build security', variant: pro, plan_class: ProSecurityPlanTest, camera: emulated }
+        # Built by the select job from scripts/ci/plan-groups.json: the whole
+        # table for a push or a pull request, or just the groups a dispatch
+        # named. Group 8 is the only one with a camera — pass 16.5 grades the
+        # intruder photo, which cannot be taken without one — and scoping the
+        # flag here keeps the other groups booting exactly as they did.
+        include: ${{ fromJSON(needs.select.outputs.include) }}
 
     steps:
       - name: Checkout
@@ -198,7 +210,7 @@ jobs:
 
   report:
     name: Verdict table
-    needs: plan
+    needs: [select, plan]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 15
