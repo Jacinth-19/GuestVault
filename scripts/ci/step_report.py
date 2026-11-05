@@ -46,6 +46,39 @@ def load_manifest(path: Path) -> dict:
     return data
 
 
+def only_groups(manifest: dict, wanted: set[int]) -> dict:
+    """The manifest narrowed to the groups that actually ran.
+
+    A dispatch may name a subset ("7,8" runs the two paid-build groups), and
+    the rest of the plan is then genuinely absent rather than failed. Grading
+    those missing passes as "never reported" would turn a green Pro run into a
+    table of seventy failures.
+    """
+    if not wanted:
+        return manifest
+    kept = [p for p in manifest["passes"] if int(p.get("group", -1)) in wanted]
+    if not kept:
+        raise SystemExit(
+            f"no passes belong to group(s) {sorted(wanted)}; "
+            f"the manifest has {sorted({int(p.get('group', -1)) for p in manifest['passes']})}"
+        )
+    return {**manifest, "passes": kept}
+
+
+def parse_groups(value: str | None) -> set[int]:
+    """"all", "" or None means every group."""
+    if not value or value.strip().lower() in ("", "all"):
+        return set()
+    out: set[int] = set()
+    for piece in value.replace(" ", "").split(","):
+        if not piece:
+            continue
+        if not piece.isdigit():
+            raise SystemExit(f"--groups: {piece!r} is not a group number")
+        out.add(int(piece))
+    return out
+
+
 def load_results(path: Path) -> dict[str, dict]:
     """Last result wins, so a retried step reports its final outcome."""
     results: dict[str, dict] = {}
@@ -149,9 +182,14 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=Path("step-report.md"))
     ap.add_argument("--phase-log", type=Path, default=None, help="per-phase table from the device")
     ap.add_argument("--list-tests", action="store_true", help="print test methods to run, one per line")
+    ap.add_argument(
+        "--groups",
+        default="all",
+        help='groups to grade: "all", or a comma list such as "7,8"',
+    )
     args = ap.parse_args()
 
-    manifest = load_manifest(args.manifest)
+    manifest = only_groups(load_manifest(args.manifest), parse_groups(args.groups))
 
     if args.list_tests:
         for block in manifest["passes"]:

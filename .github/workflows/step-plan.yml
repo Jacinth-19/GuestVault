@@ -18,6 +18,12 @@ name: Manual Test Plan
 
 on:
   workflow_dispatch:
+    inputs:
+      groups:
+        description: 'Groups to run: "all", or a comma list such as "7,8" (the two paid-build groups)'
+        required: false
+        default: 'all'
+        type: string
   pull_request:
     branches: [main]
   push:
@@ -48,6 +54,14 @@ jobs:
     # cap with their work complete but unrecorded. The per-phase budget below
     # still stops a single wedged phase from using the whole allowance.
     timeout-minutes: 75
+    # A manual dispatch may name a subset. "7,8" runs only the two paid-build
+    # groups — the whole Pro surface — in about fifteen minutes instead of
+    # waiting out the eight-group matrix. Every other event runs everything.
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      inputs.groups == '' ||
+      inputs.groups == 'all' ||
+      contains(format(',{0},', replace(inputs.groups, ' ', '')), format(',{0},', matrix.group))
     strategy:
       fail-fast: false
       matrix:
@@ -210,6 +224,7 @@ jobs:
           python3 scripts/ci/fetch_verdicts.py \
             --manifest scripts/ci/step-plan.json \
             --artifacts merged \
+            --groups "${{ inputs.groups || 'all' }}" \
             --results build/step-results.jsonl \
             --phases build/phase-log.md
           echo "verdict lines: $(wc -l < build/step-results.jsonl)"
@@ -230,6 +245,7 @@ jobs:
         run: |
           python3 scripts/ci/step_report.py \
             --manifest scripts/ci/step-plan.json \
+            --groups "${{ inputs.groups || 'all' }}" \
             --results build/step-results.jsonl \
             --phase-log build/phase-log.md \
             --out step-report.md || echo failed > report-failed.txt

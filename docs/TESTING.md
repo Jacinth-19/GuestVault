@@ -121,13 +121,24 @@ Runs on an emulator in the **Screenshots & Demo Video** workflow and produces
 | `android.yml` | push to `main` or `arena/**`, PR, manual | Lint, unit tests, debug APK artifact. The fast gate. |
 | `media.yml` | push to `main`, PR to `main`, manual | Emulator walkthrough, screenshots, demo video; commits refreshed media on `main`. |
 | `play.yml` | push to `main` or `arena/**`, manual | Release AAB + Play-safe manifest assertions + a **four-API emulator matrix** (29, 34, 35, 36) running the same walkthrough. |
-| `step-plan.yml` | push to `main`, PR, manual | The graded plan: 16 passes over eight emulators, one verdict per numbered step, posted as a sticky PR comment. Passes 1–14 grade the free build; 15 and 16 grade the paid one. |
+| `step-plan.yml` | push to `main`, PR, manual (with a `groups` input) | The graded plan: 16 passes over eight emulators, one verdict per numbered step, posted as a sticky PR comment. Passes 1–14 grade the free build; 15 and 16 grade the paid one. Dispatch it with `groups` set to `7,8` to grade only the paid build. |
 | `release.yml` | `v*` tag, manual | Signed AAB/APK attached to a GitHub release. |
 | `pages.yml` | manual | Publishes the privacy policy to GitHub Pages. |
 
 The emulator job is not a substitute for a real Samsung. It proves the flow and
 the screenshots; it cannot prove that One UI will not kill the foreground
 service, and it cannot show the "Pin GuestVault to this screen?" OEM dialog.
+
+#### Running only the paid build
+
+The Pro surface is groups 7 and 8 (passes 15 and 16). **Actions → Manual Test
+Plan → Run workflow**, and put `7,8` in the `groups` field: two emulators, about
+fifteen minutes, and a verdict table covering those two passes only — the other
+fourteen passes are not graded as failures, they are simply not in the run.
+
+`all` (the default) runs the whole matrix. Any other event — a push to `main`, a
+PR — always runs everything, because a dispatch is the only place a subset makes
+sense.
 
 #### When the plan goes red, suspect the harness second
 
