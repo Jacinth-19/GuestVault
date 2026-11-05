@@ -967,7 +967,16 @@ class StepPlanTest : StepHarness() {
             )
             val newPin = listOf("1", "3", "5", "7")
             enterPin(newPin)
-            expectTrue(waitFor("Confirm your PIN", 10_000), "no confirmation step for the new PIN")
+            // Deriving the new PIN (PBKDF2, 120k) before the confirm step appears
+            // takes far longer on a loaded emulator than the ten seconds this
+            // used to allow. Two consecutive runs failed here with "Confirm your
+            // PIN" sitting in the failure dump — the wait had already given up
+            // on a screen that was there, and because the flow was left half
+            // finished, 9.2 through 9.5 failed behind it.
+            expectTrue(
+                waitFor("Confirm your PIN", 30_000),
+                "no confirmation step for the new PIN (screen: ${visibleText().take(140)})"
+            )
             enterPin(newPin)
             pause(1_500)
             // A completed change returns to Settings, one Back from the dashboard.
@@ -2017,9 +2026,16 @@ class StepPlanTest : StepHarness() {
     private fun openSettings() {
         wakeDevice()
         if (!device.hasObject(By.text("Start Guest Session"))) {
-            while (!device.hasObject(By.text("Start Guest Session")) &&
-                tapDescIfPresent("Back")
-            ) {
+            // The chevron is the polite way out, but a half-finished flow can
+            // leave a screen that has none — the PIN confirm step, for one. Then
+            // tapDescIfPresent returned false, the loop never ran, and every
+            // remaining step in the pass reported "dashboard not shown". Fall
+            // back to the hardware key, checking the dashboard before each press
+            // so it cannot walk out of the app once we are already home.
+            var attempts = 0
+            while (!device.hasObject(By.text("Start Guest Session")) && attempts < 8) {
+                if (!tapDescIfPresent("Back")) device.pressBack()
+                attempts++
                 pause(600)
             }
         }
