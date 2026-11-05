@@ -1,0 +1,45 @@
+[
+  {
+    "group": 1,
+    "label": "Passes 1–3",
+    "variant": "free"
+  },
+  {
+    "group": 2,
+    "label": "Passes 4–5",
+    "variant": "free"
+  },
+  {
+    "group": 3,
+    "label": "Passes 6–7",
+    "variant": "free"
+  },
+  {
+    "group": 4,
+    "label": "Passes 8–9",
+    "variant": "free"
+  },
+  {
+    "group": 5,
+    "label": "Passes 10, 11, 13, 14",
+    "variant": "free"
+  },
+  {
+    "group": 6,
+    "label": "Pass 12 (two 5-minute waits)",
+    "variant": "free"
+  },
+  {
+    "group": 7,
+    "label": "Pass 15 — the paid build",
+    "variant": "pro",
+    "plan_class": "ProPlanTest"
+  },
+  {
+    "group": 8,
+    "label": "Pass 16 — paid build security",
+    "variant": "pro",
+    "plan_class": "ProSecurityPlanTest",
+    "camera": "emulated"
+  }
+]

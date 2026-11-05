@@ -101,9 +101,23 @@ def main() -> int:
     parser.add_argument("--artifacts", default="merged")
     parser.add_argument("--results", default="build/step-results.jsonl")
     parser.add_argument("--phases", default="build/phase-log.md")
+    parser.add_argument(
+        "--groups",
+        default="all",
+        help='groups that were asked to run: "all", or a comma list such as "7,8"',
+    )
     args = parser.parse_args()
 
     expected = groups_in(args.manifest)
+    wanted = {
+        int(piece)
+        for piece in args.groups.replace(" ", "").split(",")
+        if piece.isdigit()
+    }
+    if "all" not in args.groups.lower() and wanted:
+        # A dispatch may run a subset; the others were not asked to report.
+        expected = [g for g in expected if g in wanted]
+        print(f"fetch_verdicts: expecting group(s) {expected} only")
     repo = os.environ.get("GITHUB_REPOSITORY", "")
     # On a pull_request run GITHUB_SHA is the synthetic merge commit, which
     # does not exist as an object and cannot be commented on; the workflow
