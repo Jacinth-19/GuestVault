@@ -716,14 +716,14 @@ class StepPlanTest : StepHarness() {
             // A tap dropped while the keypad settles leaves three digits on
             // screen: no submit, so no error either. One clean retry tells that
             // apart from an app that really does not report a wrong PIN.
-            if (!waitForContains("Incorrect PIN", 3_000) &&
+            if (!waitForContains("Incorrect PIN", 6_000) &&
                 !device.hasObject(By.textContains("Too many attempts")) &&
                 device.hasObject(By.desc("PIN key 1"))
             ) {
                 pause(700)
                 enterPin(wrongPin)
             }
-            var error = waitForContains("Incorrect PIN", 6_000)
+            var error = waitForContains("Incorrect PIN", 12_000)
             if (!error && device.hasObject(By.textContains("Too many attempts"))) {
                 // An earlier pass left the guard one failure short of a cool-down,
                 // so this wrong PIN started one. Wait it out and try again on the
@@ -2023,23 +2023,46 @@ class StepPlanTest : StepHarness() {
         return device.hasObject(By.text("Welcome to Guest Mode"))
     }
 
+    /**
+     * Reaches the owner dashboard from wherever the previous step left us.
+     *
+     * Pass 9 hides three different states behind that one call, and all three
+     * turned up in a single run:
+     *   - already on the dashboard;
+     *   - a guest session still running, so the way back is 'Return to Owner'
+     *     plus the owner PIN — the chevron loop below cannot leave a session,
+     *     and pressing back just sits there until the attempt budget runs out;
+     *   - a half-finished flow with no back stack left, where one more back
+     *     press lands on the launcher (9.4 and 9.5 both failed staring at
+     *     nexuslauncher). That case reopens the app instead of pressing again.
+     */
     private fun openSettings() {
         wakeDevice()
-        if (!device.hasObject(By.text("Start Guest Session"))) {
-            // The chevron is the polite way out, but a half-finished flow can
-            // leave a screen that has none — the PIN confirm step, for one. Then
-            // tapDescIfPresent returned false, the loop never ran, and every
-            // remaining step in the pass reported "dashboard not shown". Fall
-            // back to the hardware key, checking the dashboard before each press
-            // so it cannot walk out of the app once we are already home.
-            var attempts = 0
-            while (!device.hasObject(By.text("Start Guest Session")) && attempts < 8) {
-                if (!tapDescIfPresent("Back")) device.pressBack()
-                attempts++
-                pause(600)
+        var attempts = 0
+        while (!device.hasObject(By.text("Start Guest Session")) && attempts < 3) {
+            when {
+                device.hasObject(By.text("Return to Owner")) -> {
+                    tapText("Return to Owner")
+                    waitForDesc("PIN key 1", 10_000)
+                    enterPin(pinDigits)
+                    waitFor("Start Guest Session", 20_000)
+                }
+                // The chevron is the polite way out, but a mid-flow screen can
+                // have none, so fall back to the hardware key.
+                !tapDescIfPresent("Back") -> device.pressBack()
             }
+            attempts++
+            pause(600)
         }
-        expectTrue(waitFor("Start Guest Session", 15_000), "dashboard not shown")
+        if (!device.hasObject(By.text("Start Guest Session"))) {
+            launchApp()
+            // A session that outlived the app shows the lock on relaunch.
+            if (waitForDesc("PIN key 1", 8_000)) enterPin(pinDigits)
+        }
+        expectTrue(
+            waitFor("Start Guest Session", 15_000),
+            "dashboard not shown (screen: ${visibleText().take(120)})"
+        )
         tapDesc("Settings")
         expectTrue(waitFor("Owner-only controls", 12_000), "settings did not open")
     }
