@@ -135,20 +135,20 @@ Two listings, two stores' worth of copy. The free app gained nothing a guest can
 see in 1.4.0 — profiles, budgets and schedules are all in the paid app — so its
 notes say that rather than inventing changes.
 
-**Free (`com.guestvault`) — 1.5.0**
+**Free (`com.guestvault`) — 1.5.2**
 
 ```
-GuestVault 1.5.0
+GuestVault 1.5.2
 • Settings now points to GuestVault Pro, a separate paid app with guest
   profiles, time limits, schedules and an emergency unlock code
 • Unchanged where it matters: no internet permission, no camera permission,
   no accounts, no ads, nothing uploaded
 ```
 
-**Pro (`com.guestvault.pro`) — 1.5.0**
+**Pro (`com.guestvault.pro`) — 1.5.2**
 
 ```
-GuestVault Pro 1.5.0
+GuestVault Pro 1.5.2
 • Daily budgets: a total for the whole day, across every session
 • Emergency unlock code: a long code you keep off the phone, for a forgotten PIN
 • Six-digit PIN: 1,000,000 combinations instead of 10,000

@@ -49,6 +49,7 @@ python3 scripts/assets/build_lottie.py                       # regenerate onboar
 python3 scripts/assets/preview_lottie.py                     # contact sheet, no device needed
 python3 scripts/ci/check_lottie.py                           # validate it
 python3 scripts/ci/check_workflow_hygiene.py                 # no CI-skip markers in workflows
+python3 scripts/ci/check_doc_versions.py                     # docs name the current release
 ```
 
 > The repository's Gradle wrapper is bootstrapped by CI if `gradle-wrapper.jar`
