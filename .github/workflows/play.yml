@@ -80,6 +80,12 @@ jobs:
       - name: Assert workflows can be triggered
         run: python3 scripts/ci/check_workflow_hygiene.py
 
+      # The runbook has drifted twice, leaving an upload step that pointed at a
+      # bundle two releases old. Every GuestVault-<version>.aab in the docs must
+      # name the version this app actually builds.
+      - name: Assert docs name the current release
+        run: python3 scripts/ci/check_doc_versions.py
+
       # Same key material the release workflow uses. Without it the bundle is
       # still built (to prove it compiles) but it is deleted before upload, so
       # nobody can accidentally grab a debug-signed .aab and send it to Play.

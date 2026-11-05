@@ -95,6 +95,26 @@ jobs:
           # Manual runs pass a plain version ("1.0.0"); tag runs look like "v1.0.1".
           VERSION="${{ inputs.version || github.ref_name }}"
           VERSION="${VERSION#v}"
+
+          # The tag names the assets, but the version baked into the APK comes
+          # from build.gradle.kts, and nothing else compares the two. Tagging
+          # v1.5.2 on code that still said 1.5.1 would publish files called
+          # GuestVault-1.5.2.apk that are internally versionCode 9 — and Play
+          # refuses a bundle under a versionCode it has already accepted.
+          BUILT=$(grep -m1 -E '^[[:space:]]*versionName[[:space:]]*=' app/build.gradle.kts \
+            | sed -E 's/.*=[[:space:]]*"([^"]+)".*/\1/')
+          CODE=$(grep -m1 -E '^[[:space:]]*versionCode[[:space:]]*=' app/build.gradle.kts \
+            | sed -E 's/.*=[[:space:]]*([0-9]+).*/\1/')
+          if [ -z "$BUILT" ] || [ -z "$CODE" ]; then
+            echo "::error::Could not read versionName/versionCode from app/build.gradle.kts"
+            exit 1
+          fi
+          if [ "$BUILT" != "$VERSION" ]; then
+            echo "::error::Release $VERSION does not match the app's versionName $BUILT."
+            echo "Bump app/build.gradle.kts (versionName \"$VERSION\", versionCode above the last uploaded) and commit it before tagging."
+            exit 1
+          fi
+          echo "Releasing $VERSION (versionCode $CODE) — matches build.gradle.kts."
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           # Two listings, one codebase: `free` is the app already on Play, `pro`
           # is the paid build. Both are signed with the same upload key.
